@@ -808,6 +808,12 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
 @media (max-width:520px){ .solo-pc{display:none} }
 #publicar h4,#repo-sendas h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
 ul#sendas-lista .ver1{width:18px;height:18px;flex:0 0 auto;accent-color:var(--verde);margin-right:2px}
+#rutas-estado{font-size:12.5px;color:#5d5a53;margin:8px 0 2px}
+.ficha-ruta .fr-nom{width:100%;box-sizing:border-box;padding:8px 9px;border:1px solid var(--linea);
+  border-radius:9px;font:inherit;font-size:14px;font-weight:600}
+.ficha-ruta .fr-det{font-size:12.5px;color:#6b6862;margin:7px 0 9px;font-variant-numeric:tabular-nums}
+.ficha-ruta .fr-guarda{width:100%;padding:9px;border:0;border-radius:9px;background:var(--verde);
+  color:#fff;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
 #gh-estado{font-size:12.5px;color:#5d5a53;margin-top:6px}
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
@@ -949,6 +955,22 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-colo
         <p class="pista">Los que has dejado en la carpeta <code>sendas/</code> del repositorio. Se añaden de un toque y quedan offline.</p>
         <ul id="repo-lista"></ul>
       </div>
+    </section>
+
+    <section>
+      <h3>Mis rutas</h3>
+      <p class="pista">Tu colección de tracks, dibujada sobre el mapa. Toca una para ver sus datos y corregirle el nombre.</p>
+      <label class="ver-sendas"><input type="checkbox" id="rutas-ver" checked> Mostrarlas sobre el mapa</label>
+      <label class="campo">Actividad
+        <select id="rutas-filtro">
+          <option value="todas">Todas</option>
+          <option value="sen">Senderismo</option>
+          <option value="bici">Bici</option>
+        </select>
+      </label>
+      <div id="rutas-estado"></div>
+      <div id="renom-cuenta" class="pista"></div>
+      <button class="sec solo-pc" id="btn-renom" disabled>Exportar los nombres corregidos</button>
     </section>
 
     <section>
@@ -1169,6 +1191,8 @@ L.control.scale({ imperial:false, position:'bottomright', maxWidth:110 }).addTo(
 mapa.createPane('sendas');
 mapa.getPane('sendas').style.zIndex = 350;
 const lienzoSendas = L.canvas({ pane:'sendas', padding:.3 });
+mapa.createPane('rutas');
+mapa.getPane('rutas').style.zIndex = 360;
 
 const capasVivas = {};
 CAPAS.forEach(cfg => {
@@ -1793,7 +1817,7 @@ async function pintaSendas() {
 let tRepinta = null;
 mapa.on('moveend zoomend', () => {
   clearTimeout(tRepinta);
-  tRepinta = setTimeout(() => { pintaSendas(); }, 220);
+  tRepinta = setTimeout(() => { pintaSendas(); pintaRutas(); }, 220);
 });
 
 function areaKm2(b) {
@@ -2247,6 +2271,124 @@ document.getElementById('sendas-ver').onchange = ev => {
   sendasVisibles = ev.target.checked; pintaSendas();
 };
 
+/* ---------- 9. Mi colección de rutas -----------------------------------
+   Trece años de tracks convertidos a un índice ligero (nombre, fecha, km,
+   desnivel y el rectángulo que ocupa cada una) más la geometría repartida en
+   ficheros por zona. Al desplazarte solo se cargan y se dibujan las rutas que
+   cruzan lo que estás viendo: puedes tener setecientas sin que el móvil sufra.
+   Los nombres corregidos se guardan aquí y se exportan para devolverlos a la
+   colección original.                                                     */
+const RUTAS_DIR   = 'rutas/';
+const LS_RUTAS_ON = 'ign.rutas.ver';
+const LS_RUTAS_NOM= 'ign.rutas.nombres';
+const Z_MIN_RUTAS = 9;                 // más lejos que esto no se dibujan
+const COLOR_ACT   = { sen:'#1d4ed8', bici:'#b45309' };
+const ETIQ_ACT    = { sen:'senderismo', bici:'bici' };
+
+let indiceRutas = null, capaRutas = null, geoRutas = new Map(), filtroAct = 'todas';
+let rutasVisibles = localStorage.getItem(LS_RUTAS_ON) !== 'no';
+const leeNombres  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_NOM)) || {}; } catch (e) { return {}; } };
+const salvaNombres = n => localStorage.setItem(LS_RUTAS_NOM, JSON.stringify(n));
+const nombreDe = r => (leeNombres()[r.id] || r.n);
+
+async function cargaIndiceRutas() {
+  if (indiceRutas) return indiceRutas;
+  try {
+    const res = await fetch(RUTAS_DIR + 'index.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    indiceRutas = (await res.json()).rutas || [];
+  } catch (e) { indiceRutas = []; }
+  return indiceRutas;
+}
+async function cargaCelda(celda) {
+  if (geoRutas.has(celda)) return geoRutas.get(celda);
+  geoRutas.set(celda, null);                       // marca "pedida"
+  try {
+    const res = await fetch(RUTAS_DIR + 'geo-' + celda + '.json');
+    geoRutas.set(celda, res.ok ? await res.json() : {});
+  } catch (e) { geoRutas.set(celda, {}); }
+  return geoRutas.get(celda);
+}
+
+async function pintaRutas() {
+  if (capaRutas) { mapa.removeLayer(capaRutas); capaRutas = null; }
+  const $s = document.getElementById('rutas-estado');
+  if (!rutasVisibles) { if ($s) $s.textContent = 'Ocultas.'; return; }
+  const idx = await cargaIndiceRutas();
+  if (!idx.length) { if ($s) $s.textContent = 'No hay ninguna colección publicada en rutas/.'; return; }
+  if (mapa.getZoom() < Z_MIN_RUTAS) {
+    if ($s) $s.textContent = idx.length + ' rutas en la colección. Acércate un poco para verlas sobre el mapa.';
+    return;
+  }
+  const v = mapa.getBounds().pad(.2);
+  const enVista = idx.filter(r => (filtroAct === 'todas' || r.a === filtroAct) && tocaLaVista(r.b, v));
+  if ($s) $s.textContent = enVista.length + ' de ' + idx.length + ' rutas por esta zona.';
+  if (!enVista.length) return;
+  await Promise.all([...new Set(enVista.map(r => r.c))].map(cargaCelda));
+
+  const capas = [];
+  for (const r of enVista) {
+    const celda = geoRutas.get(r.c); if (!celda) continue;
+    const segs = celda[r.id]; if (!segs) continue;
+    for (const s of segs) {
+      const ln = L.polyline(s, { renderer:lienzoSendas, pane:'rutas',
+        color: COLOR_ACT[r.a] || '#555', weight:2.6, opacity:.75 });
+      ln.on('click', ev => { L.DomEvent.stop(ev); abreFichaRuta(r, ev.latlng); });
+      capas.push(ln);
+    }
+  }
+  capaRutas = L.layerGroup(capas).addTo(mapa);
+  subeGpx();
+}
+
+/* ficha al tocar una ruta, con el nombre editable ahí mismo */
+function abreFichaRuta(r, latlng) {
+  const cont = document.createElement('div');
+  cont.className = 'ficha-ruta';
+  const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
+  cont.innerHTML = '<input type="text" class="fr-nom"><div class="fr-det"></div>'
+    + '<div class="fr-bot"><button class="fr-guarda">Guardar nombre</button></div>';
+  const $i = cont.querySelector('.fr-nom');
+  $i.value = nombreDe(r);
+  cont.querySelector('.fr-det').textContent =
+    [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
+  cont.querySelector('.fr-guarda').onclick = () => {
+    const nuevo = ($i.value || '').trim();
+    const n = leeNombres();
+    if (!nuevo || nuevo === r.n) delete n[r.id]; else n[r.id] = nuevo;
+    salvaNombres(n);
+    mapa.closePopup();
+    avisa(nuevo && nuevo !== r.n ? 'Nombre corregido' : 'Nombre original restaurado');
+    pintaListaRenombres();
+  };
+  L.popup({ maxWidth:280, autoPan:true }).setLatLng(latlng).setContent(cont).openOn(mapa);
+}
+
+function pintaListaRenombres() {
+  const n = leeNombres(), c = Object.keys(n).length;
+  const $c = document.getElementById('renom-cuenta');
+  if ($c) $c.textContent = c ? c + (c === 1 ? ' nombre corregido' : ' nombres corregidos')
+                             : 'Ningún nombre corregido todavía.';
+  const $b = document.getElementById('btn-renom'); if ($b) $b.disabled = !c;
+}
+function exportaRenombres() {
+  const n = leeNombres();
+  const txt = JSON.stringify({ v:1, nombres:n }, null, 1);
+  const url = URL.createObjectURL(new Blob([txt], { type:'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'renombres.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  avisa('Descargado renombres.json');
+}
+
+document.getElementById('rutas-ver').onchange = ev => {
+  rutasVisibles = ev.target.checked;
+  localStorage.setItem(LS_RUTAS_ON, rutasVisibles ? 'si' : 'no');
+  pintaRutas();
+};
+document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); };
+document.getElementById('btn-renom').onclick = exportaRenombres;
+
 (function arranca() {
   pintaCapas();
   let est = null;
@@ -2274,6 +2416,9 @@ document.getElementById('sendas-ver').onchange = ev => {
   pintaListaSendas();
   pintaSendas();
   pintaPaquetesRepo();
+  document.getElementById('rutas-ver').checked = rutasVisibles;
+  pintaListaRenombres();
+  pintaRutas();
   if (!zs.length) setTimeout(() => avisa('Pulsa ☰ para descargar tu primera zona'), 900);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
