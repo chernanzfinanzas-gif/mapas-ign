@@ -1022,8 +1022,16 @@ const CACHE_TILES    = 'ign-tiles-v1';
 const LS_ZONAS       = 'ign.zonas';
 const LS_SENDAS      = 'ign.sendas';        // fichas de los paquetes de senderos
 const CACHE_SENDAS   = 'ign-sendas-v1';     // los datos en sí, fuera de localStorage
-const OVERPASS       = 'https://overpass-api.de/api/interpreter';
-const SENDAS_KM2_MAX = 1200;                // tope de área por descarga
+/* Servidores de Overpass, por orden. El principal (overpass-api.de) va casi
+   siempre saturado y devuelve 504; los espejos aguantan mucho mejor. Si uno
+   falla se prueba el siguiente antes de dar el trozo por perdido. */
+const OVERPASS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter'
+];
+const SENDAS_KM2_MAX   = 1500;   // tope total de la descarga
+const SENDAS_KM2_TROZO = 200;    // cada petición no pide más que esto
 const LS_ESTADO      = 'ign.estado';
 const LS_GPX         = 'ign.gpx';
 const ATRIB = '© <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
@@ -1681,37 +1689,83 @@ function areaKm2(b) {
   return Math.abs(alto * ancho);
 }
 
+/* Parte el rectángulo en trozos que ningún servidor rechace por tamaño. Una
+   petición grande da 504 (tiempo agotado); varias pequeñas, no. */
+function troceaBbox(b, km2trozo) {
+  const n = Math.max(1, Math.ceil(Math.sqrt(areaKm2(b) / km2trozo)));
+  const dLat = (b.getNorth() - b.getSouth()) / n, dLon = (b.getEast() - b.getWest()) / n;
+  const trozos = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    trozos.push(L.latLngBounds(
+      [b.getSouth() + i * dLat,       b.getWest() + j * dLon],
+      [b.getSouth() + (i + 1) * dLat, b.getWest() + (j + 1) * dLon]));
+  }
+  return trozos;
+}
+
+/* pide un trozo, probando los servidores por orden hasta que uno responda */
+async function pideTrozo(bb) {
+  const consulta = '[out:json][timeout:60];'
+    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"](' + bb + ');out geom;';
+  let ultimo = 'sin respuesta';
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, { method:'POST', body:'data=' + encodeURIComponent(consulta),
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' } });
+      if (res.ok) return await res.json();
+      ultimo = 'HTTP ' + res.status;
+    } catch (err) { ultimo = err.message || 'error de red'; }
+  }
+  throw new Error(ultimo);
+}
+
 async function descargaSendas(bounds, nombre) {
   const $v = document.getElementById('btn-sendas-vista');
   const $g = document.getElementById('btn-sendas-gpx');
   const $p = document.getElementById('sendas-prog');
   const km2 = areaKm2(bounds);
   if (km2 > SENDAS_KM2_MAX) {
-    $p.textContent = 'Esa zona son ' + Math.round(km2) + ' km², demasiado para una sola petición. '
-      + 'Acerca el mapa: el tope son ' + SENDAS_KM2_MAX + ' km².';
+    $p.textContent = 'Esa zona son ' + fmtN(Math.round(km2)) + ' km², demasiado. '
+      + 'Acerca el mapa: el tope son ' + fmtN(SENDAS_KM2_MAX) + ' km².';
     return;
   }
-  const bb = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]
-    .map(n => n.toFixed(5)).join(',');
-  const consulta = '[out:json][timeout:90];'
-    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"](' + bb + ');out geom;';
+  const trozos = troceaBbox(bounds, SENDAS_KM2_TROZO);
   $v.disabled = $g.disabled = true;
-  $p.textContent = 'Pidiendo los caminos de ' + Math.round(km2) + ' km²… puede tardar medio minuto.';
+  /* mismo permiso que al bajar zonas: le pide al navegador que no borre esto
+     por su cuenta si el móvil se queda justo de espacio */
+  if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch (e) {} }
+  const vistos = new Set(), datos = [];
+  let fallos = 0;
   try {
-    const res = await fetch(OVERPASS, { method:'POST', body:'data=' + encodeURIComponent(consulta),
-      headers:{ 'Content-Type':'application/x-www-form-urlencoded' } });
-    if (!res.ok) throw new Error('el servidor ha respondido ' + res.status);
-    const json = await res.json();
-    /* se guarda lo mínimo: tipo, nombre o referencia, y la geometría con cinco
-       decimales — algo más de un metro, de sobra para andar y la mitad de peso */
-    const datos = (json.elements || [])
-      .filter(e => e.geometry && e.geometry.length > 1)
-      .map(e => ({
-        t: (e.tags && e.tags.highway) || 'path',
-        r: (e.tags && (e.tags.ref || e.tags.name)) || '',
-        g: e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ])
-      }));
-    if (!datos.length) { $p.textContent = 'En esa zona OpenStreetMap no tiene ningún camino registrado.'; return; }
+    for (let i = 0; i < trozos.length; i++) {
+      $p.textContent = 'Pidiendo los caminos… trozo ' + (i + 1) + ' de ' + trozos.length
+        + (datos.length ? ' · ' + fmtN(datos.length) + ' encontrados' : '');
+      const t = trozos[i];
+      const bb = [t.getSouth(), t.getWest(), t.getNorth(), t.getEast()].map(n => n.toFixed(5)).join(',');
+      let json = null;
+      try { json = await pideTrozo(bb); }
+      catch (err) { fallos++; continue; }        // un trozo caído no tira la descarga entera
+      /* se guarda lo mínimo: tipo, nombre o referencia, y la geometría con cinco
+         decimales — algo más de un metro, de sobra para andar y la mitad de peso.
+         Los caminos que cruzan de un trozo a otro llegan repetidos: se filtran
+         por su identificador de OSM. */
+      for (const e of (json.elements || [])) {
+        if (!e.geometry || e.geometry.length < 2 || vistos.has(e.id)) continue;
+        vistos.add(e.id);
+        datos.push({
+          t: (e.tags && e.tags.highway) || 'path',
+          r: (e.tags && (e.tags.ref || e.tags.name)) || '',
+          g: e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ])
+        });
+      }
+      if (i < trozos.length - 1) await new Promise(r => setTimeout(r, 700));  // no atosigar al servidor
+    }
+    if (!datos.length) {
+      $p.textContent = fallos
+        ? 'Los servidores de OpenStreetMap no han respondido. Prueba en unos minutos.'
+        : 'En esa zona OpenStreetMap no tiene ningún camino registrado.';
+      return;
+    }
     const id = 's' + Date.now().toString(36);
     await salvaDatosSendas(id, datos);
     const kb = Math.max(1, Math.round(JSON.stringify(datos).length / 1024));
@@ -1719,7 +1773,8 @@ async function descargaSendas(bounds, nombre) {
     fichas.push({ id, nom: nombre || 'Senderos', n: datos.length, kb, fecha: Date.now(),
       bbox: [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()] });
     salvaSendasF(fichas);
-    $p.textContent = fmtN(datos.length) + ' caminos guardados, ' + kb + ' KB. Ya se ven sin cobertura.';
+    $p.textContent = fmtN(datos.length) + ' caminos guardados, ' + kb + ' KB. Ya se ven sin cobertura.'
+      + (fallos ? ' Aviso: ' + fallos + ' de ' + trozos.length + ' trozos no respondieron; repite para completarlos.' : '');
     pintaListaSendas();
     await pintaSendas();
   } catch (err) {
