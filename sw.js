@@ -4,7 +4,7 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v2';
+const APP   = 'ign-app-v3';
 const TILES = 'ign-tiles-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
@@ -57,7 +57,7 @@ self.addEventListener('fetch', e => {
          sólo admiten la caché normal del navegador (la que gobiernan sus
          propias cabeceras), no copias nuestras. Por eso estas capas son de
          solo online y sin cobertura salen vacías. --- */
-  if (/(^|\.)(openstreetmap\.org|openstreetmap\.fr|openmaps\.fr|waymarkedtrails\.org)$/.test(url.hostname)) {
+  if (/(^|\.)(openstreetmap\.org|openstreetmap\.fr|openmaps\.fr|waymarkedtrails\.org|tracestrack\.com)$/.test(url.hostname)) {
     e.respondWith(fetch(req).catch(() => sinTile(req, 504)));
     return;
   }

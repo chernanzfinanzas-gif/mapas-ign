@@ -972,6 +972,17 @@ const CAPAS = [
     atrib:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · estilo <a href="https://www.cyclosm.org/" target="_blank" rel="noopener">CyclOSM</a>, teselas de OSM-FR',
     url:'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png' },
 
+  /* Tracestrack Topo (variante en español): el estilo más legible de todos los
+     que hay sobre datos de OSM — es una de las capas oficiales de
+     openstreetmap.org. A diferencia de las demás NO es comunitario: lleva
+     clave de API con cuota mensual, atada por «referer» al dominio de la app.
+     Solo online, igual que el resto de capas OSM. */
+  { id:'trace', corto:'TS TOPO', nombre:'Tracestrack Topo', soloOnline:true,
+    desc:'El más legible sobre datos de OSM: sendas nítidas, relieve suave y rótulos en español. Lleva clave propia con cuota mensual.',
+    tipo:'xyz', maxZ:19, kb:26, def:false,
+    atrib:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · © <a href="https://www.tracestrack.com/" target="_blank" rel="noopener">Tracestrack</a>',
+    url:'https://tile.tracestrack.com/topo_es/{z}/{x}/{y}.webp?key=12469969a3be5c23eae6aa0e36e806b1' },
+
   /* OpenHikingMap: estilo pensado para andar — sendas, refugios y curvas de
      nivel sobre fondo claro. Lo sirve openmaps.fr, que recogió el testigo
      cuando OpenTopoMap pasó a vectorial. También solo online. */
