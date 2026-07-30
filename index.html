@@ -787,6 +787,11 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
   padding:10px 12px;font-size:13px;margin:12px 0}
 #estimacion .num{font-weight:700;font-variant-numeric:tabular-nums}
 #estimacion.mucho{background:#fdf2e4;border-color:#f0dcc0}
+#repo-sendas h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
+#repo-sendas code{background:#eee9e0;border-radius:4px;padding:1px 4px;font-size:11.5px}
+/* Exportar sirve para llevarse el paquete al repositorio, y eso se hace
+   desde el ordenador. En el móvil solo estorbaría en una fila ya apretada. */
+@media (max-width:520px){ .solo-pc{display:none} }
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
 .ver-sendas{display:flex;gap:9px;align-items:center;font-size:13.5px;margin-top:10px}
@@ -807,15 +812,15 @@ button.sec{width:100%;padding:11px;border:1px solid var(--linea);border-radius:1
 #prog-txt{font-variant-numeric:tabular-nums;color:#4a4741}
 #prog-err{color:var(--rojo)}
 #prog-nota{color:var(--ambar);font-size:12.5px;margin-top:4px}
-ul#lista,ul#sendas-lista{list-style:none;margin:0;padding:0}
-ul#lista li,ul#sendas-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
+ul#lista,ul#sendas-lista,ul#repo-lista{list-style:none;margin:0;padding:0}
+ul#lista li,ul#sendas-lista li,ul#repo-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
 ul#lista li:last-child,ul#sendas-lista li:last-child{border-bottom:0}
-ul#lista .info,ul#sendas-lista .info{flex:1 1 auto;min-width:0}
-ul#lista .nom,ul#sendas-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul#lista .det,ul#sendas-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
-ul#lista button,ul#sendas-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
+ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info{flex:1 1 auto;min-width:0}
+ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul#lista button,ul#sendas-lista button,ul#repo-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
-ul#lista button.ir,ul#sendas-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
 .vacio{font-size:13px;color:#6b6862;font-style:italic}
 #almacen{font-size:13px;color:#4a4741;font-variant-numeric:tabular-nums}
 #almacen .aviso-purga{color:var(--ambar)}
@@ -896,6 +901,11 @@ ul#lista button.ir,ul#sendas-lista button.ir{border-color:var(--verde);color:var
       <div id="sendas-prog"></div>
       <ul id="sendas-lista"></ul>
       <label class="ver-sendas"><input type="checkbox" id="sendas-ver" checked> Mostrarlos sobre el mapa</label>
+      <div id="repo-sendas" hidden>
+        <h4>Paquetes preparados</h4>
+        <p class="pista">Los que has dejado en la carpeta <code>sendas/</code> del repositorio. Se añaden de un toque y quedan offline.</p>
+        <ul id="repo-lista"></ul>
+      </div>
     </section>
 
     <section>
@@ -1638,6 +1648,34 @@ mapa.on('moveend zoomend', guardaEstado);
 const leeSendas   = () => { try { return JSON.parse(localStorage.getItem(LS_SENDAS)) || []; } catch (e) { return []; } };
 const salvaSendasF = f => localStorage.setItem(LS_SENDAS, JSON.stringify(f));
 
+/* Puntos de interés que sí importan andando. La clave es la etiqueta de OSM;
+   se pintan como círculos de color con su nombre al tocarlos. */
+const TIPOS_PUNTO = {
+  agua:      { et:'Fuente',     color:'#1f6fb2', r:5 },
+  manantial: { et:'Manantial',  color:'#4d9fd6', r:4.5 },
+  refugio:   { et:'Refugio',    color:'#2f6b4f', r:6 },
+  cobijo:    { et:'Cobijo',     color:'#5b9c78', r:5 },
+  cima:      { et:'Cima',       color:'#7a4a1f', r:5.5 },
+  collado:   { et:'Collado',    color:'#a8823f', r:5 },
+  mirador:   { et:'Mirador',    color:'#8a5a9c', r:4.5 },
+  cueva:     { et:'Cueva',      color:'#4a4a4a', r:4.5 },
+  aparcar:   { et:'Aparcamiento', color:'#666', r:4.5 }
+};
+/* de las etiquetas de OSM a nuestras claves, en orden de prioridad */
+function claseDePunto(tg) {
+  if (!tg) return null;
+  if (tg.amenity === 'drinking_water') return 'agua';
+  if (tg.natural === 'spring')         return 'manantial';
+  if (tg.tourism === 'alpine_hut' || tg.tourism === 'wilderness_hut') return 'refugio';
+  if (tg.amenity === 'shelter')        return 'cobijo';
+  if (tg.natural === 'peak')           return 'cima';
+  if (tg.natural === 'saddle' || tg.mountain_pass === 'yes') return 'collado';
+  if (tg.tourism === 'viewpoint')      return 'mirador';
+  if (tg.natural === 'cave_entrance')  return 'cueva';
+  if (tg.amenity === 'parking')        return 'aparcar';
+  return null;
+}
+
 const TIPOS_SENDA = {
   path:      { color:'#a03828', peso:2.4, guion:'7,4' },
   footway:   { color:'#a03828', peso:2.4, guion:'7,4' },
@@ -1664,10 +1702,21 @@ async function pintaSendas() {
   if (capaSendas) { mapa.removeLayer(capaSendas); capaSendas = null; }
   if (!sendasVisibles) return;
   const fichas = leeSendas(); if (!fichas.length) return;
-  const halos = [], lineas = [];
+  const halos = [], lineas = [], marcas = [];
   for (const f of fichas) {
-    const datos = await leeDatosSendas(f.id); if (!datos) continue;
-    for (const w of datos) {
+    const bruto = await leeDatosSendas(f.id); if (!bruto) continue;
+    /* los paquetes antiguos eran un array pelado de caminos; los nuevos traen
+       caminos y puntos. Se admiten los dos para no perder lo ya descargado. */
+    const datos = Array.isArray(bruto) ? { w:bruto, p:[] } : bruto;
+    for (const pt of (datos.p || [])) {
+      const c = TIPOS_PUNTO[pt.k]; if (!c) continue;
+      const m = L.circleMarker(pt.g, { renderer:lienzoSendas, pane:'sendas', radius:c.r,
+        color:'#fff', weight:1.6, fillColor:c.color, fillOpacity:.95 });
+      const alt = pt.a ? ' · ' + pt.a + ' m' : '';
+      m.bindTooltip(c.et + (pt.n ? ': ' + pt.n : '') + alt, { direction:'top', offset:[0,-4] });
+      marcas.push(m);
+    }
+    for (const w of (datos.w || [])) {
       const e = TIPOS_SENDA[w.t] || TIPOS_SENDA.path;
       /* dos trazos: uno blanco debajo y el de color encima. Es lo que hace que
          una senda se lea sobre la ortofoto y sobre el sombreado del topo. */
@@ -1677,8 +1726,9 @@ async function pintaSendas() {
         weight:e.peso, opacity:.95, dashArray:e.guion, interactive:false }));
     }
   }
-  if (!lineas.length) return;
-  capaSendas = L.layerGroup(halos.concat(lineas)).addTo(mapa);
+  if (!lineas.length && !marcas.length) return;
+  /* orden de dibujo: primero los halos, luego las líneas, y los puntos encima */
+  capaSendas = L.layerGroup(halos.concat(lineas, marcas)).addTo(mapa);
   subeGpx();
 }
 
@@ -1705,8 +1755,17 @@ function troceaBbox(b, km2trozo) {
 
 /* pide un trozo, probando los servidores por orden hasta que uno responda */
 async function pideTrozo(bb) {
+  /* dos consultas en una: los caminos con su trazado completo (out geom) y los
+     puntos con una sola coordenada (out center, que también resuelve los que en
+     OSM están dibujados como área, por ejemplo un refugio con su planta). */
   const consulta = '[out:json][timeout:60];'
-    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"](' + bb + ');out geom;';
+    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"](' + bb + ');out geom;'
+    + '('
+    +   'nwr["amenity"~"^(drinking_water|shelter|parking)$"](' + bb + ');'
+    +   'nwr["natural"~"^(spring|peak|saddle|cave_entrance)$"](' + bb + ');'
+    +   'nwr["tourism"~"^(alpine_hut|wilderness_hut|viewpoint)$"](' + bb + ');'
+    +   'nwr["mountain_pass"="yes"](' + bb + ');'
+    + ');out center tags;';
   let ultimo = 'sin respuesta';
   for (const url of OVERPASS) {
     try {
@@ -1734,12 +1793,12 @@ async function descargaSendas(bounds, nombre) {
   /* mismo permiso que al bajar zonas: le pide al navegador que no borre esto
      por su cuenta si el móvil se queda justo de espacio */
   if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch (e) {} }
-  const vistos = new Set(), datos = [];
+  const vistos = new Set(), caminos = [], puntos = [];
   let fallos = 0;
   try {
     for (let i = 0; i < trozos.length; i++) {
-      $p.textContent = 'Pidiendo los caminos… trozo ' + (i + 1) + ' de ' + trozos.length
-        + (datos.length ? ' · ' + fmtN(datos.length) + ' encontrados' : '');
+      $p.textContent = 'Pidiendo caminos y puntos… trozo ' + (i + 1) + ' de ' + trozos.length
+        + (caminos.length ? ' · ' + fmtN(caminos.length) + ' caminos, ' + fmtN(puntos.length) + ' puntos' : '');
       const t = trozos[i];
       const bb = [t.getSouth(), t.getWest(), t.getNorth(), t.getEast()].map(n => n.toFixed(5)).join(',');
       let json = null;
@@ -1750,30 +1809,44 @@ async function descargaSendas(bounds, nombre) {
          Los caminos que cruzan de un trozo a otro llegan repetidos: se filtran
          por su identificador de OSM. */
       for (const e of (json.elements || [])) {
-        if (!e.geometry || e.geometry.length < 2 || vistos.has(e.id)) continue;
-        vistos.add(e.id);
-        datos.push({
-          t: (e.tags && e.tags.highway) || 'path',
-          r: (e.tags && (e.tags.ref || e.tags.name)) || '',
-          g: e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ])
-        });
+        const clave = e.type + e.id;
+        if (vistos.has(clave)) continue;
+        if (e.geometry && e.geometry.length > 1) {          // un camino
+          vistos.add(clave);
+          caminos.push({
+            t: (e.tags && e.tags.highway) || 'path',
+            r: (e.tags && (e.tags.ref || e.tags.name)) || '',
+            g: e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ])
+          });
+          continue;
+        }
+        const k = claseDePunto(e.tags); if (!k) continue;   // un punto de interés
+        const lat = e.lat != null ? e.lat : (e.center && e.center.lat);
+        const lon = e.lon != null ? e.lon : (e.center && e.center.lon);
+        if (lat == null || lon == null) continue;
+        vistos.add(clave);
+        puntos.push({ k, n: (e.tags.name || ''), a: (e.tags.ele || ''),
+          g: [ +Number(lat).toFixed(5), +Number(lon).toFixed(5) ] });
       }
       if (i < trozos.length - 1) await new Promise(r => setTimeout(r, 700));  // no atosigar al servidor
     }
-    if (!datos.length) {
+    if (!caminos.length && !puntos.length) {
       $p.textContent = fallos
         ? 'Los servidores de OpenStreetMap no han respondido. Prueba en unos minutos.'
-        : 'En esa zona OpenStreetMap no tiene ningún camino registrado.';
+        : 'En esa zona OpenStreetMap no tiene nada registrado.';
       return;
     }
+    const paquete = { v:2, w:caminos, p:puntos,
+      bbox: [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()] };
     const id = 's' + Date.now().toString(36);
-    await salvaDatosSendas(id, datos);
-    const kb = Math.max(1, Math.round(JSON.stringify(datos).length / 1024));
+    await salvaDatosSendas(id, paquete);
+    const kb = Math.max(1, Math.round(JSON.stringify(paquete).length / 1024));
     const fichas = leeSendas();
-    fichas.push({ id, nom: nombre || 'Senderos', n: datos.length, kb, fecha: Date.now(),
-      bbox: [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()] });
+    fichas.push({ id, nom: nombre || 'Senderos', n: caminos.length, np: puntos.length, kb, fecha: Date.now(),
+      bbox: paquete.bbox });
     salvaSendasF(fichas);
-    $p.textContent = fmtN(datos.length) + ' caminos guardados, ' + kb + ' KB. Ya se ven sin cobertura.'
+    $p.textContent = fmtN(caminos.length) + ' caminos y ' + fmtN(puntos.length) + ' puntos guardados, '
+      + kb + ' KB. Ya se ven sin cobertura.'
       + (fallos ? ' Aviso: ' + fallos + ' de ' + trozos.length + ' trozos no respondieron; repite para completarlos.' : '');
     pintaListaSendas();
     await pintaSendas();
@@ -1792,17 +1865,88 @@ function pintaListaSendas() {
     const li = document.createElement('li');
     li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
     li.querySelector('.nom').textContent = f.nom;
-    li.querySelector('.det').textContent = fmtN(f.n) + ' caminos · ' + f.kb + ' KB · ' + fmtFecha(f.fecha);
+    li.querySelector('.det').textContent = fmtN(f.n) + ' caminos'
+      + (f.np ? ' · ' + fmtN(f.np) + ' puntos' : '') + ' · ' + f.kb + ' KB · ' + fmtFecha(f.fecha);
     const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
     ir.onclick = () => { mapa.fitBounds([[f.bbox[0], f.bbox[1]], [f.bbox[2], f.bbox[3]]]); cierraPanel(); };
+    const ex = document.createElement('button'); ex.textContent = 'Exportar'; ex.className = 'solo-pc';
+    ex.onclick = () => exportaPaquete(f);
     const bo = document.createElement('button'); bo.textContent = 'Borrar';
     bo.onclick = async () => {
       const c = await caches.open(CACHE_SENDAS); await c.delete(claveSendas(f.id));
       salvaSendasF(leeSendas().filter(x => x.id !== f.id));
       pintaListaSendas(); pintaSendas();
     };
-    li.append(ir, bo); ul.appendChild(li);
+    li.append(ir, ex, bo); ul.appendChild(li);
   });
+}
+
+/* ---- llevárselo al otro dispositivo -----------------------------------
+   Los paquetes viven en el navegador, y cada navegador es un mundo: lo
+   descargado en el ordenador no aparece en el móvil. Exportar da el fichero
+   para dejarlo en la carpeta `sendas/` del repositorio; desde ahí lo carga
+   cualquier dispositivo de un toque, y como viene del propio dominio el
+   service worker lo guarda offline sin más trámite.                      */
+async function exportaPaquete(f) {
+  const datos = await leeDatosSendas(f.id); if (!datos) return;
+  const txt = JSON.stringify(Array.isArray(datos) ? { v:2, w:datos, p:[], bbox:f.bbox } : datos);
+  const nombre = (f.nom || 'sendas').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json';
+  const url = URL.createObjectURL(new Blob([txt], { type:'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  avisa('Guardado como ' + nombre);
+}
+
+/* ---- paquetes que viajan con la app ----------------------------------
+   Si existe `sendas/index.json` en el repositorio, se listan sus paquetes
+   para añadirlos de un toque. Si no existe, la sección no aparece.      */
+async function pintaPaquetesRepo() {
+  const cont = document.getElementById('repo-sendas');
+  let indice = null;
+  try {
+    const r = await fetch('sendas/index.json', { cache:'no-cache' });
+    if (r.ok) indice = await r.json();
+  } catch (e) {}
+  if (!indice || !indice.length) { cont.hidden = true; return; }
+  cont.hidden = false;
+  const ul = document.getElementById('repo-lista');
+  ul.innerHTML = '';
+  const puestos = new Set(leeSendas().map(f => f.origen).filter(Boolean));
+  indice.forEach(p => {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
+    li.querySelector('.nom').textContent = p.nom || p.fichero;
+    li.querySelector('.det').textContent = p.desc || '';
+    const bt = document.createElement('button'); bt.className = 'ir';
+    if (puestos.has(p.fichero)) { bt.textContent = 'Ya lo tienes'; bt.disabled = true; }
+    else { bt.textContent = 'Añadir'; bt.onclick = () => añadePaqueteRepo(p, bt); }
+    li.append(bt); ul.appendChild(li);
+  });
+}
+async function añadePaqueteRepo(p, bt) {
+  bt.disabled = true; bt.textContent = 'Añadiendo…';
+  try {
+    const r = await fetch('sendas/' + p.fichero);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const datos = await r.json();
+    const id = 's' + Date.now().toString(36);
+    await salvaDatosSendas(id, datos);
+    const fichas = leeSendas();
+    fichas.push({ id, nom: p.nom || p.fichero, origen: p.fichero,
+      n: (datos.w || []).length, np: (datos.p || []).length,
+      kb: Math.max(1, Math.round(JSON.stringify(datos).length / 1024)),
+      fecha: Date.now(), bbox: datos.bbox || p.bbox });
+    salvaSendasF(fichas);
+    bt.textContent = 'Ya lo tienes';
+    pintaListaSendas(); await pintaSendas();
+    avisa('Añadido: ' + (p.nom || p.fichero));
+  } catch (err) {
+    bt.disabled = false; bt.textContent = 'Reintentar';
+    avisa('No se ha podido añadir: ' + err.message);
+  }
 }
 
 document.getElementById('btn-sendas-vista').onclick = () =>
@@ -1843,6 +1987,7 @@ document.getElementById('sendas-ver').onchange = ev => {
   try { const g = JSON.parse(localStorage.getItem(LS_GPX)); if (g) pintaGpx(g); } catch (e) {}
   pintaListaSendas();
   pintaSendas();
+  pintaPaquetesRepo();
   if (!zs.length) setTimeout(() => avisa('Pulsa ☰ para descargar tu primera zona'), 900);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
