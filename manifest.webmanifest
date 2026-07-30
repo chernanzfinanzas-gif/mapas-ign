@@ -1,0 +1,17 @@
+{
+  "name": "Mapas IGN offline",
+  "short_name": "Mapa IGN",
+  "description": "Mapas topográficos y ortofotos del IGN descargados para consultarlos sin cobertura, con la posición GPS encima.",
+  "lang": "es-ES",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e9e6df",
+  "theme_color": "#2f6b4f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
