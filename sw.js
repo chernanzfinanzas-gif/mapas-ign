@@ -4,7 +4,7 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v1';
+const APP   = 'ign-app-v2';
 const TILES = 'ign-tiles-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
@@ -51,11 +51,13 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  /* --- OpenStreetMap: se sirve, pero NO se guarda nada.
-         Su política de teselas sólo admite la caché normal del navegador
-         (la que gobiernan sus propias cabeceras), no copias nuestras. Por eso
-         esta capa es de solo online y sin cobertura sale vacía. --- */
-  if (/(^|\.)openstreetmap\.org$/.test(url.hostname)) {
+  /* --- Servidores comunitarios (OpenStreetMap, CyclOSM/OSM-FR, openmaps.fr,
+         Waymarked Trails): se sirven, pero NO se guarda nada.
+         Sus políticas de teselas prohíben expresamente la descarga masiva y
+         sólo admiten la caché normal del navegador (la que gobiernan sus
+         propias cabeceras), no copias nuestras. Por eso estas capas son de
+         solo online y sin cobertura salen vacías. --- */
+  if (/(^|\.)(openstreetmap\.org|openstreetmap\.fr|openmaps\.fr|waymarkedtrails\.org)$/.test(url.hostname)) {
     e.respondWith(fetch(req).catch(() => sinTile(req, 504)));
     return;
   }

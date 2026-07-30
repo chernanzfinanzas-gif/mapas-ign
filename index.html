@@ -787,6 +787,10 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
   padding:10px 12px;font-size:13px;margin:12px 0}
 #estimacion .num{font-weight:700;font-variant-numeric:tabular-nums}
 #estimacion.mucho{background:#fdf2e4;border-color:#f0dcc0}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:10px 4px;border:1px solid var(--linea);border-radius:10px;
+  background:#fff;font:inherit;font-size:13px;font-weight:600;color:#5d5a53;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--verde);border-color:var(--verde);color:#fff}
 button.accion{width:100%;padding:13px;border:0;border-radius:11px;background:var(--verde);
   color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
 button.accion:disabled{background:#b9c4bd;cursor:default}
@@ -881,6 +885,16 @@ ul#lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
     </section>
 
     <section>
+      <h3>Legibilidad al sol</h3>
+      <p class="pista">Sube el contraste de cualquier mapa, también los descargados. Al sol y en pantalla pequeña las sendas finas se distinguen mucho mejor.</p>
+      <div class="seg" id="realce">
+        <button data-r="0">Normal</button>
+        <button data-r="1">Realzado</button>
+        <button data-r="2">Máximo</button>
+      </div>
+    </section>
+
+    <section>
       <h3>Ruta y almacenamiento</h3>
       <div id="almacen"></div>
       <button class="sec" id="btn-gpx">Cargar un GPX sobre el mapa…</button>
@@ -948,6 +962,25 @@ const CAPAS = [
     atrib:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png' },
 
+  /* CyclOSM: mismos datos que OSM, pero dibujados con los caminos, pistas y
+     sendas MUY marcados (trazo grueso, punteados distintos según el firme).
+     Es la respuesta a «en el móvil las sendas apenas se ven». Servidor de
+     OpenStreetMap Francia, política de uso razonable: solo online. */
+  { id:'cyclosm', corto:'SENDAS+', nombre:'CyclOSM — caminos marcados', soloOnline:true,
+    desc:'Los mismos datos de OSM pero con los caminos y sendas dibujados mucho más gruesos. El más legible al sol.',
+    tipo:'xyz', maxZ:19, kb:24, def:false, subs:['a','b','c'],
+    atrib:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · estilo <a href="https://www.cyclosm.org/" target="_blank" rel="noopener">CyclOSM</a>, teselas de OSM-FR',
+    url:'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png' },
+
+  /* OpenHikingMap: estilo pensado para andar — sendas, refugios y curvas de
+     nivel sobre fondo claro. Lo sirve openmaps.fr, que recogió el testigo
+     cuando OpenTopoMap pasó a vectorial. También solo online. */
+  { id:'hiking', corto:'HIKE', nombre:'OpenHikingMap', soloOnline:true, exp:true,
+    desc:'Estilo de senderismo: sendas finas pero nítidas, refugios y curvas de nivel sobre fondo claro.',
+    tipo:'xyz', maxZ:17, kb:22, def:false,
+    atrib:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · teselas de <a href="https://openmaps.fr/" target="_blank" rel="noopener">openmaps.fr</a>',
+    url:'https://tile.openmaps.fr/openhikingmap/{z}/{x}/{y}.png' },
+
   /* Waymarked Trails: sólo los senderos señalizados (GR, PR, SL) sobre fondo
      transparente, así que es la capa ideal para poner ENCIMA del topo o de la
      ortofoto. También es un servicio de voluntarios: solo online. */
@@ -987,7 +1020,11 @@ function bbox3857(x, y, z) {
 }
 function urlTile(cfg, z, x, y) {
   if (cfg.tipo === 'xyz') {
-    return cfg.url.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+    /* {s}: algunos servidores reparten la carga entre varios subdominios.
+       Se elige de forma determinista (no al azar) para que el mismo tile
+       pida siempre al mismo sitio y la caché del navegador sirva de algo. */
+    const sub = cfg.subs ? cfg.subs[(x + y) % cfg.subs.length] : '';
+    return cfg.url.replace('{s}', sub).replace('{z}', z).replace('{x}', x).replace('{y}', y);
   }
   if (cfg.tipo === 'wms') {
     const bb = bbox3857(x, y, z);
@@ -1043,6 +1080,27 @@ CAPAS.forEach(cfg => {
   });
 });
 let capaActiva = null, capaEncima = null, modoEncima = false, opacidad = .55;
+
+/* ---- realce: sube el contraste del mapa para que las sendas finas se vean
+   al sol y en pantalla pequeña. Se aplica SOLO al panel de teselas, así que
+   la ruta GPX y el punto de posición mantienen su color de siempre. Como es
+   un filtro de pantalla, funciona igual con los mapas ya descargados: sirve
+   sin cobertura y no gasta ni un byte de red.                            */
+const FILTROS = ['none',
+                 'contrast(1.18) saturate(1.25)',
+                 'contrast(1.38) saturate(1.45) brightness(.97)'];
+let realce = 0;
+function ponRealce(n) {
+  realce = (n === 1 || n === 2) ? n : 0;
+  const pane = document.querySelector('.leaflet-tile-pane');
+  if (pane) pane.style.filter = FILTROS[realce];
+  document.querySelectorAll('#realce button').forEach(b =>
+    b.setAttribute('aria-pressed', String(Number(b.dataset.r) === realce)));
+  guardaEstado();
+}
+document.getElementById('realce').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (b) ponRealce(Number(b.dataset.r));
+});
 
 function ponCapa(id) {
   const nueva = capasVivas[id]; if (!nueva) return;
@@ -1135,7 +1193,7 @@ function guardaEstado() {
   localStorage.setItem(LS_ESTADO, JSON.stringify({
     lat:c.lat, lng:c.lng, z:mapa.getZoom(), capa:capaActiva && capaActiva.options.cfg.id,
     zona:zonaActiva, encimaOn:modoEncima,
-    encima:capaEncima && capaEncima.options.cfg.id, opac:opacidad
+    encima:capaEncima && capaEncima.options.cfg.id, opac:opacidad, realce
   }));
 }
 let zonaActiva = null;
@@ -1542,6 +1600,7 @@ mapa.on('moveend zoomend', guardaEstado);
   else mapa.setView([40.2, -3.7], 6);
   ponCapa((est && est.capa) || 'topo');
   ponOpacidad(est && isFinite(est.opac) ? est.opac : opacidad);
+  ponRealce(est ? Number(est.realce) : 0);
   if (est && est.encimaOn) {
     modoEncimaOn(true);
     if (est.encima && est.encima !== (est.capa || 'topo')) ponCapaEncima(est.encima);
