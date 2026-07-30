@@ -719,6 +719,20 @@ img.leaflet-tile{image-rendering:auto}
 .chip.online::after{content:"·";margin-left:5px;color:var(--ambar);font-weight:900}
 
 /* barra de transparencia de la capa de encima */
+#barra-dibujo{position:absolute;left:8px;right:8px;bottom:calc(14px + var(--safe-b));z-index:640;
+  background:rgba(253,252,250,.97);border:1px solid var(--linea);border-radius:14px;padding:10px 12px;
+  box-shadow:0 6px 22px rgba(0,0,0,.18)}
+#barra-dibujo[hidden]{display:none}
+#barra-dibujo .ln1{font-size:12.5px;color:#5d5a53;margin-bottom:8px}
+#barra-dibujo .ln1 b{color:var(--verde)}
+#barra-dibujo .ln1 .pasa{color:#a8641f;font-weight:600}
+#barra-dibujo .ln2{display:flex;gap:6px;align-items:center}
+#barra-dibujo input{flex:1 1 auto;min-width:0;padding:9px 10px;border:1px solid var(--linea);
+  border-radius:9px;font:inherit;font-size:14px;background:#fff}
+#barra-dibujo button{flex:0 0 auto;padding:9px 11px;border:1px solid var(--linea);background:#fff;
+  border-radius:9px;font:inherit;font-size:14px;cursor:pointer}
+#barra-dibujo button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
+#barra-dibujo button:disabled{opacity:.45}
 #barra-opacidad{position:absolute;left:8px;right:78px;bottom:calc(56px + var(--safe-b));z-index:620;
   display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
   background:rgba(251,250,247,.95);border:1px solid var(--linea);box-shadow:var(--sombra);touch-action:none}
@@ -792,6 +806,9 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
 /* Exportar sirve para llevarse el paquete al repositorio, y eso se hace
    desde el ordenador. En el móvil solo estorbaría en una fila ya apretada. */
 @media (max-width:520px){ .solo-pc{display:none} }
+#publicar h4,#repo-sendas h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
+ul#sendas-lista .ver1{width:18px;height:18px;flex:0 0 auto;accent-color:var(--verde);margin-right:2px}
+#gh-estado{font-size:12.5px;color:#5d5a53;margin-top:6px}
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
 .ver-sendas{display:flex;gap:9px;align-items:center;font-size:13.5px;margin-top:10px}
@@ -848,6 +865,16 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-colo
   <div id="chips-der" hidden></div>
 </div>
 
+<div id="barra-dibujo" hidden>
+  <div class="ln1"><span id="dib-pista">Toca dos esquinas para un rectángulo, o varias para dibujar la forma.</span></div>
+  <div class="ln2">
+    <input type="text" id="dib-nombre" placeholder="Nombre de la zona" autocomplete="off">
+    <button id="dib-deshacer" title="Quitar el último punto">↶</button>
+    <button id="dib-cancelar" title="Cancelar">✕</button>
+    <button id="dib-bajar" class="ok">Descargar</button>
+  </div>
+</div>
+
 <div id="barra-opacidad" hidden>
   <span class="et">Encima</span>
   <input type="range" id="opacidad" min="0" max="100" value="55" aria-label="Transparencia de la capa de encima">
@@ -896,11 +923,27 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-colo
     <section>
       <h3>Senderos de OpenStreetMap</h3>
       <p class="pista">Descarga los <b>datos</b> de sendas, pistas y escaleras y los dibuja encima del mapa del IGN, que muchas veces no las trae. Pesa kilobytes, no caduca y funciona sin cobertura.</p>
+      <label class="campo">Nombre del paquete
+        <input type="text" id="sendas-nombre" placeholder="Ej. La Pedriza — El Yelmo" autocomplete="off">
+      </label>
+      <button class="sec" id="btn-sendas-dibujo">Dibujar la zona en el mapa…</button>
       <button class="sec" id="btn-sendas-vista">Descargar los de la vista actual</button>
       <button class="sec" id="btn-sendas-gpx" disabled>Descargar alrededor del GPX cargado</button>
       <div id="sendas-prog"></div>
       <ul id="sendas-lista"></ul>
       <label class="ver-sendas"><input type="checkbox" id="sendas-ver" checked> Mostrarlos sobre el mapa</label>
+      <div id="publicar">
+        <h4>Llevarlos al otro dispositivo</h4>
+        <p class="pista">Todo lo descargado se junta en un solo fichero, <code>sendas/paquetes.json</code>. Publícalo y lo tendrás en el móvil y en el ordenador.</p>
+        <button class="sec" id="btn-publicar">Publicar en GitHub</button>
+        <button class="sec solo-pc" id="btn-exportar-todo">Descargar el fichero para subirlo a mano</button>
+        <label class="campo">Token de GitHub
+          <input type="password" id="gh-token" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+        </label>
+        <p class="pista">Se guarda solo en este navegador. Usa un token restringido a este repositorio con permiso de contenidos.</p>
+        <div id="gh-estado"></div>
+      </div>
+
       <div id="repo-sendas" hidden>
         <h4>Paquetes preparados</h4>
         <p class="pista">Los que has dejado en la carpeta <code>sendas/</code> del repositorio. Se añaden de un toque y quedan offline.</p>
@@ -1040,7 +1083,7 @@ const OVERPASS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter'
 ];
-const SENDAS_KM2_MAX   = 1500;   // tope total de la descarga
+const SENDAS_KM2_MAX   = 6000;   // tope de la zona dibujada: una sierra entera
 const SENDAS_KM2_TROZO = 200;    // cada petición no pide más que esto
 const LS_ESTADO      = 'ign.estado';
 const LS_GPX         = 'ign.gpx';
@@ -1698,16 +1741,31 @@ async function leeDatosSendas(id) {
 
 let capaSendas = null, sendasVisibles = true;
 
+/* Los datos leídos se quedan en memoria: al desplazarte se repinta a menudo y
+   no tiene sentido volver a sacarlos del almacén cada vez. */
+const memoriaSendas = new Map();
+async function datosDePaquete(id) {
+  if (memoriaSendas.has(id)) return memoriaSendas.get(id);
+  const bruto = await leeDatosSendas(id);
+  const d = bruto ? (Array.isArray(bruto) ? { w:bruto, p:[] } : bruto) : null;
+  memoriaSendas.set(id, d);
+  return d;
+}
+const tocaLaVista = (bbox, v) => !bbox ||
+  !(bbox[0] > v.getNorth() || bbox[2] < v.getSouth() || bbox[1] > v.getEast() || bbox[3] < v.getWest());
+
 async function pintaSendas() {
   if (capaSendas) { mapa.removeLayer(capaSendas); capaSendas = null; }
   if (!sendasVisibles) return;
-  const fichas = leeSendas(); if (!fichas.length) return;
+  /* solo se prepara lo que cae en lo que estás viendo: así puedes tener veinte
+     sierras guardadas y el móvil solo trabaja con la que pisas */
+  const vista = mapa.getBounds().pad(.25);
+  const fichas = leeSendas().filter(f => !f.off && tocaLaVista(f.bbox, vista));
+  if (!fichas.length) return;
   const halos = [], lineas = [], marcas = [];
   for (const f of fichas) {
-    const bruto = await leeDatosSendas(f.id); if (!bruto) continue;
-    /* los paquetes antiguos eran un array pelado de caminos; los nuevos traen
-       caminos y puntos. Se admiten los dos para no perder lo ya descargado. */
-    const datos = Array.isArray(bruto) ? { w:bruto, p:[] } : bruto;
+    const bruto = await datosDePaquete(f.id); if (!bruto) continue;
+    const datos = bruto;
     for (const pt of (datos.p || [])) {
       const c = TIPOS_PUNTO[pt.k]; if (!c) continue;
       const m = L.circleMarker(pt.g, { renderer:lienzoSendas, pane:'sendas', radius:c.r,
@@ -1732,11 +1790,52 @@ async function pintaSendas() {
   subeGpx();
 }
 
+let tRepinta = null;
+mapa.on('moveend zoomend', () => {
+  clearTimeout(tRepinta);
+  tRepinta = setTimeout(() => { pintaSendas(); }, 220);
+});
+
 function areaKm2(b) {
   const R = 6371, rad = Math.PI / 180;
   const alto  = (b.getNorth() - b.getSouth()) * rad * R;
   const ancho = (b.getEast() - b.getWest()) * rad * R * Math.cos((b.getNorth() + b.getSouth()) / 2 * rad);
   return Math.abs(alto * ancho);
+}
+
+/* ---- geometría de la zona dibujada ------------------------------------
+   Dibujar la zona en el mapa en vez de usar el encuadre de pantalla tiene dos
+   ventajas: se ciñe a la sierra en lugar de tragar lo que sobra por los lados,
+   y permite una forma cualquiera, no solo un rectángulo. Los trozos que no
+   tocan el polígono ni se piden, y lo que llega fuera de él se descarta. */
+function dentroDelPoligono(pt, poly) {          // algoritmo del rayo
+  let dentro = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
+    if ((yi > pt[0]) !== (yj > pt[0]) &&
+        pt[1] < (xj - xi) * (pt[0] - yi) / ((yj - yi) || 1e-12) + xi) dentro = !dentro;
+  }
+  return dentro;
+}
+function areaPoligonoKm2(poly) {                 // fórmula del agrimensor
+  if (!poly || poly.length < 3) return 0;
+  const rad = Math.PI / 180, R = 6371;
+  const lat0 = poly.reduce((s, p) => s + p[0], 0) / poly.length;
+  const xy = poly.map(p => [p[1] * rad * R * Math.cos(lat0 * rad), p[0] * rad * R]);
+  let s = 0;
+  for (let i = 0, j = xy.length - 1; i < xy.length; j = i++)
+    s += (xy[j][0] + xy[i][0]) * (xy[j][1] - xy[i][1]);
+  return Math.abs(s / 2);
+}
+/* ¿este trozo tiene algo que ver con el polígono? Basta con que una esquina
+   caiga dentro, o que un vértice del polígono caiga en el trozo. */
+function trozoSirve(t, poly) {
+  if (!poly) return true;
+  const esquinas = [[t.getSouth(),t.getWest()],[t.getSouth(),t.getEast()],
+                    [t.getNorth(),t.getWest()],[t.getNorth(),t.getEast()],
+                    [t.getCenter().lat, t.getCenter().lng]];
+  if (esquinas.some(e => dentroDelPoligono(e, poly))) return true;
+  return poly.some(v => t.contains(L.latLng(v[0], v[1])));
 }
 
 /* Parte el rectángulo en trozos que ningún servidor rechace por tamaño. Una
@@ -1778,17 +1877,18 @@ async function pideTrozo(bb) {
   throw new Error(ultimo);
 }
 
-async function descargaSendas(bounds, nombre) {
+async function descargaSendas(bounds, nombre, poly) {
   const $v = document.getElementById('btn-sendas-vista');
   const $g = document.getElementById('btn-sendas-gpx');
   const $p = document.getElementById('sendas-prog');
-  const km2 = areaKm2(bounds);
+  const km2 = poly ? areaPoligonoKm2(poly) : areaKm2(bounds);
   if (km2 > SENDAS_KM2_MAX) {
-    $p.textContent = 'Esa zona son ' + fmtN(Math.round(km2)) + ' km², demasiado. '
-      + 'Acerca el mapa: el tope son ' + fmtN(SENDAS_KM2_MAX) + ' km².';
+    $p.textContent = 'La zona son ' + fmtN(Math.round(km2)) + ' km² y el tope está en '
+      + fmtN(SENDAS_KM2_MAX) + ' km². Es demasiado grande: hazla más pequeña, o pártela '
+      + 'en dos paquetes y bájalos por separado.';
     return;
   }
-  const trozos = troceaBbox(bounds, SENDAS_KM2_TROZO);
+  const trozos = troceaBbox(bounds, SENDAS_KM2_TROZO).filter(t => trozoSirve(t, poly));
   $v.disabled = $g.disabled = true;
   /* mismo permiso que al bajar zonas: le pide al navegador que no borre esto
      por su cuenta si el móvil se queda justo de espacio */
@@ -1812,11 +1912,13 @@ async function descargaSendas(bounds, nombre) {
         const clave = e.type + e.id;
         if (vistos.has(clave)) continue;
         if (e.geometry && e.geometry.length > 1) {          // un camino
+          const g = e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ]);
+          /* si dibujaste una forma, se tira lo que cae del todo fuera */
+          if (poly && !g.some(pt => dentroDelPoligono(pt, poly))) continue;
           vistos.add(clave);
           caminos.push({
             t: (e.tags && e.tags.highway) || 'path',
-            r: (e.tags && (e.tags.ref || e.tags.name)) || '',
-            g: e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ])
+            r: (e.tags && (e.tags.ref || e.tags.name)) || '', g
           });
           continue;
         }
@@ -1824,9 +1926,10 @@ async function descargaSendas(bounds, nombre) {
         const lat = e.lat != null ? e.lat : (e.center && e.center.lat);
         const lon = e.lon != null ? e.lon : (e.center && e.center.lon);
         if (lat == null || lon == null) continue;
+        const g = [ +Number(lat).toFixed(5), +Number(lon).toFixed(5) ];
+        if (poly && !dentroDelPoligono(g, poly)) continue;
         vistos.add(clave);
-        puntos.push({ k, n: (e.tags.name || ''), a: (e.tags.ele || ''),
-          g: [ +Number(lat).toFixed(5), +Number(lon).toFixed(5) ] });
+        puntos.push({ k, n: (e.tags.name || ''), a: (e.tags.ele || ''), g });
       }
       if (i < trozos.length - 1) await new Promise(r => setTimeout(r, 700));  // no atosigar al servidor
     }
@@ -1867,61 +1970,162 @@ function pintaListaSendas() {
     li.querySelector('.nom').textContent = f.nom;
     li.querySelector('.det').textContent = fmtN(f.n) + ' caminos'
       + (f.np ? ' · ' + fmtN(f.np) + ' puntos' : '') + ' · ' + f.kb + ' KB · ' + fmtFecha(f.fecha);
+    const ver = document.createElement('input');
+    ver.type = 'checkbox'; ver.className = 'ver1'; ver.checked = !f.off;
+    ver.title = 'Mostrar este paquete';
+    ver.onchange = () => {
+      const fs = leeSendas(); const x = fs.find(z => z.id === f.id);
+      if (x) { x.off = !ver.checked; salvaSendasF(fs); }
+      pintaSendas();
+    };
+    li.prepend(ver);
     const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
     ir.onclick = () => { mapa.fitBounds([[f.bbox[0], f.bbox[1]], [f.bbox[2], f.bbox[3]]]); cierraPanel(); };
-    const ex = document.createElement('button'); ex.textContent = 'Exportar'; ex.className = 'solo-pc';
-    ex.onclick = () => exportaPaquete(f);
     const bo = document.createElement('button'); bo.textContent = 'Borrar';
     bo.onclick = async () => {
       const c = await caches.open(CACHE_SENDAS); await c.delete(claveSendas(f.id));
+      memoriaSendas.delete(f.id);
       salvaSendasF(leeSendas().filter(x => x.id !== f.id));
       pintaListaSendas(); pintaSendas();
     };
-    li.append(ir, ex, bo); ul.appendChild(li);
+    li.append(ir, bo); ul.appendChild(li);
   });
 }
 
 /* ---- llevárselo al otro dispositivo -----------------------------------
    Los paquetes viven en el navegador, y cada navegador es un mundo: lo
-   descargado en el ordenador no aparece en el móvil. Exportar da el fichero
-   para dejarlo en la carpeta `sendas/` del repositorio; desde ahí lo carga
-   cualquier dispositivo de un toque, y como viene del propio dominio el
-   service worker lo guarda offline sin más trámite.                      */
-async function exportaPaquete(f) {
-  const datos = await leeDatosSendas(f.id); if (!datos) return;
-  const txt = JSON.stringify(Array.isArray(datos) ? { v:2, w:datos, p:[], bbox:f.bbox } : datos);
-  const nombre = (f.nom || 'sendas').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json';
-  const url = URL.createObjectURL(new Blob([txt], { type:'application/json' }));
-  const a = document.createElement('a'); a.href = url; a.download = nombre;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  avisa('Guardado como ' + nombre);
+   descargado en el ordenador no aparece en el móvil. La solución es un ÚNICO
+   fichero, `sendas/paquetes.json`, con todo dentro. Así no hay índice que
+   mantener a mano: el fichero es el índice. Se sube al repositorio —a mano o
+   con el botón Publicar— y cualquier dispositivo se lo trae de un toque.  */
+const RUTA_PAQUETES = 'sendas/paquetes.json';
+
+async function misPaquetes() {
+  const fichas = leeSendas(), paquetes = [];
+  for (const f of fichas) {
+    const bruto = await leeDatosSendas(f.id); if (!bruto) continue;
+    const d = Array.isArray(bruto) ? { w:bruto, p:[] } : bruto;
+    paquetes.push({ id: f.origen || idDesde(f.nom), nom: f.nom,
+      bbox: d.bbox || f.bbox, w: d.w || [], p: d.p || [] });
+  }
+  return paquetes;
 }
 
-/* ---- paquetes que viajan con la app ----------------------------------
-   Si existe `sendas/index.json` en el repositorio, se listan sus paquetes
-   para añadirlos de un toque. Si no existe, la sección no aparece.      */
+/* Publicar ACUMULA, no sustituye: se parte de lo que ya hay en el repositorio
+   y se le añaden los paquetes de este dispositivo. Si coincide el id, gana el
+   de aquí (lo estás actualizando a propósito). Así publicar desde el móvil no
+   se lleva por delante lo que subiste desde el ordenador.
+   Como contrapartida, publicar NUNCA borra: para quitar un paquete del
+   repositorio hay que editar el fichero en GitHub. */
+async function armaPaquetesJson(previos) {
+  const mios = await misPaquetes();
+  const porId = new Map();
+  for (const p of (previos || [])) porId.set(p.id, p);
+  for (const p of mios) porId.set(p.id, p);
+  return JSON.stringify({ v:1, paquetes: [...porId.values()] });
+}
+const idDesde = nom => (nom || 'paquete').toLowerCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+async function exportaTodo() {
+  /* también parte de lo publicado, para que subir el fichero a mano no borre
+     lo que hubiera puesto el otro dispositivo */
+  let previos = [];
+  try { const r = await fetch(RUTA_PAQUETES); if (r.ok) previos = (await r.json()).paquetes || []; } catch (e) {}
+  const txt = await armaPaquetesJson(previos);
+  const url = URL.createObjectURL(new Blob([txt], { type:'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'paquetes.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  avisa('Descargado paquetes.json — súbelo a sendas/ en el repositorio');
+}
+
+/* ---- publicar directamente en GitHub ---------------------------------
+   Evita el paso incómodo de subir ficheros a mano, sobre todo desde el móvil.
+   El token se guarda SOLO en este navegador, nunca viaja al repositorio ni
+   sale de tu dispositivo salvo hacia la propia API de GitHub. Conviene que
+   sea de los restringidos: un solo repositorio y permiso de contenidos.  */
+const LS_GH = 'ign.gh';
+/* de https://usuario.github.io/repo/ se deducen dueño y repositorio */
+function repoDeLaUrl() {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  if (!m) return null;
+  const trozo = location.pathname.split('/').filter(Boolean)[0];
+  return { duenio: m[1], repo: trozo || (m[1] + '.github.io') };
+}
+const aBase64 = txt => {
+  const bytes = new TextEncoder().encode(txt);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 8192)
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  return btoa(s);
+};
+
+async function publicaEnGitHub() {
+  const $b = document.getElementById('btn-publicar');
+  const $e = document.getElementById('gh-estado');
+  const token = (document.getElementById('gh-token').value || '').trim();
+  const r = repoDeLaUrl();
+  if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada en GitHub Pages, no en local.'; return; }
+  if (!token) { $e.textContent = 'Falta el token.'; return; }
+  localStorage.setItem(LS_GH, token);
+  $b.disabled = true; $e.textContent = 'Publicando…';
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_PAQUETES;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  try {
+    /* si el fichero ya existe hay que mandar su sha, o GitHub rechaza el cambio */
+    let sha = null, previos = [];
+    const prev = await fetch(api, { headers:cab });
+    if (prev.ok) {
+      const meta = await prev.json();
+      sha = meta.sha;
+      /* se leen los paquetes que ya hay publicados para no pisarlos */
+      try {
+        const crudo = decodeURIComponent(escape(atob((meta.content || '').replace(/\n/g, ''))));
+        previos = (JSON.parse(crudo).paquetes) || [];
+      } catch (e) { previos = []; }
+    }
+    else if (prev.status === 401) throw new Error('el token no es válido');
+    else if (prev.status === 403) throw new Error('el token no tiene permiso sobre este repositorio');
+    const txt = await armaPaquetesJson(previos);
+    const total = JSON.parse(txt).paquetes.length;
+    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Actualiza los paquetes de senderos desde la app',
+        content: aBase64(txt), sha: sha || undefined }) });
+    if (!res.ok) {
+      const det = await res.json().catch(() => ({}));
+      throw new Error(det.message || ('HTTP ' + res.status));
+    }
+    $e.textContent = 'Publicado. El fichero contiene ahora ' + total + ' paquete' + (total === 1 ? '' : 's')
+      + '. En un minuto estará disponible en el otro dispositivo.';
+  } catch (err) {
+    $e.textContent = 'No se ha podido publicar: ' + err.message;
+  } finally { $b.disabled = false; }
+}
+
+/* ---- paquetes que viajan con la app ---------------------------------- */
 async function pintaPaquetesRepo() {
   const cont = document.getElementById('repo-sendas');
-  let indice = null;
+  let doc = null;
   try {
-    const r = await fetch('sendas/index.json', { cache:'no-cache' });
-    if (r.ok) indice = await r.json();
+    const r = await fetch(RUTA_PAQUETES);
+    if (r.ok) doc = await r.json();
   } catch (e) {}
-  if (!indice || !indice.length) { cont.hidden = true; return; }
+  const lista = doc && (doc.paquetes || (Array.isArray(doc) ? doc : null));
+  if (!lista || !lista.length) { cont.hidden = true; return; }
   cont.hidden = false;
   const ul = document.getElementById('repo-lista');
   ul.innerHTML = '';
   const puestos = new Set(leeSendas().map(f => f.origen).filter(Boolean));
-  indice.forEach(p => {
+  lista.forEach(p => {
     const li = document.createElement('li');
     li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
-    li.querySelector('.nom').textContent = p.nom || p.fichero;
-    li.querySelector('.det').textContent = p.desc || '';
+    li.querySelector('.nom').textContent = p.nom || p.id;
+    li.querySelector('.det').textContent = fmtN((p.w || []).length) + ' caminos'
+      + ((p.p || []).length ? ' · ' + fmtN(p.p.length) + ' puntos' : '');
     const bt = document.createElement('button'); bt.className = 'ir';
-    if (puestos.has(p.fichero)) { bt.textContent = 'Ya lo tienes'; bt.disabled = true; }
+    if (puestos.has(p.id)) { bt.textContent = 'Ya lo tienes'; bt.disabled = true; }
     else { bt.textContent = 'Añadir'; bt.onclick = () => añadePaqueteRepo(p, bt); }
     li.append(bt); ul.appendChild(li);
   });
@@ -1929,34 +2133,116 @@ async function pintaPaquetesRepo() {
 async function añadePaqueteRepo(p, bt) {
   bt.disabled = true; bt.textContent = 'Añadiendo…';
   try {
-    const r = await fetch('sendas/' + p.fichero);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const datos = await r.json();
+    const datos = { v:2, w:p.w || [], p:p.p || [], bbox:p.bbox };
     const id = 's' + Date.now().toString(36);
     await salvaDatosSendas(id, datos);
     const fichas = leeSendas();
-    fichas.push({ id, nom: p.nom || p.fichero, origen: p.fichero,
-      n: (datos.w || []).length, np: (datos.p || []).length,
+    fichas.push({ id, nom: p.nom || p.id, origen: p.id,
+      n: datos.w.length, np: datos.p.length,
       kb: Math.max(1, Math.round(JSON.stringify(datos).length / 1024)),
-      fecha: Date.now(), bbox: datos.bbox || p.bbox });
+      fecha: Date.now(), bbox: p.bbox });
     salvaSendasF(fichas);
     bt.textContent = 'Ya lo tienes';
     pintaListaSendas(); await pintaSendas();
-    avisa('Añadido: ' + (p.nom || p.fichero));
+    avisa('Añadido: ' + (p.nom || p.id));
   } catch (err) {
     bt.disabled = false; bt.textContent = 'Reintentar';
     avisa('No se ha podido añadir: ' + err.message);
   }
 }
 
+/* El nombre que pongas es también el identificador dentro del repositorio, así
+   que si repites uno estarás actualizando aquel paquete. Si lo dejas vacío se
+   inventa uno con la fecha y la hora, que al menos no colisiona. */
+function nombrePaquete(porDefecto) {
+  const $n = document.getElementById('sendas-nombre');
+  const v = ($n.value || '').trim();
+  $n.value = '';
+  if (v) return v;
+  const h = new Date();
+  return porDefecto + ' ' + fmtFecha(h.getTime()) + ', '
+    + String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0');
+}
+/* ---- dibujar la zona sobre el mapa ------------------------------------ */
+let modoDib = false, verticesDib = [], capaDib = null;
+
+function poligonoDib() {
+  if (verticesDib.length === 2) {              // dos toques = rectángulo
+    const [a, b] = verticesDib;
+    return [[a[0],a[1]], [a[0],b[1]], [b[0],b[1]], [b[0],a[1]]];
+  }
+  return verticesDib.length >= 3 ? verticesDib.slice() : null;
+}
+function pintaDib() {
+  if (capaDib) { mapa.removeLayer(capaDib); capaDib = null; }
+  const poly = poligonoDib();
+  const capas = verticesDib.map(v => L.circleMarker(v,
+    { radius:6, color:'#fff', weight:2, fillColor:'#2f6b4f', fillOpacity:1, interactive:false }));
+  if (poly) capas.unshift(L.polygon(poly,
+    { color:'#2f6b4f', weight:2, dashArray:'6,4', fillColor:'#2f6b4f', fillOpacity:.12, interactive:false }));
+  else if (verticesDib.length === 1) { /* solo el punto */ }
+  capaDib = L.layerGroup(capas).addTo(mapa);
+
+  const km2 = poly ? areaPoligonoKm2(poly) : 0;
+  const $p = document.getElementById('dib-pista');
+  const pasa = km2 > SENDAS_KM2_MAX;
+  document.getElementById('dib-bajar').disabled = !poly || pasa;
+  document.getElementById('dib-deshacer').disabled = !verticesDib.length;
+  if (!poly) {
+    $p.textContent = verticesDib.length
+      ? 'Toca otra esquina para cerrar un rectángulo, o sigue tocando para dibujar la forma.'
+      : 'Toca dos esquinas para un rectángulo, o varias para dibujar la forma.';
+  } else if (pasa) {
+    $p.innerHTML = '<span class="pasa">' + fmtN(Math.round(km2)) + ' km² — demasiado grande.</span> '
+      + 'El tope son ' + fmtN(SENDAS_KM2_MAX) + ' km². Haz la zona más pequeña, o bájala en dos paquetes.';
+  } else {
+    $p.innerHTML = '<b>' + fmtN(Math.round(km2)) + ' km²</b> · '
+      + (verticesDib.length === 2 ? 'rectángulo' : verticesDib.length + ' vértices')
+      + '. Ponle nombre y descarga.';
+  }
+}
+function abreDibujo() {
+  cierraPanel();
+  modoDib = true; verticesDib = [];
+  document.getElementById('barra-dibujo').hidden = false;
+  document.getElementById('dib-nombre').value = document.getElementById('sendas-nombre').value || '';
+  mapa.on('click', clicDib);
+  pintaDib();
+  avisa('Toca en el mapa las esquinas de la zona');
+}
+function cierraDibujo() {
+  modoDib = false;
+  mapa.off('click', clicDib);
+  if (capaDib) { mapa.removeLayer(capaDib); capaDib = null; }
+  verticesDib = [];
+  document.getElementById('barra-dibujo').hidden = true;
+}
+function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
+
+document.getElementById('btn-sendas-dibujo').onclick = abreDibujo;
+document.getElementById('dib-deshacer').onclick = () => { verticesDib.pop(); pintaDib(); };
+document.getElementById('dib-cancelar').onclick = cierraDibujo;
+document.getElementById('dib-bajar').onclick = () => {
+  const poly = poligonoDib(); if (!poly) return;
+  const nom = (document.getElementById('dib-nombre').value || '').trim();
+  document.getElementById('sendas-nombre').value = nom;
+  const b = L.latLngBounds(poly.map(v => L.latLng(v[0], v[1])));
+  cierraDibujo();
+  abrePanel();
+  descargaSendas(b, nombrePaquete('Zona de'), poly);
+};
+
 document.getElementById('btn-sendas-vista').onclick = () =>
-  descargaSendas(mapa.getBounds(), 'Vista de ' + fmtFecha(Date.now()));
+  descargaSendas(mapa.getBounds(), nombrePaquete('Vista de'));
 document.getElementById('btn-sendas-gpx').onclick = () => {
   if (!capaGpx) return;
   /* margen alrededor del track: lo justo para ver alternativas y escapes
      sin convertir la petición en media provincia */
-  descargaSendas(capaGpx.getBounds().pad(.15), 'Alrededor del track');
+  descargaSendas(capaGpx.getBounds().pad(.15), nombrePaquete('Alrededor del track'));
 };
+document.getElementById('btn-publicar').onclick = publicaEnGitHub;
+document.getElementById('btn-exportar-todo').onclick = exportaTodo;
+document.getElementById('gh-token').value = localStorage.getItem(LS_GH) || '';
 document.getElementById('sendas-ver').onchange = ev => {
   sendasVisibles = ev.target.checked; pintaSendas();
 };

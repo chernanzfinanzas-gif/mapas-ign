@@ -4,7 +4,7 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v6';
+const APP   = 'ign-app-v10';
 const TILES = 'ign-tiles-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
@@ -97,6 +97,23 @@ self.addEventListener('fetch', e => {
       }
       if (res.type === 'opaque') return res;              // se sirve, no se guarda
       return sinTile(req, res.status);
+    })());
+    return;
+  }
+
+  /* --- los paquetes de senderos cambian cuando publicas: red primero, y la
+         copia guardada solo como respaldo. Si no, tras publicar seguirías
+         viendo la versión vieja hasta la segunda carga. --- */
+  if (url.origin === location.origin && url.pathname.includes('/sendas/')) {
+    e.respondWith((async () => {
+      const cache = await caches.open(APP);
+      try {
+        const res = await fetch(req);
+        if (res && res.ok) cache.put(req, res.clone()).catch(() => {});
+        return res;
+      } catch (err) {
+        return (await cache.match(req)) || new Response('Sin conexión', { status: 503 });
+      }
     })());
     return;
   }
