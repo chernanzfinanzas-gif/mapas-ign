@@ -787,6 +787,10 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
   padding:10px 12px;font-size:13px;margin:12px 0}
 #estimacion .num{font-weight:700;font-variant-numeric:tabular-nums}
 #estimacion.mucho{background:#fdf2e4;border-color:#f0dcc0}
+#sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
+#sendas-lista{list-style:none;margin:6px 0 0;padding:0}
+.ver-sendas{display:flex;gap:9px;align-items:center;font-size:13.5px;margin-top:10px}
+.ver-sendas input{width:18px;height:18px;accent-color:var(--verde)}
 .seg{display:flex;gap:6px}
 .seg button{flex:1;padding:10px 4px;border:1px solid var(--linea);border-radius:10px;
   background:#fff;font:inherit;font-size:13px;font-weight:600;color:#5d5a53;cursor:pointer}
@@ -803,15 +807,15 @@ button.sec{width:100%;padding:11px;border:1px solid var(--linea);border-radius:1
 #prog-txt{font-variant-numeric:tabular-nums;color:#4a4741}
 #prog-err{color:var(--rojo)}
 #prog-nota{color:var(--ambar);font-size:12.5px;margin-top:4px}
-ul#lista{list-style:none;margin:0;padding:0}
-ul#lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
-ul#lista li:last-child{border-bottom:0}
-ul#lista .info{flex:1 1 auto;min-width:0}
-ul#lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul#lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
-ul#lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
+ul#lista,ul#sendas-lista{list-style:none;margin:0;padding:0}
+ul#lista li,ul#sendas-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
+ul#lista li:last-child,ul#sendas-lista li:last-child{border-bottom:0}
+ul#lista .info,ul#sendas-lista .info{flex:1 1 auto;min-width:0}
+ul#lista .nom,ul#sendas-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul#lista .det,ul#sendas-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul#lista button,ul#sendas-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
-ul#lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+ul#lista button.ir,ul#sendas-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
 .vacio{font-size:13px;color:#6b6862;font-style:italic}
 #almacen{font-size:13px;color:#4a4741;font-variant-numeric:tabular-nums}
 #almacen .aviso-purga{color:var(--ambar)}
@@ -882,6 +886,16 @@ ul#lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
     <section>
       <h3>Mis zonas</h3>
       <ul id="lista"></ul>
+    </section>
+
+    <section>
+      <h3>Senderos de OpenStreetMap</h3>
+      <p class="pista">Descarga los <b>datos</b> de sendas, pistas y escaleras y los dibuja encima del mapa del IGN, que muchas veces no las trae. Pesa kilobytes, no caduca y funciona sin cobertura.</p>
+      <button class="sec" id="btn-sendas-vista">Descargar los de la vista actual</button>
+      <button class="sec" id="btn-sendas-gpx" disabled>Descargar alrededor del GPX cargado</button>
+      <div id="sendas-prog"></div>
+      <ul id="sendas-lista"></ul>
+      <label class="ver-sendas"><input type="checkbox" id="sendas-ver" checked> Mostrarlos sobre el mapa</label>
     </section>
 
     <section>
@@ -1006,6 +1020,10 @@ const capaPorId = id => CAPAS.find(c => c.id === id);
 const Z_MIN_DESCARGA = 11;          // siempre se baja desde aquí, da contexto
 const CACHE_TILES    = 'ign-tiles-v1';
 const LS_ZONAS       = 'ign.zonas';
+const LS_SENDAS      = 'ign.sendas';        // fichas de los paquetes de senderos
+const CACHE_SENDAS   = 'ign-sendas-v1';     // los datos en sí, fuera de localStorage
+const OVERPASS       = 'https://overpass-api.de/api/interpreter';
+const SENDAS_KM2_MAX = 1200;                // tope de área por descarga
 const LS_ESTADO      = 'ign.estado';
 const LS_GPX         = 'ign.gpx';
 const ATRIB = '© <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
@@ -1082,6 +1100,14 @@ const CapaIGN = L.TileLayer.extend({
 });
 const mapa = L.map('map', { zoomControl:false, attributionControl:true, tap:false });
 L.control.scale({ imperial:false, position:'bottomright', maxWidth:110 }).addTo(mapa);
+
+/* panel propio para los senderos de OSM: por encima de las teselas (200) y por
+   debajo del track cargado (400), para que la ruta que sigues mande siempre.
+   Se dibuja en canvas: con miles de tramos, en el móvil es la diferencia entre
+   que el mapa se mueva o que vaya a tirones. */
+mapa.createPane('sendas');
+mapa.getPane('sendas').style.zIndex = 350;
+const lienzoSendas = L.canvas({ pane:'sendas', padding:.3 });
 
 const capasVivas = {};
 CAPAS.forEach(cfg => {
@@ -1544,6 +1570,7 @@ function pintaGpx(pts) {
     L.polyline(pts, { color:'#9e3b32', weight:3.5, interactive:false })
   ]).addTo(mapa);
   document.getElementById('btn-gpx-quitar').hidden = false;
+  const $g = document.getElementById('btn-sendas-gpx'); if ($g) $g.disabled = false;
 }
 document.getElementById('btn-gpx').onclick = () => document.getElementById('file-gpx').click();
 document.getElementById('btn-gpx-quitar').onclick = () => {
@@ -1593,6 +1620,148 @@ document.getElementById('descargar').onclick = descarga;
 document.getElementById('cancelar').onclick = () => { cancelado = true; };
 mapa.on('moveend zoomend', guardaEstado);
 
+/* ---------- 8. Senderos de OpenStreetMap: DATOS, no imágenes -----------
+   Al topográfico del IGN le faltan sendas que en OSM sí están. Sus teselas no
+   se pueden descargar por adelantado —la política lo prohíbe—, pero los DATOS
+   son ODbL y se piden libremente a Overpass. Así que se baja la geometría de
+   los caminos de una zona, se guarda, y se dibuja encima del mapa del IGN.
+   Kilobytes en vez de megas, no caduca, y funciona sin cobertura.        */
+
+const leeSendas   = () => { try { return JSON.parse(localStorage.getItem(LS_SENDAS)) || []; } catch (e) { return []; } };
+const salvaSendasF = f => localStorage.setItem(LS_SENDAS, JSON.stringify(f));
+
+const TIPOS_SENDA = {
+  path:      { color:'#a03828', peso:2.4, guion:'7,4' },
+  footway:   { color:'#a03828', peso:2.4, guion:'7,4' },
+  bridleway: { color:'#a03828', peso:2.4, guion:'7,4' },
+  steps:     { color:'#a03828', peso:3.0, guion:'2,3' },
+  track:     { color:'#8a5a2b', peso:3.2, guion:null  },
+  cycleway:  { color:'#3b6ea0', peso:2.4, guion:'7,4' }
+};
+
+const claveSendas = id => 'https://sendas.local/' + id;
+async function salvaDatosSendas(id, d) {
+  const c = await caches.open(CACHE_SENDAS);
+  await c.put(claveSendas(id), new Response(JSON.stringify(d), { headers:{ 'Content-Type':'application/json' } }));
+}
+async function leeDatosSendas(id) {
+  const c = await caches.open(CACHE_SENDAS);
+  const r = await c.match(claveSendas(id));
+  return r ? r.json() : null;
+}
+
+let capaSendas = null, sendasVisibles = true;
+
+async function pintaSendas() {
+  if (capaSendas) { mapa.removeLayer(capaSendas); capaSendas = null; }
+  if (!sendasVisibles) return;
+  const fichas = leeSendas(); if (!fichas.length) return;
+  const halos = [], lineas = [];
+  for (const f of fichas) {
+    const datos = await leeDatosSendas(f.id); if (!datos) continue;
+    for (const w of datos) {
+      const e = TIPOS_SENDA[w.t] || TIPOS_SENDA.path;
+      /* dos trazos: uno blanco debajo y el de color encima. Es lo que hace que
+         una senda se lea sobre la ortofoto y sobre el sombreado del topo. */
+      halos.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:'#fff',
+        weight:e.peso + 2.6, opacity:.7, interactive:false }));
+      lineas.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:e.color,
+        weight:e.peso, opacity:.95, dashArray:e.guion, interactive:false }));
+    }
+  }
+  if (!lineas.length) return;
+  capaSendas = L.layerGroup(halos.concat(lineas)).addTo(mapa);
+  subeGpx();
+}
+
+function areaKm2(b) {
+  const R = 6371, rad = Math.PI / 180;
+  const alto  = (b.getNorth() - b.getSouth()) * rad * R;
+  const ancho = (b.getEast() - b.getWest()) * rad * R * Math.cos((b.getNorth() + b.getSouth()) / 2 * rad);
+  return Math.abs(alto * ancho);
+}
+
+async function descargaSendas(bounds, nombre) {
+  const $v = document.getElementById('btn-sendas-vista');
+  const $g = document.getElementById('btn-sendas-gpx');
+  const $p = document.getElementById('sendas-prog');
+  const km2 = areaKm2(bounds);
+  if (km2 > SENDAS_KM2_MAX) {
+    $p.textContent = 'Esa zona son ' + Math.round(km2) + ' km², demasiado para una sola petición. '
+      + 'Acerca el mapa: el tope son ' + SENDAS_KM2_MAX + ' km².';
+    return;
+  }
+  const bb = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]
+    .map(n => n.toFixed(5)).join(',');
+  const consulta = '[out:json][timeout:90];'
+    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"](' + bb + ');out geom;';
+  $v.disabled = $g.disabled = true;
+  $p.textContent = 'Pidiendo los caminos de ' + Math.round(km2) + ' km²… puede tardar medio minuto.';
+  try {
+    const res = await fetch(OVERPASS, { method:'POST', body:'data=' + encodeURIComponent(consulta),
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded' } });
+    if (!res.ok) throw new Error('el servidor ha respondido ' + res.status);
+    const json = await res.json();
+    /* se guarda lo mínimo: tipo, nombre o referencia, y la geometría con cinco
+       decimales — algo más de un metro, de sobra para andar y la mitad de peso */
+    const datos = (json.elements || [])
+      .filter(e => e.geometry && e.geometry.length > 1)
+      .map(e => ({
+        t: (e.tags && e.tags.highway) || 'path',
+        r: (e.tags && (e.tags.ref || e.tags.name)) || '',
+        g: e.geometry.map(p => [ +p.lat.toFixed(5), +p.lon.toFixed(5) ])
+      }));
+    if (!datos.length) { $p.textContent = 'En esa zona OpenStreetMap no tiene ningún camino registrado.'; return; }
+    const id = 's' + Date.now().toString(36);
+    await salvaDatosSendas(id, datos);
+    const kb = Math.max(1, Math.round(JSON.stringify(datos).length / 1024));
+    const fichas = leeSendas();
+    fichas.push({ id, nom: nombre || 'Senderos', n: datos.length, kb, fecha: Date.now(),
+      bbox: [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()] });
+    salvaSendasF(fichas);
+    $p.textContent = fmtN(datos.length) + ' caminos guardados, ' + kb + ' KB. Ya se ven sin cobertura.';
+    pintaListaSendas();
+    await pintaSendas();
+  } catch (err) {
+    $p.textContent = 'No se han podido descargar: ' + err.message + '. Inténtalo dentro de un minuto.';
+  } finally {
+    $v.disabled = false; $g.disabled = !capaGpx;
+  }
+}
+
+function pintaListaSendas() {
+  const ul = document.getElementById('sendas-lista'), fs = leeSendas();
+  ul.innerHTML = '';
+  if (!fs.length) { ul.innerHTML = '<li class="vacio">Todavía no has descargado senderos.</li>'; return; }
+  fs.slice().reverse().forEach(f => {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
+    li.querySelector('.nom').textContent = f.nom;
+    li.querySelector('.det').textContent = fmtN(f.n) + ' caminos · ' + f.kb + ' KB · ' + fmtFecha(f.fecha);
+    const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
+    ir.onclick = () => { mapa.fitBounds([[f.bbox[0], f.bbox[1]], [f.bbox[2], f.bbox[3]]]); cierraPanel(); };
+    const bo = document.createElement('button'); bo.textContent = 'Borrar';
+    bo.onclick = async () => {
+      const c = await caches.open(CACHE_SENDAS); await c.delete(claveSendas(f.id));
+      salvaSendasF(leeSendas().filter(x => x.id !== f.id));
+      pintaListaSendas(); pintaSendas();
+    };
+    li.append(ir, bo); ul.appendChild(li);
+  });
+}
+
+document.getElementById('btn-sendas-vista').onclick = () =>
+  descargaSendas(mapa.getBounds(), 'Vista de ' + fmtFecha(Date.now()));
+document.getElementById('btn-sendas-gpx').onclick = () => {
+  if (!capaGpx) return;
+  /* margen alrededor del track: lo justo para ver alternativas y escapes
+     sin convertir la petición en media provincia */
+  descargaSendas(capaGpx.getBounds().pad(.15), 'Alrededor del track');
+};
+document.getElementById('sendas-ver').onchange = ev => {
+  sendasVisibles = ev.target.checked; pintaSendas();
+};
+
 (function arranca() {
   pintaCapas();
   let est = null;
@@ -1617,6 +1786,8 @@ mapa.on('moveend zoomend', guardaEstado);
     if (est.encima && est.encima !== (est.capa || 'topo')) ponCapaEncima(est.encima);
   }
   try { const g = JSON.parse(localStorage.getItem(LS_GPX)); if (g) pintaGpx(g); } catch (e) {}
+  pintaListaSendas();
+  pintaSendas();
   if (!zs.length) setTimeout(() => avisa('Pulsa ☰ para descargar tu primera zona'), 900);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
