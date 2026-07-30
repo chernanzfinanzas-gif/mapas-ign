@@ -2282,7 +2282,9 @@ const RUTAS_DIR   = 'rutas/';
 const LS_RUTAS_ON = 'ign.rutas.ver';
 const LS_RUTAS_NOM= 'ign.rutas.nombres';
 const Z_MIN_RUTAS = 9;                 // más lejos que esto no se dibujan
-const COLOR_ACT   = { sen:'#1d4ed8', bici:'#b45309' };
+/* morado para senderismo y rojo oscuro para bici: el azul se confundía
+   con los ríos del topográfico */
+const COLOR_ACT   = { sen:'#6d28d9', bici:'#8f1d1d' };
 const ETIQ_ACT    = { sen:'senderismo', bici:'bici' };
 
 let indiceRutas = null, capaRutas = null, geoRutas = new Map(), filtroAct = 'todas';
@@ -2332,7 +2334,7 @@ async function pintaRutas() {
     const segs = celda[r.id]; if (!segs) continue;
     for (const s of segs) {
       const ln = L.polyline(s, { renderer:lienzoSendas, pane:'rutas',
-        color: COLOR_ACT[r.a] || '#555', weight:2.6, opacity:.75 });
+        color: COLOR_ACT[r.a] || '#555', weight:3.4, opacity:.8 });
       ln.on('click', ev => { L.DomEvent.stop(ev); abreFichaRuta(r, ev.latlng); });
       capas.push(ln);
     }
