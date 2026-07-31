@@ -840,13 +840,14 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
    desde el ordenador. En el móvil solo estorbaría en una fila ya apretada. */
 @media (max-width:520px){ .solo-pc{display:none} }
 #publicar h4,#repo-sendas h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
-ul#sendas-lista .ver1{width:18px;height:18px;flex:0 0 auto;accent-color:var(--verde);margin-right:2px}
+ul#sendas-lista .ver1,ul#gpx-lista .ver1{width:18px;height:18px;flex:0 0 auto;accent-color:var(--verde);margin-right:2px}
 #rutas-estado{font-size:12.5px;color:#5d5a53;margin:8px 0 2px}
 .ficha-ruta .fr-nom{width:100%;box-sizing:border-box;padding:8px 9px;border:1px solid var(--linea);
   border-radius:9px;font:inherit;font-size:14px;font-weight:600}
 .ficha-ruta .fr-det{font-size:12.5px;color:#6b6862;margin:7px 0 9px;font-variant-numeric:tabular-nums}
 .ficha-ruta .fr-guarda{width:100%;padding:9px;border:0;border-radius:9px;background:var(--verde);
   color:#fff;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
+ul#gpx-lista .color{width:12px;height:12px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(0,0,0,.25)}
 #gh-estado{font-size:12.5px;color:#5d5a53;margin-top:6px}
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
@@ -868,15 +869,15 @@ button.sec{width:100%;padding:11px;border:1px solid var(--linea);border-radius:1
 #prog-txt{font-variant-numeric:tabular-nums;color:#4a4741}
 #prog-err{color:var(--rojo)}
 #prog-nota{color:var(--ambar);font-size:12.5px;margin-top:4px}
-ul#lista,ul#sendas-lista,ul#repo-lista{list-style:none;margin:0;padding:0}
-ul#lista li,ul#sendas-lista li,ul#repo-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
+ul#lista,ul#sendas-lista,ul#repo-lista,ul#gpx-lista{list-style:none;margin:0;padding:0}
+ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
 ul#lista li:last-child,ul#sendas-lista li:last-child{border-bottom:0}
-ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info{flex:1 1 auto;min-width:0}
-ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
-ul#lista button,ul#sendas-lista button,ul#repo-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
+ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info{flex:1 1 auto;min-width:0}
+ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
-ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
 .vacio{font-size:13px;color:#6b6862;font-style:italic}
 #almacen{font-size:13px;color:#4a4741;font-variant-numeric:tabular-nums}
 #almacen .aviso-purga{color:var(--ambar)}
@@ -1030,9 +1031,9 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-colo
     <section>
       <h3>Ruta y almacenamiento</h3>
       <div id="almacen"></div>
-      <button class="sec" id="btn-gpx">Cargar un GPX sobre el mapa…</button>
-      <button class="sec" id="btn-gpx-quitar" hidden>Quitar la ruta del mapa</button>
-      <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,text/xml" hidden>
+      <button class="sec" id="btn-gpx">Cargar GPX sobre el mapa…</button>
+      <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,text/xml" multiple hidden>
+      <ul id="gpx-lista"></ul>
     </section>
   </div>
 </div>
@@ -1314,7 +1315,6 @@ function ponOpacidad(v) {
   document.getElementById('opacidad').value = Math.round(opacidad * 100);
   marcaChips();
 }
-function subeGpx() { if (capaGpx) capaGpx.bringToFront(); }
 
 /* Antes había dos filas de botones, una por capa: con nueve capas ocupaban
    cuatro líneas de pantalla en el móvil. Ahora son dos selectores que abren
@@ -1400,14 +1400,7 @@ mapa.on('zoomend', sincronizaZoom);
 
 /* interruptores rápidos: el track cargado y la colección de rutas */
 let gpxVisible = true;
-function aplicaGpxVisible() {
-  const $t = document.getElementById('tog-gpx');
-  $t.disabled = !capaGpx;
-  if (!capaGpx) return;
-  if (gpxVisible && !mapa.hasLayer(capaGpx)) capaGpx.addTo(mapa);
-  if (!gpxVisible && mapa.hasLayer(capaGpx)) mapa.removeLayer(capaGpx);
-  subeGpx();
-}
+function aplicaGpxVisible() { pintaGpxs(); }
 document.getElementById('tog-gpx').onchange = ev => { gpxVisible = ev.target.checked; aplicaGpxVisible(); };
 document.getElementById('tog-rutas').onchange = ev => {
   rutasVisibles = ev.target.checked;
@@ -1767,50 +1760,183 @@ function onErrPos(e) {
 }
 
 /* ---------- 9. GPX ---------------------------------------------------- */
-let capaGpx = null;
-function pintaGpx(pts) {
-  if (capaGpx) { mapa.removeLayer(capaGpx); capaGpx = null; }
-  if (!pts || pts.length < 2) return;
-  /* verde fosforito con reborde oscuro: el marrón anterior se confundía con las
-     sendas de OSM. El reborde oscuro, y no blanco, es lo que hace que el verde
-     siga leyéndose igual sobre la ortofoto que sobre el topográfico claro. */
-  capaGpx = L.featureGroup([
-    L.polyline(pts, { color:'#12300a', weight:7.5, opacity:.6, interactive:false }),
-    L.polyline(pts, { color:'#4ade00', weight:3.8, opacity:1, interactive:false })
-  ]).addTo(mapa);
-  document.getElementById('btn-gpx-quitar').hidden = false;
-  const $g = document.getElementById('btn-sendas-gpx'); if ($g) $g.disabled = false;
-  gpxVisible = true;
-  const $t = document.getElementById('tog-gpx'); if ($t) { $t.checked = true; $t.disabled = false; }
+/* ---------- rutas GPX cargadas: varias a la vez -------------------------
+   Antes solo cabía una. Ahora se guardan en una lista, cada una con su color,
+   se encienden y apagan por separado, y cada una puede pedir sus senderos.
+   Los puntos van al almacén grande, no a la memoria pequeña del navegador:
+   un GPX tuyo puede traer cinco mil puntos y ahí no cabrían varios.        */
+const LS_GPXS   = 'ign.gpxs';
+const CACHE_GPX = 'ign-gpx-v1';
+const COLORES_GPX = ['#4ade00', '#00d9ff', '#ffd400', '#ff7a00', '#ff3df5', '#a0ff30'];
+const REBORDE_GPX = '#15221a';
+
+const leeGpxs   = () => { try { return JSON.parse(localStorage.getItem(LS_GPXS)) || []; } catch (e) { return []; } };
+const salvaGpxs = g => localStorage.setItem(LS_GPXS, JSON.stringify(g));
+const claveGpx  = id => 'https://gpx.local/' + id;
+async function salvaPuntosGpx(id, pts) {
+  const c = await caches.open(CACHE_GPX);
+  await c.put(claveGpx(id), new Response(JSON.stringify(pts), { headers:{ 'Content-Type':'application/json' } }));
 }
+async function leePuntosGpx(id) {
+  if (memoriaGpx.has(id)) return memoriaGpx.get(id);
+  const c = await caches.open(CACHE_GPX);
+  const r = await c.match(claveGpx(id));
+  const v = r ? await r.json() : null;
+  memoriaGpx.set(id, v);
+  return v;
+}
+const memoriaGpx = new Map();
+
+/* Douglas-Peucker: tus tracks traen un punto cada pocos metros y para dibujar
+   sobran. Quitando los que caen en línea recta se pinta igual y ocupa una
+   fracción. */
+function simplificaTrack(pts, tolM) {
+  if (pts.length < 3) return pts.slice();
+  const kx = 111320 * Math.cos(pts[0][0] * Math.PI / 180), ky = 110540;
+  const guarda = new Array(pts.length).fill(false);
+  guarda[0] = guarda[pts.length - 1] = true;
+  const pila = [[0, pts.length - 1]];
+  while (pila.length) {
+    const [i, j] = pila.pop();
+    if (j <= i + 1) continue;
+    const ax = pts[i][1] * kx, ay = pts[i][0] * ky;
+    const bx = pts[j][1] * kx, by = pts[j][0] * ky;
+    const dx = bx - ax, dy = by - ay, den = Math.hypot(dx, dy);
+    let dmax = -1, idx = -1;
+    for (let k = i + 1; k < j; k++) {
+      const px = pts[k][1] * kx, py = pts[k][0] * ky;
+      const d = den > 1e-9 ? Math.abs(dy * px - dx * py + bx * ay - by * ax) / den
+                           : Math.hypot(px - ax, py - ay);
+      if (d > dmax) { dmax = d; idx = k; }
+    }
+    if (dmax > tolM && idx > 0) { guarda[idx] = true; pila.push([i, idx], [idx, j]); }
+  }
+  return pts.filter((_, i) => guarda[i]);
+}
+function largoKm(pts) {
+  let m = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i-1], b = pts[i], R = 6371000, rad = Math.PI/180;
+    const p1 = a[0]*rad, p2 = b[0]*rad, dp = p2-p1, dl = (b[1]-a[1])*rad;
+    const h = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+    m += 2*R*Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+  return m / 1000;
+}
+
+let capaGpx = null;
+async function pintaGpxs() {
+  if (capaGpx) { mapa.removeLayer(capaGpx); capaGpx = null; }
+  const fichas = leeGpxs();
+  const $t = document.getElementById('tog-gpx');
+  if ($t) $t.disabled = !fichas.length;
+  const $g = document.getElementById('btn-sendas-gpx');
+  const visibles = fichas.filter(f => !f.off);
+  if ($g) $g.disabled = !visibles.length;
+  if (!gpxVisible || !visibles.length) return;
+  const capas = [];
+  for (const f of visibles) {
+    const pts = await leePuntosGpx(f.id); if (!pts || pts.length < 2) continue;
+    capas.push(L.polyline(pts, { color:REBORDE_GPX, weight:7.5, opacity:.6, interactive:false }));
+    capas.push(L.polyline(pts, { color:f.color, weight:3.8, opacity:1, interactive:false }));
+  }
+  if (!capas.length) return;
+  capaGpx = L.featureGroup(capas).addTo(mapa);
+  capaGpx.bringToFront();
+}
+function subeGpx() { if (capaGpx) capaGpx.bringToFront(); }
+
+function pintaListaGpx() {
+  const ul = document.getElementById('gpx-lista'); if (!ul) return;
+  const fs = leeGpxs().slice().sort((a, b) => a.nom.localeCompare(b.nom, 'es'));
+  ul.innerHTML = '';
+  if (!fs.length) { ul.innerHTML = '<li class="vacio">No has cargado ninguna ruta.</li>'; return; }
+  fs.forEach(f => {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
+    const ver = document.createElement('input');
+    ver.type = 'checkbox'; ver.className = 'ver1'; ver.checked = !f.off;
+    ver.onchange = () => {
+      const g = leeGpxs(); const x = g.find(z => z.id === f.id);
+      if (x) { x.off = !ver.checked; salvaGpxs(g); }
+      pintaGpxs(); pintaListaGpx();
+    };
+    const punto = document.createElement('span');
+    punto.className = 'color'; punto.style.background = f.color;
+    li.querySelector('.nom').textContent = f.nom;
+    li.querySelector('.det').textContent = f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos';
+    const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
+    ir.onclick = () => { mapa.fitBounds([[f.bbox[0],f.bbox[1]],[f.bbox[2],f.bbox[3]]], { padding:[20,20] }); cierraPanel(); };
+    const sd = document.createElement('button'); sd.textContent = 'Senderos';
+    sd.title = 'Descargar los senderos de OSM alrededor de esta ruta';
+    sd.onclick = () => {
+      const b = L.latLngBounds([[f.bbox[0],f.bbox[1]],[f.bbox[2],f.bbox[3]]]).pad(.15);
+      document.getElementById('sendas-nombre').value = f.nom;
+      descargaSendas(b, nombrePaquete('Alrededor de'));
+    };
+    const qu = document.createElement('button'); qu.textContent = 'Quitar';
+    qu.onclick = async () => {
+      const c = await caches.open(CACHE_GPX); await c.delete(claveGpx(f.id));
+      memoriaGpx.delete(f.id);
+      salvaGpxs(leeGpxs().filter(z => z.id !== f.id));
+      pintaListaGpx(); pintaGpxs();
+    };
+    li.prepend(punto); li.prepend(ver);
+    li.append(ir, sd, qu); ul.appendChild(li);
+  });
+}
+
 document.getElementById('btn-gpx').onclick = () => document.getElementById('file-gpx').click();
-document.getElementById('btn-gpx-quitar').onclick = () => {
-  if (capaGpx) mapa.removeLayer(capaGpx);
-  capaGpx = null; localStorage.removeItem(LS_GPX);
-  document.getElementById('btn-gpx-quitar').hidden = true;
-};
-document.getElementById('file-gpx').onchange = ev => {
-  const f = ev.target.files[0]; if (!f) return;
+const leeTexto = f => new Promise((ok, mal) => {
   const fr = new FileReader();
-  fr.onload = () => {
+  fr.onload = () => ok(fr.result); fr.onerror = mal;
+  fr.readAsText(f);
+});
+
+/* Los ficheros se procesan DE UNO EN UNO a propósito. Leyéndolos a la vez, cada
+   uno cargaba la lista, le añadía lo suyo y la volvía a guardar: el último en
+   terminar borraba a los demás. */
+document.getElementById('file-gpx').onchange = async ev => {
+  const ficheros = [...ev.target.files]; ev.target.value = '';
+  if (!ficheros.length) return;
+  let puestos = 0, ultimo = null;
+  for (const f of ficheros) {
     try {
-      const doc = new DOMParser().parseFromString(fr.result, 'application/xml');
+      const txt = await leeTexto(f);
+      const doc = new DOMParser().parseFromString(txt, 'application/xml');
       let nodos = [...doc.getElementsByTagName('trkpt')];
       if (!nodos.length) nodos = [...doc.getElementsByTagName('rtept')];
       if (!nodos.length) nodos = [...doc.getElementsByTagName('wpt')];
       const pts = nodos.map(n => [parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon'))])
                        .filter(p => isFinite(p[0]) && isFinite(p[1]));
-      if (pts.length < 2) { avisa('Ese GPX no tiene puntos de ruta'); return; }
-      const paso = Math.ceil(pts.length / 8000), red = paso > 1 ? pts.filter((_, i) => i % paso === 0) : pts;
-      pintaGpx(red);
-      try { localStorage.setItem(LS_GPX, JSON.stringify(red)); } catch (e) {}
-      mapa.fitBounds(L.latLngBounds(red).pad(.08));
-      cierraPanel();
-      avisa('Ruta cargada: ' + fmtN(pts.length) + ' puntos');
-    } catch (e) { avisa('No se pudo leer el GPX'); }
-  };
-  fr.readAsText(f);
-  ev.target.value = '';
+      if (pts.length < 2) { avisa('«' + f.name + '» no tiene puntos de ruta'); continue; }
+      /* el nombre bueno suele estar dentro del GPX; el del fichero es el
+         respaldo por si viene sin etiqueta */
+      const et = doc.getElementsByTagName('name')[0];
+      const nom = ((et && et.textContent.trim()) || f.name.replace(/\.gpx$/i, '')).slice(0, 80);
+      const km = largoKm(pts);
+      const red = simplificaTrack(pts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
+      let latmin = 90, lonmin = 180, latmax = -90, lonmax = -180;
+      red.forEach(([a, o]) => { latmin = Math.min(latmin,a); latmax = Math.max(latmax,a);
+                                lonmin = Math.min(lonmin,o); lonmax = Math.max(lonmax,o); });
+      const g = leeGpxs();
+      const id = 'g' + Date.now().toString(36) + puestos.toString(36);
+      await salvaPuntosGpx(id, red);
+      g.push({ id, nom, km, n: red.length, color: COLORES_GPX[g.length % COLORES_GPX.length],
+               bbox: [latmin, lonmin, latmax, lonmax] });
+      salvaGpxs(g);
+      ultimo = [[latmin, lonmin], [latmax, lonmax]];
+      puestos++;
+    } catch (e) { avisa('No se pudo leer «' + f.name + '»'); }
+  }
+  if (!puestos) return;
+  gpxVisible = true;
+  const $t = document.getElementById('tog-gpx'); if ($t) $t.checked = true;
+  pintaListaGpx();
+  await pintaGpxs();
+  if (ultimo) mapa.fitBounds(L.latLngBounds(ultimo).pad(.08));
+  avisa(puestos === 1 ? 'Ruta cargada' : puestos + ' rutas cargadas');
+  cierraPanel();
 };
 
 /* ---------- 10. Avisos, red y arranque -------------------------------- */
@@ -2518,7 +2644,7 @@ document.getElementById('rutas-ver').onchange = ev => {
 document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); };
 document.getElementById('btn-renom').onclick = exportaRenombres;
 
-(function arranca() {
+(async function arranca() {
   pintaCapas();
   let est = null;
   try { est = JSON.parse(localStorage.getItem(LS_ESTADO)); } catch (e) {}
@@ -2541,7 +2667,22 @@ document.getElementById('btn-renom').onclick = exportaRenombres;
     modoEncimaOn(true);
     if (est.encima && est.encima !== (est.capa || 'topo')) ponCapaEncima(est.encima);
   }
-  try { const g = JSON.parse(localStorage.getItem(LS_GPX)); if (g) pintaGpx(g); } catch (e) {}
+  /* migración: quien tuviera una ruta guardada del sistema antiguo la conserva */
+  try {
+    const viejo = JSON.parse(localStorage.getItem(LS_GPX));
+    if (viejo && viejo.length > 1 && !leeGpxs().length) {
+      const id = 'g' + Date.now().toString(36);
+      let latmin=90, lonmin=180, latmax=-90, lonmax=-180;
+      viejo.forEach(([a,o]) => { latmin=Math.min(latmin,a); latmax=Math.max(latmax,a);
+                                 lonmin=Math.min(lonmin,o); lonmax=Math.max(lonmax,o); });
+      await salvaPuntosGpx(id, viejo);
+      salvaGpxs([{ id, nom:'Ruta anterior', km:largoKm(viejo), n:viejo.length,
+                   color:COLORES_GPX[0], bbox:[latmin,lonmin,latmax,lonmax] }]);
+    }
+    localStorage.removeItem(LS_GPX);
+  } catch (e) {}
+  pintaListaGpx();
+  await pintaGpxs();
   sincronizaZoom();
   document.getElementById('tog-rutas').checked = rutasVisibles;
   aplicaGpxVisible();
