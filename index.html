@@ -750,6 +750,10 @@ img.leaflet-tile{image-rendering:auto}
   background:rgba(253,252,250,.97);border:1px solid var(--linea);border-radius:14px;padding:10px 12px;
   box-shadow:0 6px 22px rgba(0,0,0,.18)}
 #barra-dibujo[hidden]{display:none}
+#barra-dibujo .ln0{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;
+  margin-bottom:4px}
+#barra-dibujo .ln0 .mapas{color:var(--verde)}
+#barra-dibujo .ln0 .sendas{color:#8a5a2b}
 #barra-dibujo .ln1{font-size:12.5px;color:#5d5a53;margin-bottom:8px}
 #barra-dibujo .ln1 b{color:var(--verde)}
 #barra-dibujo .ln1 .pasa{color:#a8641f;font-weight:600}
@@ -911,6 +915,7 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
 <div id="menu-capas" hidden></div>
 
 <div id="barra-dibujo" hidden>
+  <div class="ln0"><span id="dib-que">Mapas del IGN</span></div>
   <div class="ln1"><span id="dib-pista">Toca dos esquinas para un rectángulo, o varias para dibujar la forma.</span></div>
   <div class="ln2">
     <input type="text" id="dib-nombre" placeholder="Nombre de la zona" autocomplete="off">
@@ -954,7 +959,7 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
           <option value="17">z17 — máximo detalle (pesa ~4 veces más)</option>
         </select>
       </label>
-      <button class="sec" id="btn-zona-dibujo">Dibujar la zona en el mapa…</button>
+      <button class="sec" id="btn-zona-dibujo">Dibujar en el mapa la zona a descargar…</button>
       <button class="sec" id="quitar-zona-dib" hidden>Olvidar la zona dibujada y usar la pantalla</button>
       <div class="capas" id="capas"></div>
       <div id="estimacion"></div>
@@ -979,7 +984,7 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <label class="campo">Nombre del paquete
         <input type="text" id="sendas-nombre" placeholder="Ej. La Pedriza — El Yelmo" autocomplete="off">
       </label>
-      <button class="sec" id="btn-sendas-dibujo">Dibujar la zona en el mapa…</button>
+      <button class="sec" id="btn-sendas-dibujo">Dibujar en el mapa la zona de senderos…</button>
       <button class="sec" id="btn-sendas-vista">Descargar los de la vista actual</button>
       <button class="sec" id="btn-sendas-gpx" disabled>Descargar alrededor del GPX cargado</button>
       <div id="sendas-prog"></div>
@@ -2535,6 +2540,9 @@ function abreDibujo(destino) {
     (destinoDib === 'zonas' ? document.getElementById('nombre').value
                             : document.getElementById('sendas-nombre').value) || '';
   document.getElementById('dib-bajar').textContent = destinoDib === 'zonas' ? 'Usar esta zona' : 'Descargar';
+  const $q = document.getElementById('dib-que');
+  $q.textContent = destinoDib === 'zonas' ? 'Zona de mapas del IGN' : 'Zona de senderos de OSM';
+  $q.className = destinoDib === 'zonas' ? 'mapas' : 'sendas';
   pintaCubierto();
   document.getElementById('barra-opacidad').hidden = true;
   mapa.on('click', clicDib);
