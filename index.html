@@ -903,6 +903,8 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
   display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .ficha-ruta .fr-borra{width:100%;padding:9px;border:1px solid #d8b4b0;border-radius:9px;background:#fff;
   color:#a8321f;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
+#velo-noche{position:fixed;inset:0;z-index:3000;pointer-events:none;
+  background:rgba(105,28,0,.26);mix-blend-mode:multiply}
 .pin-wpt{width:12px;height:12px;border-radius:3px;border:2px solid #fff;margin:3px;
   box-shadow:0 1px 4px rgba(0,0,0,.45);transform:rotate(45deg)}
 .perfil-caja{width:100%;overflow:hidden}
@@ -1166,7 +1168,9 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
         <button data-r="0">Normal</button>
         <button data-r="1">Realzado</button>
         <button data-r="2">Máximo</button>
+        <button data-r="3">Noche</button>
       </div>
+      <p class="pista">«Noche» apaga y entibia toda la pantalla: de madrugada o volviendo con frontal, evita quedarte deslumbrado y perder la visión nocturna durante un par de minutos.</p>
     </section>
 
     <section>
@@ -1431,12 +1435,20 @@ let capaActiva = null, capaEncima = null, modoEncima = false, opacidad = .55;
    sin cobertura y no gasta ni un byte de red.                            */
 const FILTROS = ['none',
                  'contrast(1.18) saturate(1.25)',
-                 'contrast(1.38) saturate(1.45) brightness(.97)'];
+                 'contrast(1.38) saturate(1.45) brightness(.97)',
+                 'brightness(.5) saturate(.55) sepia(.5) contrast(1.15)'];
 let realce = 0;
 function ponRealce(n) {
-  realce = (n === 1 || n === 2) ? n : 0;
+  realce = (n >= 1 && n <= 3) ? n : 0;
   const pane = document.querySelector('.leaflet-tile-pane');
   if (pane) pane.style.filter = FILTROS[realce];
+  /* el velo cubre TODO —mapa, barras, panel y diálogos—, que de nada sirve
+     oscurecer el mapa si luego el menú te ciega */
+  let velo = document.getElementById('velo-noche');
+  if (realce === 3 && !velo) {
+    velo = document.createElement('div'); velo.id = 'velo-noche';
+    document.body.appendChild(velo);
+  } else if (realce !== 3 && velo) velo.remove();
   document.querySelectorAll('#realce button').forEach(b =>
     b.setAttribute('aria-pressed', String(Number(b.dataset.r) === realce)));
   guardaEstado();
@@ -1648,15 +1660,33 @@ function pintaLista() {
   });
 }
 
+/* ¿se pisan dos zonas? Comparación de rectángulos, [sur, oeste, norte, este] */
+const seSolapan = (a, b) => !(a[0] > b[2] || a[2] < b[0] || a[1] > b[3] || a[3] < b[1]);
+
 async function borraZona(zona, boton) {
   boton.disabled = true; boton.textContent = 'Borrando…';
   try {
     const cache = await caches.open(CACHE_TILES);
     const urls = listaUrls(L.latLngBounds([zona.b[0], zona.b[1]], [zona.b[2], zona.b[3]]), zona.zmax, zona.capas);
-    for (let i = 0; i < urls.length; i += 60) await Promise.all(urls.slice(i, i + 60).map(u => cache.delete(u)));
+    /* Dos zonas que se pisan comparten teselas: son el MISMO fichero en la
+       caché. Borrando a ciegas, quitar una dejaba agujeros grises en la otra
+       —y no te enterabas hasta estar allí sin cobertura—. Así que primero se
+       apunta lo que sostienen las demás y eso no se toca. */
+    const otras = leeZonas().filter(z => z.id !== zona.id && seSolapan(z.b, zona.b));
+    const protegidas = new Set();
+    for (const z of otras) {
+      listaUrls(L.latLngBounds([z.b[0], z.b[1]], [z.b[2], z.b[3]]), z.zmax, z.capas)
+        .forEach(u => protegidas.add(u));
+    }
+    const aBorrar = protegidas.size ? urls.filter(u => !protegidas.has(u)) : urls;
+    const compartidas = urls.length - aBorrar.length;
+    for (let i = 0; i < aBorrar.length; i += 60) await Promise.all(aBorrar.slice(i, i + 60).map(u => cache.delete(u)));
     salvaZonas(leeZonas().filter(z => z.id !== zona.id));
     if (zonaActiva === zona.id) { zonaActiva = null; document.getElementById('zona-activa').textContent = 'Mapas IGN offline'; }
-    pintaLista(); pintaAlmacen(); avisa('Zona «' + zona.nom + '» borrada');
+    pintaLista(); pintaAlmacen();
+    avisa(compartidas
+      ? 'Zona «' + zona.nom + '» borrada · ' + fmtN(compartidas) + ' teselas conservadas porque las usa otra zona'
+      : 'Zona «' + zona.nom + '» borrada');
   } catch (e) { boton.disabled = false; boton.textContent = 'Borrar'; avisa('No se pudo borrar: ' + e.message); }
 }
 
@@ -3885,7 +3915,21 @@ async function vuelvePorDondeVine() {
   avisa('Navegando de vuelta por tu propia traza');
 }
 
-/* ---- compartir posición ---- */
+/* ---- compartir posición ----
+   Copiar deja el texto en el portapapeles y todavía hay que abrir WhatsApp,
+   buscar a alguien y pegar. Con `navigator.share` el móvil abre directamente
+   su hoja de compartir y eliges la conversación: dos toques en vez de seis,
+   que en un apuro no es un detalle. En el ordenador no existe, así que ahí
+   se copia como antes. */
+const puedeCompartir = () => typeof navigator.share === 'function';
+async function comparte(txt, titulo) {
+  if (!txt) { avisa('Espera a tener posición'); return; }
+  if (puedeCompartir()) {
+    try { await navigator.share({ title: titulo || 'Mi posición', text: txt }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }   // lo canceló él
+  }
+  copia(txt);
+}
 async function copia(txt) {
   try { await navigator.clipboard.writeText(txt); avisa('Copiado'); }
   catch (e) {
@@ -3917,14 +3961,14 @@ function abreEmergencia() {
   capa.innerHTML = '<div class="em-caja"><button class="em-cerrar" title="Cerrar">&times;</button>'
     + '<div class="em-cuerpo"></div>'
     + '<div class="em-bot">'
-    +   '<button class="sec" id="em-wa">Copiar para WhatsApp</button>'
-    +   '<button class="sec" id="em-112">Copiar para el 112</button>'
+    +   '<button class="accion" id="em-wa">' + (puedeCompartir() ? 'Mandar mi posición' : 'Copiar para WhatsApp') + '</button>'
+    +   '<button class="sec" id="em-112">' + (puedeCompartir() ? 'Mandar los datos del 112' : 'Copiar para el 112') + '</button>'
     +   '<button class="sec" id="em-volver">Volver por donde vine</button>'
     + '</div></div>';
   document.body.appendChild(capa);
   capa.querySelector('.em-cerrar').onclick = cierraEmergencia;
-  capa.querySelector('#em-wa').onclick  = () => copia(textoWhatsApp());
-  capa.querySelector('#em-112').onclick = () => copia(texto112());
+  capa.querySelector('#em-wa').onclick  = () => comparte(textoWhatsApp(), 'Mi posición');
+  capa.querySelector('#em-112').onclick = () => comparte(texto112(), 'Datos para el 112');
   capa.querySelector('#em-volver').onclick = vuelvePorDondeVine;
   if (!watch) arrancaGps();
   pintaEmergencia();
