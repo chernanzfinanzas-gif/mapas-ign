@@ -4,7 +4,7 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v14';
+const APP   = 'ign-app-v15';
 const TILES = 'ign-tiles-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 

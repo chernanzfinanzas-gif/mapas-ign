@@ -708,15 +708,31 @@ img.leaflet-tile{image-rendering:auto}
 #btn-encima.on{background:var(--verde);border-color:var(--verde);color:#fff}
 /* las dos filas se apilan solas: con 6 capas la primera ya envuelve y una
    posición fija haría que se pisaran */
-#filas{position:absolute;top:calc(54px + var(--safe-t));left:8px;right:8px;z-index:600;
-  display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-#chips,#chips-der{display:flex;gap:6px;flex-wrap:wrap}
-#chips-der{padding-top:2px;border-top:1px dashed rgba(22,33,28,.25)}
-#chips-der[hidden]{display:none}
-#chips-der .chip{border-style:dashed}
-#chips-der .chip.on{background:#2c4f6b;border-color:#2c4f6b;border-style:solid;color:#fff}
-.chip:disabled{opacity:.3;cursor:default}
-.chip.online::after{content:"·";margin-left:5px;color:var(--ambar);font-weight:900}
+#selectores{position:absolute;top:calc(54px + var(--safe-t));left:8px;right:8px;z-index:600;
+  display:flex;gap:6px}
+.sel{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;
+  padding:7px 12px;border:1px solid var(--linea);border-radius:12px;
+  background:rgba(251,250,247,.94);font:inherit;cursor:pointer;text-align:left;
+  box-shadow:var(--sombra)}
+.sel .et{font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:#8a867e;font-weight:600}
+.sel b{font-size:14.5px;color:#2a2a28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.sel.puesta b{color:var(--verde)}
+.sel.puesta{border-color:var(--verde)}
+#menu-capas{position:absolute;top:calc(108px + var(--safe-t));left:8px;right:8px;z-index:660;
+  background:rgba(253,252,250,.98);border:1px solid var(--linea);border-radius:14px;
+  box-shadow:0 8px 26px rgba(0,0,0,.2);overflow:hidden;max-height:60vh;overflow-y:auto}
+#menu-capas[hidden]{display:none}
+#menu-capas button{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;
+  padding:11px 14px;cursor:pointer;border-bottom:1px solid rgba(22,33,28,.07)}
+#menu-capas button:last-child{border-bottom:0}
+#menu-capas button:active{background:var(--verde-claro)}
+#menu-capas .n{font-weight:600;font-size:14px}
+#menu-capas .n .corto{color:#8a867e;font-weight:600;font-size:11.5px;margin-left:6px}
+#menu-capas .d{display:block;font-size:11.5px;color:#6b6862;margin-top:1px}
+#menu-capas button.on .n{color:var(--verde)}
+#menu-capas button.on::before{content:"\2713 ";color:var(--verde);font-weight:700}
+#menu-capas button.vacia .n{opacity:.5}
+#menu-capas .avisoc{font-size:11.5px;color:var(--ambar);font-weight:600}
 
 /* barra de transparencia de la capa de encima */
 #barra-dibujo{position:absolute;left:8px;right:8px;bottom:calc(14px + var(--safe-b));z-index:640;
@@ -733,19 +749,23 @@ img.leaflet-tile{image-rendering:auto}
   border-radius:9px;font:inherit;font-size:14px;cursor:pointer}
 #barra-dibujo button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
 #barra-dibujo button:disabled{opacity:.45}
-#barra-opacidad{position:absolute;left:8px;right:78px;bottom:calc(56px + var(--safe-b));z-index:620;
+#barra-opacidad{position:absolute;left:8px;right:78px;bottom:calc(96px + var(--safe-b));z-index:620;
   display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
-  background:rgba(251,250,247,.95);border:1px solid var(--linea);box-shadow:var(--sombra);touch-action:none}
+  background:rgba(251,250,247,.62);backdrop-filter:blur(3px);
+  border:1px solid rgba(22,33,28,.12);box-shadow:var(--sombra);touch-action:none}
+#barra-zoom{position:absolute;left:8px;right:78px;bottom:calc(52px + var(--safe-b));z-index:620;
+  display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
+  background:rgba(251,250,247,.62);backdrop-filter:blur(3px);
+  border:1px solid rgba(22,33,28,.12);box-shadow:var(--sombra);touch-action:none}
+#barra-zoom .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
+#barra-zoom input{flex:1 1 auto;min-width:0;accent-color:var(--verde)}
+#zoom-val{font-size:12px;font-weight:700;color:#5d5a53;flex:0 0 auto;min-width:22px;text-align:right;
+  font-variant-numeric:tabular-nums}
 #barra-opacidad[hidden]{display:none}
 #barra-opacidad .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
 #opacidad-val{font-size:12px;font-variant-numeric:tabular-nums;color:#5d5a53;flex:0 0 auto;min-width:34px;text-align:right}
 #opacidad{flex:1 1 auto;width:100%;margin:0;accent-color:var(--verde);height:26px}
 
-.chip{border:1px solid var(--linea);background:rgba(251,250,247,.94);border-radius:999px;
-  padding:6px 12px;font-size:12.5px;font-weight:600;letter-spacing:.02em;
-  box-shadow:var(--sombra);cursor:pointer;color:#5d5a53}
-.chip.on{background:var(--verde);border-color:var(--verde);color:#fff}
-.chip.vacia{opacity:.45}
 
 /* lectura inferior */
 #lectura{position:absolute;left:8px;bottom:calc(10px + var(--safe-b));z-index:600;
@@ -864,12 +884,12 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-colo
 <div id="barra">
   <button id="btn-panel" title="Zonas y descargas">&#9776;</button>
   <div id="zona-activa">Mapas IGN offline</div>
-  <button id="btn-encima" title="Poner una capa encima">&#9680;</button>
 </div>
-<div id="filas">
-  <div id="chips"></div>
-  <div id="chips-der" hidden></div>
+<div id="selectores">
+  <button class="sel" id="sel-base"><span class="et">Mapa</span><b>TOPO</b></button>
+  <button class="sel" id="sel-encima"><span class="et">Encima</span><b>ninguna</b></button>
 </div>
+<div id="menu-capas" hidden></div>
 
 <div id="barra-dibujo" hidden>
   <div class="ln1"><span id="dib-pista">Toca dos esquinas para un rectángulo, o varias para dibujar la forma.</span></div>
@@ -879,6 +899,12 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir{border-colo
     <button id="dib-cancelar" title="Cancelar">✕</button>
     <button id="dib-bajar" class="ok">Descargar</button>
   </div>
+</div>
+
+<div id="barra-zoom">
+  <span class="et">Zoom</span>
+  <input type="range" id="zoom-rango" min="6" max="19" step="1" value="6" aria-label="Nivel de zoom del mapa">
+  <span id="zoom-val">6</span>
 </div>
 
 <div id="barra-opacidad" hidden>
@@ -1250,10 +1276,12 @@ function ponCapaEncima(id) {
   nueva.setOpacity(opacidad);
   subeGpx();
   marcaChips();
+  modoEncima = true;
   document.getElementById('barra-opacidad').hidden = false;
   guardaEstado();
 }
 function quitaEncima() {
+  modoEncima = false;
   if (capaEncima) { capaEncima.setOpacity(1); mapa.removeLayer(capaEncima); capaEncima = null; }
   document.getElementById('barra-opacidad').hidden = true;
   marcaChips();
@@ -1264,45 +1292,94 @@ function ponOpacidad(v) {
   if (capaEncima) capaEncima.setOpacity(opacidad);
   document.getElementById('opacidad-val').textContent = Math.round(opacidad * 100) + '%';
   document.getElementById('opacidad').value = Math.round(opacidad * 100);
+  marcaChips();
 }
 function subeGpx() { if (capaGpx) capaGpx.bringToFront(); }
 
+/* Antes había dos filas de botones, una por capa: con nueve capas ocupaban
+   cuatro líneas de pantalla en el móvil. Ahora son dos selectores que abren
+   un menú, y la parte de arriba queda libre para lo que haga falta. */
+let zonaMarcada = null;      // zona activa, para saber qué capas no están bajadas
+
 function marcaChips() {
+  const a = capaActiva && capaActiva.options.cfg;
+  const e = capaEncima && capaEncima.options.cfg;
+  const $b = document.getElementById('sel-base');
+  const $e = document.getElementById('sel-encima');
+  $b.querySelector('b').textContent = a ? a.corto : '—';
+  $b.classList.toggle('puesta', !!a);
+  $e.querySelector('b').textContent = e ? e.corto + '  ' + Math.round(opacidad * 100) + '%' : 'ninguna';
+  $e.classList.toggle('puesta', !!e);
+  if (!document.getElementById('menu-capas').hidden) pintaMenuCapas(menuAbierto);
+}
+
+let menuAbierto = null;      // 'base' | 'encima' | null
+
+function pintaMenuCapas(cual) {
+  const cont = document.getElementById('menu-capas');
   const ida = capaActiva && capaActiva.options.cfg.id;
   const ide = capaEncima && capaEncima.options.cfg.id;
-  document.querySelectorAll('#chips .chip').forEach(ch => {
-    ch.classList.toggle('on', ch.dataset.id === ida);
-  });
-  document.querySelectorAll('#chips-der .chip').forEach(ch => {
-    ch.classList.toggle('on', ch.dataset.id === ide);
-    ch.disabled = ch.dataset.id === ida;
-  });
-}
-
-function modoEncimaOn(si) {
-  modoEncima = si;
-  document.getElementById('chips-der').hidden = !si;
-  document.getElementById('btn-encima').classList.toggle('on', si);
-  document.getElementById('barra-opacidad').hidden = !(si && capaEncima);
-  if (si) avisa('Elige abajo la capa que va encima y gradúala con la barra');
-  else quitaEncima();
-  guardaEstado();
-}
-
-/* chips de capa: fila de arriba = capa base, fila de abajo = capa de encima */
-function creaChips(cont, alPulsar) {
+  cont.innerHTML = '';
+  if (cual === 'encima') {
+    const b = document.createElement('button');
+    b.innerHTML = '<span class="n">Ninguna</span><span class="d">Ver un solo mapa</span>';
+    if (!ide) b.classList.add('on');
+    b.onclick = () => { quitaEncima(); cierraMenuCapas(); };
+    cont.appendChild(b);
+  }
   CAPAS.forEach(cfg => {
     const b = document.createElement('button');
-    b.className = 'chip' + (cfg.soloOnline ? ' online' : '');
-    b.dataset.id = cfg.id; b.textContent = cfg.corto;
-    b.title = cfg.nombre + (cfg.soloOnline ? ' — solo con datos, no se descarga' : '');
-    b.onclick = () => alPulsar(cfg.id);
+    const bajada = !cfg.soloOnline && zonaMarcada && !zonaMarcada.capas.includes(cfg.id);
+    const notas = [];
+    if (cfg.soloOnline) notas.push('solo con datos');
+    if (bajada) notas.push('no descargada en esta zona');
+    b.innerHTML = '<span class="n"></span><span class="d"></span>';
+    b.querySelector('.n').innerHTML = '<span class="txt"></span><span class="corto">' + cfg.corto + '</span>';
+    b.querySelector('.txt').textContent = cfg.nombre;
+    b.querySelector('.d').textContent = notas.length ? notas.join(' · ') : cfg.desc;
+    if (notas.length) b.querySelector('.d').className = 'd avisoc';
+    if (cfg.id === (cual === 'base' ? ida : ide)) b.classList.add('on');
+    if (bajada) b.classList.add('vacia');
+    b.onclick = () => {
+      if (cual === 'base') ponCapa(cfg.id); else ponCapaEncima(cfg.id);
+      cierraMenuCapas();
+    };
     cont.appendChild(b);
   });
 }
-creaChips(document.getElementById('chips'), ponCapa);
-creaChips(document.getElementById('chips-der'), ponCapaEncima);
-document.getElementById('btn-encima').onclick = () => modoEncimaOn(!modoEncima);
+function abreMenuCapas(cual) {
+  if (menuAbierto === cual) { cierraMenuCapas(); return; }
+  menuAbierto = cual;
+  pintaMenuCapas(cual);
+  document.getElementById('menu-capas').hidden = false;
+}
+function cierraMenuCapas() {
+  menuAbierto = null;
+  document.getElementById('menu-capas').hidden = true;
+}
+/* Barra de zoom: mismo aspecto que la de transparencia, para manejar la escala
+   con el pulgar sin tener que pellizcar la pantalla. Se sincroniza en los dos
+   sentidos, así que también sirve para saber en qué nivel estás. */
+const $zr = document.getElementById('zoom-rango'), $zv = document.getElementById('zoom-val');
+function sincronizaZoom() {
+  const z = Math.round(mapa.getZoom());
+  $zr.min = mapa.getMinZoom(); $zr.max = mapa.getMaxZoom();
+  $zr.value = z; $zv.textContent = z;
+}
+$zr.oninput = () => { $zv.textContent = $zr.value; };
+$zr.onchange = () => { mapa.setZoom(Number($zr.value)); };
+mapa.on('zoomend', sincronizaZoom);
+
+document.getElementById('sel-base').onclick   = () => abreMenuCapas('base');
+document.getElementById('sel-encima').onclick = () => abreMenuCapas('encima');
+mapa.on('click movestart', cierraMenuCapas);
+
+function modoEncimaOn(si) {   // se conserva por compatibilidad con el estado guardado
+  modoEncima = si;
+  document.getElementById('barra-opacidad').hidden = !(si && capaEncima);
+}
+
+/* chips de capa: fila de arriba = capa base, fila de abajo = capa de encima */
 document.getElementById('opacidad').oninput = e => { ponOpacidad(e.target.value / 100); };
 document.getElementById('opacidad').onchange = guardaEstado;
 
@@ -1321,12 +1398,7 @@ function guardaEstado() {
 let zonaActiva = null;
 /* apaga los botones de las capas que esta zona no tiene descargadas; las
    capas de solo online no se marcan, que nunca lo están por definición */
-function marcaVacias(zona) {
-  document.querySelectorAll('#chips .chip, #chips-der .chip').forEach(ch => {
-    const cfg = capaPorId(ch.dataset.id) || {};
-    ch.classList.toggle('vacia', !cfg.soloOnline && !zona.capas.includes(ch.dataset.id));
-  });
-}
+function marcaVacias(zona) { zonaMarcada = zona; marcaChips(); }
 function entraEnZona(zona) {
   zonaActiva = zona.id;
   document.getElementById('zona-activa').textContent = zona.nom;
@@ -2421,6 +2493,7 @@ document.getElementById('btn-renom').onclick = exportaRenombres;
     if (est.encima && est.encima !== (est.capa || 'topo')) ponCapaEncima(est.encima);
   }
   try { const g = JSON.parse(localStorage.getItem(LS_GPX)); if (g) pintaGpx(g); } catch (e) {}
+  sincronizaZoom();
   pintaListaSendas();
   pintaSendas();
   pintaPaquetesRepo();
