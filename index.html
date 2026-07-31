@@ -1075,7 +1075,7 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <div id="sendas-prog"></div>
       <ul id="sendas-lista"></ul>
       <label class="ver-sendas"><input type="checkbox" id="sendas-ver" checked> Mostrarlos sobre el mapa</label>
-      <label class="ver-sendas"><input type="checkbox" id="sendas-pisados"> Apagar los que ya he pisado</label>
+      <label class="ver-sendas"><input type="checkbox" id="sendas-pisados"> Atenuar los que ya he pisado</label>
       <div id="pisados-estado" class="pista"></div>
       <div id="publicar">
         <h4>Llevarlos al otro dispositivo</h4>
@@ -2738,19 +2738,23 @@ async function pintaSendas() {
         if (pisado) nPisados++;
       }
       /* dos trazos: uno blanco debajo y el de color encima. Es lo que hace que
-         una senda se lea sobre la ortofoto y sobre el sombreado del topo. */
-      if (!pisado) halos.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:'#fff',
-        weight:e.peso + 2.6, opacity:.7, interactive:false }));
+         una senda se lea sobre la ortofoto y sobre el sombreado del topo.
+         Un camino pisado NO se apaga a gris ni pierde el halo: conserva su
+         color, su grosor y su trazo, a la mitad de intensidad. Así sigue
+         siendo un plano legible —el pisado de al lado te sitúa— y lo que
+         queda por hacer resalta por contraste, no porque lo otro desaparezca. */
+      halos.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:'#fff',
+        weight:e.peso + 2.6, opacity: pisado ? .35 : .7, interactive:false }));
       lineas.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas',
-        color: pisado ? '#b0aaa0' : e.color,
-        weight: pisado ? Math.max(1.4, e.peso - 1) : e.peso + (rej ? .6 : 0),
-        opacity: pisado ? .5 : .95, dashArray:e.guion, interactive:false }));
+        color: e.color,
+        weight: pisado ? e.peso : e.peso + (rej ? .6 : 0),
+        opacity: pisado ? .45 : .95, dashArray:e.guion, interactive:false }));
     }
   }
   if (rej && $pe) {
     const pct = nCaminos ? Math.round(100 * nPisados / nCaminos) : 0;
     $pe.innerHTML = 'De ' + fmtN(nCaminos) + ' caminos a la vista has pisado <b>' + fmtN(nPisados)
-      + '</b> (' + pct + ' %). Quedan ' + fmtN(nCaminos - nPisados) + ' en color.'
+      + '</b> (' + pct + ' %), atenuados. Quedan <b>' + fmtN(nCaminos - nPisados) + '</b> a plena intensidad.'
       + '<br>Cruzado con ' + fmtN(rej.rutas) + ' rutas de tu colección'
       + (filtroAnio !== 'todos' ? ' de ' + filtroAnio : '')
       + (filtroAct !== 'todas' ? ' de ' + (ETIQ_ACT[filtroAct] || filtroAct) : '') + '.'
