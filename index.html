@@ -746,7 +746,7 @@ img.leaflet-tile{image-rendering:auto}
 #menu-capas .avisoc{font-size:11.5px;color:var(--ambar);font-weight:600}
 
 /* barra de transparencia de la capa de encima */
-#barra-dibujo{position:absolute;left:8px;right:8px;bottom:calc(14px + var(--safe-b));z-index:640;
+#barra-dibujo{position:absolute;left:8px;right:8px;bottom:calc(100px + var(--safe-b));z-index:640;
   background:rgba(253,252,250,.97);border:1px solid var(--linea);border-radius:14px;padding:10px 12px;
   box-shadow:0 6px 22px rgba(0,0,0,.18)}
 #barra-dibujo[hidden]{display:none}
@@ -954,6 +954,8 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
           <option value="17">z17 — máximo detalle (pesa ~4 veces más)</option>
         </select>
       </label>
+      <button class="sec" id="btn-zona-dibujo">Dibujar la zona en el mapa…</button>
+      <button class="sec" id="quitar-zona-dib" hidden>Olvidar la zona dibujada y usar la pantalla</button>
       <div class="capas" id="capas"></div>
       <div id="estimacion"></div>
       <button class="accion" id="descargar">Descargar esta zona</button>
@@ -1552,7 +1554,7 @@ async function descarga() {
   if (bajando) return;
   const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value);
   if (!ids.length) { avisa('Elige al menos una capa'); return; }
-  const bounds = mapa.getBounds(), zmax = +document.getElementById('zmax').value;
+  const bounds = boundsDescarga(), zmax = +document.getElementById('zmax').value;
   const nom = (document.getElementById('nombre').value || '').trim()
             || 'Zona ' + new Date().toLocaleDateString('es-ES');
   let urls = listaUrls(bounds, zmax, ids);
@@ -1645,6 +1647,7 @@ async function descarga() {
     if (!recortada) setTimeout(cierraPanel, 1500);   // deja ver el mapa recién bajado
   }
   setTimeout(() => { document.getElementById('progreso').classList.remove('ver'); }, 5000);
+  olvidaZonaDibujada();
 }
 
 /* ---------- 7. Panel -------------------------------------------------- */
@@ -1668,14 +1671,20 @@ function pintaCapas() {
     c.appendChild(l);
   });
 }
+/* Si has dibujado una zona, manda ella; si no, lo que tengas encuadrado. */
+let zonaDibujada = null, polyDibujado = null;
+const boundsDescarga = () => zonaDibujada || mapa.getBounds();
+
 function pintaEstima() {
   const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value);
   const zmax = +document.getElementById('zmax').value;
-  const { n, bytes } = estimaZona(mapa.getBounds(), zmax, ids);
+  const b = boundsDescarga();
+  const { n, bytes } = estimaZona(b, zmax, ids);
   const $e = document.getElementById('estimacion');
-  const km = Math.round(mapa.getBounds().getNorthWest().distanceTo(mapa.getBounds().getNorthEast()) / 1000);
+  const km = Math.round(b.getNorthWest().distanceTo(b.getNorthEast()) / 1000);
   $e.classList.toggle('mucho', n > 4000);
-  $e.innerHTML = 'Zona de <span class="num">' + fmtN(km) + ' km</span> de ancho · '
+  $e.innerHTML = (zonaDibujada ? '<b>Zona dibujada</b> · ' : '')
+    + 'Zona de <span class="num">' + fmtN(km) + ' km</span> de ancho · '
     + '<span class="num">' + fmtN(n) + '</span> tiles · aprox. <span class="num">' + fmtMB(bytes) + '</span>'
     + (n > 4000 ? '<br><b>Es mucho.</b> Acerca el mapa o baja el detalle: al IGN no le gustan las descargas masivas y tardará bastante.' : '')
     + (!n ? '<br>Marca alguna capa.' : '');
@@ -1697,15 +1706,17 @@ async function pintaAlmacen() {
   if (navigator.storage && navigator.storage.estimate) {
     try {
       const e = await navigator.storage.estimate();
-      txt = 'Ocupado por los mapas: <b>' + fmtMB(e.usage || 0) + '</b> de '
-          + fmtMB(e.quota || 0) + ' disponibles.';
+      /* el navegador da el total del sitio, no solo las teselas: aquí entran
+         también los senderos, la colección de rutas y los tracks cargados */
+      txt = 'Ocupado en este dispositivo: <b>' + fmtMB(e.usage || 0) + '</b> de '
+          + fmtMB(e.quota || 0) + ' disponibles. Incluye mapas, senderos, rutas y tracks.';
     } catch (er) {}
   }
   let persistente = false;
   if (navigator.storage && navigator.storage.persisted) { try { persistente = await navigator.storage.persisted(); } catch (e) {} }
   txt += persistente
-    ? '<br>Almacenamiento <b>permanente</b>: el navegador no borrará las zonas.'
-    : '<br><span class="aviso-purga">Almacenamiento no permanente: si el móvil se queda sin espacio, Chrome podría borrar las zonas. Se pide el permiso al descargar.</span>';
+    ? '<br>Almacenamiento <b>permanente</b>: el navegador no borrará nada por su cuenta.'
+    : '<br><span class="aviso-purga">Almacenamiento no permanente: si el móvil se queda sin espacio, Chrome podría borrar lo guardado. Se pide el permiso al descargar, y se concede antes si tienes la app instalada en la pantalla de inicio.</span>';
   $a.innerHTML = txt;
 }
 
@@ -2216,13 +2227,14 @@ async function descargaSendas(bounds, nombre, poly) {
       return;
     }
     const paquete = { v:2, w:caminos, p:puntos,
-      bbox: [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()] };
+      bbox: [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()],
+      poly: poly || null };   // la forma exacta, para poder pintar lo ya cubierto
     const id = 's' + Date.now().toString(36);
     await salvaDatosSendas(id, paquete);
     const kb = Math.max(1, Math.round(JSON.stringify(paquete).length / 1024));
     const fichas = leeSendas();
     fichas.push({ id, nom: nombre || 'Senderos', n: caminos.length, np: puntos.length, kb, fecha: Date.now(),
-      bbox: paquete.bbox });
+      bbox: paquete.bbox, poly: poly || null });
     salvaSendasF(fichas);
     $p.textContent = fmtN(caminos.length) + ' caminos y ' + fmtN(puntos.length) + ' puntos guardados, '
       + kb + ' KB. Ya se ven sin cobertura.'
@@ -2282,7 +2294,7 @@ async function misPaquetes() {
     const bruto = await leeDatosSendas(f.id); if (!bruto) continue;
     const d = Array.isArray(bruto) ? { w:bruto, p:[] } : bruto;
     paquetes.push({ id: f.origen || idDesde(f.nom), nom: f.nom,
-      bbox: d.bbox || f.bbox, w: d.w || [], p: d.p || [] });
+      bbox: d.bbox || f.bbox, poly: d.poly || f.poly || null, w: d.w || [], p: d.p || [] });
   }
   return paquetes;
 }
@@ -2409,14 +2421,14 @@ async function pintaPaquetesRepo() {
 async function añadePaqueteRepo(p, bt) {
   bt.disabled = true; bt.textContent = 'Añadiendo…';
   try {
-    const datos = { v:2, w:p.w || [], p:p.p || [], bbox:p.bbox };
+    const datos = { v:2, w:p.w || [], p:p.p || [], bbox:p.bbox, poly:p.poly || null };
     const id = 's' + Date.now().toString(36);
     await salvaDatosSendas(id, datos);
     const fichas = leeSendas();
     fichas.push({ id, nom: p.nom || p.id, origen: p.id,
       n: datos.w.length, np: datos.p.length,
       kb: Math.max(1, Math.round(JSON.stringify(datos).length / 1024)),
-      fecha: Date.now(), bbox: p.bbox });
+      fecha: Date.now(), bbox: p.bbox, poly: p.poly || null });
     salvaSendasF(fichas);
     bt.textContent = 'Ya lo tienes';
     pintaListaSendas(); await pintaSendas();
@@ -2440,7 +2452,42 @@ function nombrePaquete(porDefecto) {
     + String(h.getHours()).padStart(2, '0') + ':' + String(h.getMinutes()).padStart(2, '0');
 }
 /* ---- dibujar la zona sobre el mapa ------------------------------------ */
-let modoDib = false, verticesDib = [], capaDib = null;
+let modoDib = false, verticesDib = [], capaDib = null, capaCubierto = null, destinoDib = 'sendas';
+
+/* Lo que ya tienes descargado, dibujado mientras eliges la zona nueva: así se
+   ve de un vistazo dónde no hace falta volver a pedir nada. Se usa la forma
+   exacta si el paquete la guardó, y su rectángulo si venía de antes. */
+function pintaCubierto() {
+  if (capaCubierto) { mapa.removeLayer(capaCubierto); capaCubierto = null; }
+  const marron = { color:'#8a5a2b', weight:1.5, dashArray:'3,3', fillColor:'#c89b5a', fillOpacity:.22 };
+  const verde  = { color:'#2f6b4f', weight:1.5, dashArray:'3,3', fillColor:'#5b9c78', fillOpacity:.22 };
+  const capas = [];
+  if (destinoDib === 'sendas') {
+    leeSendas().forEach(f => {
+      const forma = f.poly ? L.polygon(f.poly, marron)
+        : (f.bbox ? L.rectangle([[f.bbox[0],f.bbox[1]],[f.bbox[2],f.bbox[3]]], marron) : null);
+      if (forma) { forma.bindTooltip('Senderos ya descargados: ' + f.nom, { sticky:true }); capas.push(forma); }
+    });
+  } else {
+    leeZonas().forEach(z => {
+      const forma = L.rectangle([[z.b[0],z.b[1]],[z.b[2],z.b[3]]], verde);
+      forma.bindTooltip('Mapa ya descargado: ' + z.nom + ' (z' + z.zmax + ')', { sticky:true });
+      capas.push(forma);
+    });
+  }
+  if (capas.length) capaCubierto = L.layerGroup(capas).addTo(mapa);
+}
+function solapaCon(poly) {
+  if (!poly) return [];
+  const b = L.latLngBounds(poly.map(v => L.latLng(v[0], v[1])));
+  if (destinoDib === 'zonas') {
+    return leeZonas().filter(z => !(z.b[0] > b.getNorth() || z.b[2] < b.getSouth() ||
+                                    z.b[1] > b.getEast()  || z.b[3] < b.getWest())).map(z => z.nom);
+  }
+  return leeSendas().filter(f => f.bbox &&
+    !(f.bbox[0] > b.getNorth() || f.bbox[2] < b.getSouth() ||
+      f.bbox[1] > b.getEast()  || f.bbox[3] < b.getWest())).map(f => f.nom);
+}
 
 function poligonoDib() {
   if (verticesDib.length === 2) {              // dos toques = rectángulo
@@ -2472,41 +2519,84 @@ function pintaDib() {
     $p.innerHTML = '<span class="pasa">' + fmtN(Math.round(km2)) + ' km² — demasiado grande.</span> '
       + 'El tope son ' + fmtN(SENDAS_KM2_MAX) + ' km². Haz la zona más pequeña, o bájala en dos paquetes.';
   } else {
+    const chocan = solapaCon(poly);
     $p.innerHTML = '<b>' + fmtN(Math.round(km2)) + ' km²</b> · '
       + (verticesDib.length === 2 ? 'rectángulo' : verticesDib.length + ' vértices')
-      + '. Ponle nombre y descarga.';
+      + (chocan.length ? '. <span class="pasa">Pisa lo ya descargado: ' + chocan.join(', ') + '</span>'
+                       : '. Ponle nombre y descarga.');
   }
 }
-function abreDibujo() {
+function abreDibujo(destino) {
   cierraPanel();
+  destinoDib = destino || 'sendas';
   modoDib = true; verticesDib = [];
   document.getElementById('barra-dibujo').hidden = false;
-  document.getElementById('dib-nombre').value = document.getElementById('sendas-nombre').value || '';
+  document.getElementById('dib-nombre').value =
+    (destinoDib === 'zonas' ? document.getElementById('nombre').value
+                            : document.getElementById('sendas-nombre').value) || '';
+  document.getElementById('dib-bajar').textContent = destinoDib === 'zonas' ? 'Usar esta zona' : 'Descargar';
+  pintaCubierto();
+  document.getElementById('barra-opacidad').hidden = true;
   mapa.on('click', clicDib);
   pintaDib();
-  avisa('Toca en el mapa las esquinas de la zona');
+  const yaHay = destinoDib === 'zonas' ? leeZonas().length : leeSendas().length;
+  avisa(yaHay ? (destinoDib === 'zonas' ? 'En verde, los mapas que ya tienes descargados'
+                                        : 'En marrón, los senderos que ya tienes')
+              : 'Toca en el mapa las esquinas de la zona');
 }
 function cierraDibujo() {
   modoDib = false;
   mapa.off('click', clicDib);
   if (capaDib) { mapa.removeLayer(capaDib); capaDib = null; }
+  if (capaCubierto) { mapa.removeLayer(capaCubierto); capaCubierto = null; }
   verticesDib = [];
   document.getElementById('barra-dibujo').hidden = true;
+  document.getElementById('barra-opacidad').hidden = !capaEncima;
 }
 function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
 
-document.getElementById('btn-sendas-dibujo').onclick = abreDibujo;
+document.getElementById('btn-sendas-dibujo').onclick = () => abreDibujo('sendas');
+document.getElementById('btn-zona-dibujo').onclick   = () => abreDibujo('zonas');
 document.getElementById('dib-deshacer').onclick = () => { verticesDib.pop(); pintaDib(); };
 document.getElementById('dib-cancelar').onclick = cierraDibujo;
 document.getElementById('dib-bajar').onclick = () => {
   const poly = poligonoDib(); if (!poly) return;
   const nom = (document.getElementById('dib-nombre').value || '').trim();
-  document.getElementById('sendas-nombre').value = nom;
   const b = L.latLngBounds(poly.map(v => L.latLng(v[0], v[1])));
+  const destino = destinoDib;
   cierraDibujo();
   abrePanel();
-  descargaSendas(b, nombrePaquete('Zona de'), poly);
+  if (destino === 'zonas') {
+    /* aquí no se descarga todavía: se fija la zona y el operador elige capas y
+       detalle en el panel, viendo la estimación en MB antes de confirmar */
+    zonaDibujada = b; polyDibujado = poly;
+    if (nom) document.getElementById('nombre').value = nom;
+    pintaZonaDibujada();
+    pintaEstima();
+    avisa('Zona fijada: elige capas y detalle, y descarga');
+  } else {
+    document.getElementById('sendas-nombre').value = nom;
+    descargaSendas(b, nombrePaquete('Zona de'), poly);
+  }
 };
+
+/* mientras la zona dibujada esté fijada se ve en el mapa, para no perderla de
+   vista al elegir capas y detalle */
+let capaZonaDib = null;
+function pintaZonaDibujada() {
+  if (capaZonaDib) { mapa.removeLayer(capaZonaDib); capaZonaDib = null; }
+  const $q = document.getElementById('quitar-zona-dib');
+  if ($q) $q.hidden = !zonaDibujada;
+  if (!zonaDibujada) return;
+  capaZonaDib = (polyDibujado ? L.polygon(polyDibujado, { color:'#2f6b4f', weight:2, dashArray:'6,4',
+      fillColor:'#2f6b4f', fillOpacity:.1, interactive:false })
+    : L.rectangle(zonaDibujada, { color:'#2f6b4f', weight:2, dashArray:'6,4',
+      fillColor:'#2f6b4f', fillOpacity:.1, interactive:false })).addTo(mapa);
+}
+function olvidaZonaDibujada() {
+  zonaDibujada = null; polyDibujado = null;
+  pintaZonaDibujada(); pintaEstima();
+}
 
 document.getElementById('btn-sendas-vista').onclick = () =>
   descargaSendas(mapa.getBounds(), nombrePaquete('Vista de'));
@@ -2516,6 +2606,7 @@ document.getElementById('btn-sendas-gpx').onclick = () => {
      sin convertir la petición en media provincia */
   descargaSendas(capaGpx.getBounds().pad(.15), nombrePaquete('Alrededor del track'));
 };
+document.getElementById('quitar-zona-dib').onclick = olvidaZonaDibujada;
 document.getElementById('btn-publicar').onclick = publicaEnGitHub;
 document.getElementById('btn-exportar-todo').onclick = exportaTodo;
 document.getElementById('gh-token').value = localStorage.getItem(LS_GH) || '';
