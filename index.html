@@ -854,8 +854,18 @@ ul#sendas-lista .ver1,ul#gpx-lista .ver1{width:18px;height:18px;flex:0 0 auto;ac
   color:#fff;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
 .ficha-ruta .fr-guarda{width:100%;padding:9px;border:1px solid var(--linea);border-radius:9px;
   background:#fff;color:#5d5a53;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
+ul#gpx-lista .det.es-nav{color:#8a6d10;font-weight:600}
 ul#gpx-lista .color{width:12px;height:12px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(0,0,0,.25)}
 ul#rutas-resultados{max-height:44vh;overflow-y:auto}
+#hoja section{scroll-margin-top:56px}
+#hoja section h3{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin:0;padding:13px 0;user-select:none}
+#hoja section h3::after{content:"⌄";font-size:17px;line-height:1;color:#8a867e;transform:translateY(-3px);
+  transition:transform .15s}
+#hoja section.abierta h3::after{transform:rotate(180deg) translateY(-1px)}
+#hoja section h3:active{opacity:.6}
+#hoja section .cuerpo{display:none;padding-bottom:12px}
+#hoja section.abierta .cuerpo{display:block}
 #gh-estado{font-size:12.5px;color:#5d5a53;margin-top:6px}
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
@@ -1791,8 +1801,15 @@ function onErrPos(e) {
    un GPX tuyo puede traer cinco mil puntos y ahí no cabrían varios.        */
 const LS_GPXS   = 'ign.gpxs';
 const CACHE_GPX = 'ign-gpx-v1';
-const COLORES_GPX = ['#4ade00', '#00d9ff', '#ffd400', '#ff7a00', '#ff3df5', '#a0ff30'];
+const COLORES_GPX = ['#4ade00', '#00d9ff', '#ff7a00', '#ff3df5', '#a0ff30', '#00ffa3'];
 const REBORDE_GPX = '#15221a';
+/* La ruta de NAVEGACIÓN es la que vas siguiendo: una sola, y por encima de
+   todo lo demás. Amarillo oscuro con reborde negro grueso — el contraste más
+   alto que se puede dar sobre un mapa, y sin parecerse a ninguna otra capa:
+   ni al verde de las cargadas, ni al morado de la colección, ni al rojo
+   oscuro de las de bici, ni a las sendas rojizas de OSM. */
+const COLOR_NAV   = '#d4a017';
+const REBORDE_NAV = '#000';
 
 const leeGpxs   = () => { try { return JSON.parse(localStorage.getItem(LS_GPXS)) || []; } catch (e) { return []; } };
 const salvaGpxs = g => localStorage.setItem(LS_GPXS, JSON.stringify(g));
@@ -1858,17 +1875,34 @@ async function pintaGpxs() {
   const visibles = fichas.filter(f => !f.off);
   if ($g) $g.disabled = !visibles.length;
   if (!gpxVisible || !visibles.length) return;
-  const capas = [];
+  const capas = [], encima = [];
   for (const f of visibles) {
     const pts = await leePuntosGpx(f.id); if (!pts || pts.length < 2) continue;
-    capas.push(L.polyline(pts, { color:REBORDE_GPX, weight:7.5, opacity:.6, interactive:false }));
-    capas.push(L.polyline(pts, { color:f.color, weight:3.8, opacity:1, interactive:false }));
+    if (f.nav) {   // la de navegación va la última, para quedar por encima
+      encima.push(L.polyline(pts, { color:REBORDE_NAV, weight:9.5, opacity:.85, interactive:false }));
+      encima.push(L.polyline(pts, { color:COLOR_NAV,   weight:4.6, opacity:1,   interactive:false }));
+    } else {
+      capas.push(L.polyline(pts, { color:REBORDE_GPX, weight:7.5, opacity:.6, interactive:false }));
+      capas.push(L.polyline(pts, { color:f.color,     weight:3.8, opacity:1,  interactive:false }));
+    }
   }
+  capas.push(...encima);
   if (!capas.length) return;
   capaGpx = L.featureGroup(capas).addTo(mapa);
   capaGpx.bringToFront();
 }
 function subeGpx() { if (capaGpx) capaGpx.bringToFront(); }
+
+/* Solo puede haber una en navegación: designar una quita la anterior. */
+function ponEnNavegacion(id) {
+  const g = leeGpxs();
+  const yaEra = g.some(x => x.id === id && x.nav);
+  g.forEach(x => { x.nav = (!yaEra && x.id === id); });
+  salvaGpxs(g);
+  pintaListaGpx(); pintaGpxs();
+  const f = g.find(x => x.nav);
+  avisa(f ? 'Navegando: ' + f.nom : 'Sin ruta de navegación');
+}
 
 function pintaListaGpx() {
   const ul = document.getElementById('gpx-lista'); if (!ul) return;
@@ -1886,11 +1920,19 @@ function pintaListaGpx() {
       pintaGpxs(); pintaListaGpx();
     };
     const punto = document.createElement('span');
-    punto.className = 'color'; punto.style.background = f.color;
+    punto.className = 'color'; punto.style.background = f.nav ? COLOR_NAV : f.color;
+    if (f.nav) punto.style.borderColor = '#000';
     li.querySelector('.nom').textContent = f.nom;
-    li.querySelector('.det').textContent = f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos';
+    li.querySelector('.det').textContent = (f.nav ? 'EN NAVEGACIÓN · ' : '')
+      + f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos';
+    if (f.nav) li.querySelector('.det').classList.add('es-nav');
     const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
     ir.onclick = () => { mapa.fitBounds([[f.bbox[0],f.bbox[1]],[f.bbox[2],f.bbox[3]]], { padding:[20,20] }); cierraPanel(); };
+    const nv = document.createElement('button');
+    nv.textContent = f.nav ? 'Dejar' : 'Navegar';
+    nv.className = f.nav ? 'ir' : '';
+    nv.title = f.nav ? 'Dejar de usarla como ruta de navegación' : 'Usarla como ruta de navegación';
+    nv.onclick = () => ponEnNavegacion(f.id);
     const sd = document.createElement('button'); sd.textContent = 'Senderos';
     sd.title = 'Descargar los senderos de OSM alrededor de esta ruta';
     sd.onclick = () => {
@@ -1906,7 +1948,7 @@ function pintaListaGpx() {
       pintaListaGpx(); pintaGpxs();
     };
     li.prepend(punto); li.prepend(ver);
-    li.append(ir, sd, qu); ul.appendChild(li);
+    li.append(ir, nv, sd, qu); ul.appendChild(li);
   });
 }
 
@@ -2588,12 +2630,14 @@ document.getElementById('dib-bajar').onclick = () => {
     /* aquí no se descarga todavía: se fija la zona y el operador elige capas y
        detalle en el panel, viendo la estimación en MB antes de confirmar */
     zonaDibujada = b; polyDibujado = poly;
+    abrePor('Descargar la zona');
     if (nom) document.getElementById('nombre').value = nom;
     pintaZonaDibujada();
     pintaEstima();
     avisa('Zona fijada: elige capas y detalle, y descarga');
   } else {
     document.getElementById('sendas-nombre').value = nom;
+    abrePor('Senderos de OpenStreetMap');
     descargaSendas(b, nombrePaquete('Zona de'), poly);
   }
 };
@@ -2803,7 +2847,8 @@ async function seguirRuta(r, boton) {
                               lonmin = Math.min(lonmin,o); lonmax = Math.max(lonmax,o); });
     const id = 'g' + Date.now().toString(36);
     await salvaPuntosGpx(id, pts);
-    g.push({ id, origen: r.id, nom: nombreDe(r), km: r.km, n: pts.length,
+    g.forEach(x => { x.nav = false; });          // solo una en navegación
+    g.push({ id, origen: r.id, nom: nombreDe(r), km: r.km, n: pts.length, nav: true,
              color: COLORES_GPX[g.length % COLORES_GPX.length],
              bbox: [latmin, lonmin, latmax, lonmax] });
     salvaGpxs(g);
@@ -2811,7 +2856,7 @@ async function seguirRuta(r, boton) {
     const $t = document.getElementById('tog-gpx'); if ($t) $t.checked = true;
     pintaListaGpx(); await pintaGpxs();
     if (boton) boton.textContent = 'Cargada';
-    avisa('Ruta a seguir: ' + nombreDe(r));
+    avisa('Navegando: ' + nombreDe(r));
     mapa.fitBounds([[latmin,lonmin],[latmax,lonmax]], { padding:[20,20] });
     cierraPanel();
   } catch (e) {
@@ -2832,6 +2877,48 @@ document.getElementById('rutas-ver').onchange = ev => {
 };
 document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); buscaRutas(); };
 document.getElementById('btn-renom').onclick = exportaRenombres;
+
+/* ---------- 10. Panel plegable ----------------------------------------
+   Seis secciones abiertas a la vez eran un muro de texto. Ahora cada una se
+   pliega y solo queda abierta la que estás usando; la elección se recuerda. */
+const LS_SECCION = 'ign.seccion';
+function montaAcordeon() {
+  document.querySelectorAll('#hoja section').forEach((sec, i) => {
+    const h = sec.querySelector('h3'); if (!h) return;
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'cuerpo';
+    while (h.nextSibling) cuerpo.appendChild(h.nextSibling);
+    sec.appendChild(cuerpo);
+    sec.dataset.sec = i;
+    h.tabIndex = 0;
+    h.onclick = () => alternaSeccion(i);
+    h.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternaSeccion(i); } };
+  });
+  const guardada = localStorage.getItem(LS_SECCION);
+  if (guardada !== null && guardada !== '') abreSeccion(+guardada, false);
+}
+function abreSeccion(i, desplaza) {
+  document.querySelectorAll('#hoja section').forEach(sec => {
+    sec.classList.toggle('abierta', +sec.dataset.sec === i);
+  });
+  localStorage.setItem(LS_SECCION, i);
+  if (desplaza !== false) {
+    const sec = document.querySelector('#hoja section[data-sec="' + i + '"]');
+    if (sec) setTimeout(() => sec.scrollIntoView({ block:'start', behavior:'smooth' }), 60);
+  }
+}
+function alternaSeccion(i) {
+  const sec = document.querySelector('#hoja section[data-sec="' + i + '"]');
+  if (sec && sec.classList.contains('abierta')) {
+    sec.classList.remove('abierta'); localStorage.setItem(LS_SECCION, '');
+  } else abreSeccion(i);
+}
+/* para abrir desde el código la sección que toca según lo que estés haciendo */
+function abrePor(texto) {
+  const sec = [...document.querySelectorAll('#hoja section')]
+    .find(x => new RegExp(texto, 'i').test(x.querySelector('h3') ? x.querySelector('h3').textContent : ''));
+  if (sec) abreSeccion(+sec.dataset.sec);
+}
 
 (async function arranca() {
   pintaCapas();
@@ -2872,6 +2959,7 @@ document.getElementById('btn-renom').onclick = exportaRenombres;
   } catch (e) {}
   pintaListaGpx();
   await pintaGpxs();
+  montaAcordeon();
   sincronizaZoom();
   document.getElementById('tog-rutas').checked = rutasVisibles;
   aplicaGpxVisible();
