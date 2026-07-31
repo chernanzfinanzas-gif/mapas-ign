@@ -861,6 +861,15 @@ input[type=text],select{width:100%;margin-top:5px;padding:10px;border:1px solid 
 #publicar h4,#repo-sendas h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
 ul#sendas-lista .ver1,ul#gpx-lista .ver1{width:18px;height:18px;flex:0 0 auto;accent-color:var(--verde);margin-right:2px}
 #rutas-estado{font-size:12.5px;color:#5d5a53;margin:8px 0 2px}
+.dos-campos{display:flex;gap:8px}
+.dos-campos .campo{flex:1 1 0;min-width:0}
+#rutas-leyenda{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 2px}
+#rutas-leyenda button{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;
+  border:1px solid #ded9d0;background:#fff;font:inherit;font-size:11.5px;color:#4a4741;
+  cursor:pointer;width:auto;font-variant-numeric:tabular-nums}
+#rutas-leyenda button.on{border-color:#2f6b4f;background:#eef5f0;font-weight:700}
+#rutas-leyenda i{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+#rutas-leyenda .cuenta{color:#8a857c}
 .ficha-ruta .fr-nom{width:100%;box-sizing:border-box;padding:8px 9px;border:1px solid var(--linea);
   border-radius:9px;font:inherit;font-size:14px;font-weight:600}
 .ficha-ruta .fr-det{font-size:12.5px;color:#6b6862;margin:7px 0 9px;font-variant-numeric:tabular-nums}
@@ -1061,6 +1070,8 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <div id="sendas-prog"></div>
       <ul id="sendas-lista"></ul>
       <label class="ver-sendas"><input type="checkbox" id="sendas-ver" checked> Mostrarlos sobre el mapa</label>
+      <label class="ver-sendas"><input type="checkbox" id="sendas-pisados"> Apagar los que ya he pisado</label>
+      <div id="pisados-estado" class="pista"></div>
       <div id="publicar">
         <h4>Llevarlos al otro dispositivo</h4>
         <p class="pista">Todo lo descargado se junta en un solo fichero, <code>sendas/paquetes.json</code>. Publícalo y lo tendrás en el móvil y en el ordenador.</p>
@@ -1088,13 +1099,26 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
         <input type="search" id="rutas-buscar" placeholder="Cazorla, Peñalara, Cares…" autocomplete="off">
       </label>
       <ul id="rutas-resultados"></ul>
-      <label class="campo">Actividad
-        <select id="rutas-filtro">
-          <option value="todas">Todas</option>
-          <option value="sen">Senderismo</option>
-          <option value="bici">Bici</option>
+      <button class="sec" id="btn-cerca">¿Qué he hecho por aquí?</button>
+      <div class="dos-campos">
+        <label class="campo">Actividad
+          <select id="rutas-filtro">
+            <option value="todas">Todas</option>
+            <option value="sen">Senderismo</option>
+            <option value="bici">Bici</option>
+          </select>
+        </label>
+        <label class="campo">Año
+          <select id="rutas-anio"><option value="todos">Todos</option></select>
+        </label>
+      </div>
+      <label class="campo">Colorear por
+        <select id="rutas-color">
+          <option value="act">Actividad</option>
+          <option value="anio">Año</option>
         </select>
       </label>
+      <div id="rutas-leyenda"></div>
       <div id="rutas-estado"></div>
       <div id="anadidas-estado" class="pista"></div>
       <button class="sec" id="btn-pub-rutas" hidden>Publicar las rutas añadidas</button>
@@ -2568,6 +2592,78 @@ async function datosDePaquete(id) {
 const tocaLaVista = (bbox, v) => !bbox ||
   !(bbox[0] > v.getNorth() || bbox[2] < v.getSouth() || bbox[1] > v.getEast() || bbox[3] < v.getWest());
 
+/* ---- cruzar los senderos de OSM con tu colección -------------------------
+   La pregunta que nadie te contesta: de todo lo que hay en La Pedriza, ¿qué me
+   queda por hacer? Se responde con datos que ya tienes en el móvil, sin red.
+
+   El método es una rejilla. Se estampan casillas de 25 m a lo largo de todas
+   tus rutas de la vista, y luego se recorre cada camino de OSM mirando qué
+   fracción de su longitud cae en una casilla pisada. Comparar cada punto con
+   cada punto sería un cuadrado imposible en un móvil; esto es lineal.
+   Los tracks vienen simplificados a 8 m y OSM dibuja el camino donde lo dibujó
+   quien lo mapeó, así que se admite un margen amplio: si tu traza pasa a menos
+   de unos 50 m, cuenta como pisado. */
+const PISADO_M     = 25;      // lado de la casilla, en metros
+const PISADO_FRAC  = .55;     // cuánto del camino hay que haber pisado
+const Z_MIN_PISADO = 12;      // más lejos que esto, ni se intenta
+const PISADO_TOPE  = 400;     // rutas de la colección que se miran como mucho
+let marcaPisados = false;
+
+function rejillaDe(segs, latRef) {
+  const kLat = PISADO_M / 111320;
+  const kLon = PISADO_M / (111320 * Math.max(.15, Math.cos(latRef * Math.PI / 180)));
+  const set = new Set();
+  for (const seg of segs) {
+    for (let i = 1; i < seg.length; i++) {
+      const a = seg[i-1], b = seg[i];
+      const n = Math.max(1, Math.min(2000, Math.ceil(metrosEntre(a, b) / (PISADO_M / 2))));
+      for (let k = 0; k <= n; k++) {
+        const t = k / n;
+        set.add(Math.floor((a[0] + (b[0]-a[0])*t) / kLat) + ',' + Math.floor((a[1] + (b[1]-a[1])*t) / kLon));
+      }
+    }
+  }
+  return { set, kLat, kLon };
+}
+function casillaPisada(rej, lat, lon) {
+  const i = Math.floor(lat / rej.kLat), j = Math.floor(lon / rej.kLon);
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++)
+    if (rej.set.has((i+a) + ',' + (j+b))) return true;
+  return false;
+}
+function fraccionPisada(g, rej) {
+  let dentro = 0, total = 0;
+  for (let i = 1; i < g.length; i++) {
+    const a = g[i-1], b = g[i];
+    const n = Math.max(1, Math.min(500, Math.ceil(metrosEntre(a, b) / PISADO_M)));
+    for (let k = 0; k < n; k++) {
+      const t = k / n; total++;
+      if (casillaPisada(rej, a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t)) dentro++;
+    }
+  }
+  const u = g[g.length-1]; total++;
+  if (casillaPisada(rej, u[0], u[1])) dentro++;
+  return total ? dentro / total : 0;
+}
+async function construyeRejilla(vista) {
+  const idx = await cargaIndiceRutas();
+  let enVista = idx.filter(r => pasaFiltros(r) && tocaLaVista(r.b, vista));
+  const total = enVista.length;
+  if (enVista.length > PISADO_TOPE) enVista = enVista.slice(0, PISADO_TOPE);
+  await Promise.all([...new Set(enVista.map(r => r.c))].filter(c => c !== '@add').map(cargaCelda));
+  const segs = [];
+  for (const r of enVista) {
+    let ss;
+    if (r.c === '@add') ss = geoAnadidas.get(r.id);
+    else { const celda = geoRutas.get(r.c); ss = celda && celda[r.id]; }
+    if (ss) segs.push(...ss);
+  }
+  const rej = rejillaDe(segs, vista.getCenter().lat);
+  rej.rutas = enVista.length;
+  rej.dejadas = total - enVista.length;
+  return rej;
+}
+
 async function pintaSendas() {
   if (capaSendas) { mapa.removeLayer(capaSendas); capaSendas = null; }
   if (!sendasVisibles) return;
@@ -2575,7 +2671,19 @@ async function pintaSendas() {
      sierras guardadas y el móvil solo trabaja con la que pisas */
   const vista = mapa.getBounds().pad(.25);
   const fichas = leeSendas().filter(f => !f.off && tocaLaVista(f.bbox, vista));
-  if (!fichas.length) return;
+  const $pe = document.getElementById('pisados-estado');
+  if (!fichas.length) { if ($pe) $pe.textContent = ''; return; }
+  /* la rejilla se construye una vez por repintado y sirve para todos los
+     paquetes que estén a la vista */
+  let rej = null;
+  if (marcaPisados) {
+    if (mapa.getZoom() < Z_MIN_PISADO) {
+      if ($pe) $pe.textContent = 'Acércate un poco para cruzarlos con tu colección.';
+    } else {
+      rej = await construyeRejilla(vista);
+    }
+  } else if ($pe) $pe.textContent = '';
+  let nPisados = 0, nCaminos = 0;
   const halos = [], lineas = [], marcas = [];
   for (const f of fichas) {
     const bruto = await datosDePaquete(f.id); if (!bruto) continue;
@@ -2590,13 +2698,30 @@ async function pintaSendas() {
     }
     for (const w of (datos.w || [])) {
       const e = TIPOS_SENDA[w.t] || TIPOS_SENDA.path;
+      let pisado = false;
+      if (rej && w.g.length > 1) {
+        nCaminos++;
+        pisado = fraccionPisada(w.g, rej) >= PISADO_FRAC;
+        if (pisado) nPisados++;
+      }
       /* dos trazos: uno blanco debajo y el de color encima. Es lo que hace que
          una senda se lea sobre la ortofoto y sobre el sombreado del topo. */
-      halos.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:'#fff',
+      if (!pisado) halos.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:'#fff',
         weight:e.peso + 2.6, opacity:.7, interactive:false }));
-      lineas.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas', color:e.color,
-        weight:e.peso, opacity:.95, dashArray:e.guion, interactive:false }));
+      lineas.push(L.polyline(w.g, { renderer:lienzoSendas, pane:'sendas',
+        color: pisado ? '#b0aaa0' : e.color,
+        weight: pisado ? Math.max(1.4, e.peso - 1) : e.peso + (rej ? .6 : 0),
+        opacity: pisado ? .5 : .95, dashArray:e.guion, interactive:false }));
     }
+  }
+  if (rej && $pe) {
+    const pct = nCaminos ? Math.round(100 * nPisados / nCaminos) : 0;
+    $pe.innerHTML = 'De ' + fmtN(nCaminos) + ' caminos a la vista has pisado <b>' + fmtN(nPisados)
+      + '</b> (' + pct + ' %). Quedan ' + fmtN(nCaminos - nPisados) + ' en color.'
+      + '<br>Cruzado con ' + fmtN(rej.rutas) + ' rutas de tu colección'
+      + (filtroAnio !== 'todos' ? ' de ' + filtroAnio : '')
+      + (filtroAct !== 'todas' ? ' de ' + (ETIQ_ACT[filtroAct] || filtroAct) : '') + '.'
+      + (rej.dejadas ? ' <b>Aviso:</b> había ' + fmtN(rej.dejadas) + ' rutas más por esta zona y no se han mirado; acércate para afinar.' : '');
   }
   if (!lineas.length && !marcas.length) return;
   /* orden de dibujo: primero los halos, luego las líneas, y los puntos encima */
@@ -3151,6 +3276,14 @@ document.getElementById('quitar-zona-dib').onclick = olvidaZonaDibujada;
 document.getElementById('btn-publicar').onclick = publicaEnGitHub;
 document.getElementById('btn-exportar-todo').onclick = exportaTodo;
 document.getElementById('gh-token').value = localStorage.getItem(LS_GH) || '';
+document.getElementById('sendas-pisados').onchange = ev => {
+  marcaPisados = ev.target.checked;
+  if (marcaPisados && !sendasVisibles) {
+    sendasVisibles = true;
+    const $v = document.getElementById('sendas-ver'); if ($v) $v.checked = true;
+  }
+  pintaSendas();
+};
 document.getElementById('sendas-ver').onchange = ev => {
   sendasVisibles = ev.target.checked;
   const $t = document.getElementById('tog-sendas'); if ($t) $t.checked = sendasVisibles;
@@ -3174,6 +3307,66 @@ const COLOR_ACT   = { sen:'#6d28d9', bici:'#8f1d1d' };
 const ETIQ_ACT    = { sen:'senderismo', bici:'bici' };
 
 let indiceRutas = null, capaRutas = null, geoRutas = new Map(), filtroAct = 'todas';
+let filtroAnio = 'todos', modoColor = 'act';
+
+/* ---- colorear la colección por año --------------------------------------
+   Con 692 rutas y catorce años dentro, el morado y el rojo cuentan qué hiciste
+   pero no cuándo. Coloreando por año, el mapa pasa a ser una biografía: se ve
+   de un vistazo la sierra de los primeros tiempos y los sitios nuevos.
+   La rampa va de verde azulado a magenta pasando por verde, ámbar y rojo, y
+   evita el azul a propósito: en el topográfico se confunde con los ríos. */
+function colorAnio(t) {
+  let h = 160 - 190 * t; if (h < 0) h += 360;
+  return 'hsl(' + h.toFixed(0) + ' 62% 38%)';
+}
+const anioDe = r => (r.f && r.f.length >= 4) ? r.f.slice(0, 4) : '';
+let aniosCol = [];                      // los años presentes, de viejo a nuevo
+function colorDeRuta(r) {
+  if (modoColor !== 'anio') return COLOR_ACT[r.a] || '#555';
+  const a = anioDe(r);
+  const i = aniosCol.indexOf(a);
+  if (i < 0) return '#8a857c';           // sin fecha
+  return colorAnio(aniosCol.length > 1 ? i / (aniosCol.length - 1) : 0);
+}
+
+/* la leyenda es además el filtro: tocar un año deja solo ese */
+function pintaLeyenda(idx) {
+  const $l = document.getElementById('rutas-leyenda'); if (!$l) return;
+  $l.innerHTML = '';
+  if (modoColor !== 'anio') { $l.hidden = true; return; }
+  $l.hidden = false;
+  const cuenta = new Map();
+  idx.forEach(r => { const a = anioDe(r); if (a) cuenta.set(a, (cuenta.get(a) || 0) + 1); });
+  aniosCol.forEach(a => {
+    const b = document.createElement('button');
+    b.className = filtroAnio === a ? 'on' : '';
+    b.innerHTML = '<i style="background:' + colorDeRuta({ f:a + '0101', a:'sen' }) + '"></i>'
+      + a + ' <span class="cuenta">' + (cuenta.get(a) || 0) + '</span>';
+    b.onclick = () => { ponAnio(filtroAnio === a ? 'todos' : a); };
+    $l.appendChild(b);
+  });
+}
+
+function ponAnio(a) {
+  filtroAnio = a;
+  const $s = document.getElementById('rutas-anio'); if ($s) $s.value = a;
+  pintaRutas(); buscaRutas();
+}
+
+/* el desplegable de años se rellena con los que haya de verdad en tu colección */
+function montaAnios(idx) {
+  const $s = document.getElementById('rutas-anio'); if (!$s) return;
+  const hay = [...new Set(idx.map(anioDe).filter(Boolean))].sort();
+  if (hay.join() === aniosCol.join()) return;
+  aniosCol = hay;
+  const antes = filtroAnio;
+  $s.innerHTML = '<option value="todos">Todos</option>'
+    + hay.slice().reverse().map(a => '<option value="' + a + '">' + a + '</option>').join('');
+  $s.value = hay.includes(antes) ? antes : 'todos';
+  filtroAnio = $s.value;
+}
+const pasaFiltros = r => (filtroAct === 'todas' || r.a === filtroAct)
+                      && (filtroAnio === 'todos' || anioDe(r) === filtroAnio);
 let rutasVisibles = localStorage.getItem(LS_RUTAS_ON) !== 'no';
 const leeNombres  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_NOM)) || {}; } catch (e) { return {}; } };
 const salvaNombres = n => guarda(LS_RUTAS_NOM, n);
@@ -3244,13 +3437,14 @@ async function pintaRutas() {
   const $s = document.getElementById('rutas-estado');
   if (!rutasVisibles) { if ($s) $s.textContent = 'Ocultas.'; return; }
   const idx = await cargaIndiceRutas();
+  montaAnios(idx); pintaLeyenda(idx);
   if (!idx.length) { if ($s) $s.textContent = 'No hay ninguna colección publicada en rutas/.'; return; }
   if (mapa.getZoom() < Z_MIN_RUTAS) {
     if ($s) $s.textContent = idx.length + ' rutas en la colección. Acércate un poco para verlas sobre el mapa.';
     return;
   }
   const v = mapa.getBounds().pad(.2);
-  const enVista = idx.filter(r => (filtroAct === 'todas' || r.a === filtroAct) && tocaLaVista(r.b, v));
+  const enVista = idx.filter(r => pasaFiltros(r) && tocaLaVista(r.b, v));
   if ($s) $s.textContent = enVista.length + ' de ' + idx.length + ' rutas por esta zona.';
   if (!enVista.length) return;
   await Promise.all([...new Set(enVista.map(r => r.c))].filter(c => c !== '@add').map(cargaCelda));
@@ -3263,7 +3457,7 @@ async function pintaRutas() {
     if (!segs) continue;
     for (const s of segs) {
       const ln = L.polyline(s, { renderer:lienzoSendas, pane:'rutas',
-        color: COLOR_ACT[r.a] || '#555', weight:3.4, opacity:.8 });
+        color: colorDeRuta(r), weight:3.4, opacity:.8 });
       ln.on('click', ev => { L.DomEvent.stop(ev); abreFichaRuta(r, ev.latlng); });
       capas.push(ln);
     }
@@ -3320,6 +3514,78 @@ function exportaRenombres() {
    y desde el resultado se puede saltar a ella o cargarla como ruta a seguir. */
 const sinTildes = t => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+/* una fila de resultado: la usan el buscador y el «qué he hecho por aquí» */
+function filaDeRuta(r, delante) {
+  const li = document.createElement('li');
+  li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
+  li.querySelector('.nom').textContent = nombreDe(r);
+  const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
+  li.querySelector('.det').textContent =
+    [delante, f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
+  const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
+  ir.onclick = () => { mapa.fitBounds([[r.b[0],r.b[1]],[r.b[2],r.b[3]]], { padding:[20,20] }); cierraPanel(); };
+  const sg = document.createElement('button'); sg.textContent = 'Seguir';
+  sg.title = 'Cargarla como ruta a seguir';
+  sg.onclick = () => seguirRuta(r, sg);
+  li.append(ir, sg);
+  return li;
+}
+
+/* ---- ¿qué he hecho por aquí? -------------------------------------------
+   Catorce años de rutas y delante de un cruce no te acuerdas de si pasaste por
+   ahí. Se mira desde donde estás —o desde el centro del mapa si aún no hay
+   GPS— y salen las tuyas que pasan cerca, con la fecha y a qué distancia. */
+const CERCA_M = 4000;
+async function rutasCerca() {
+  const $b = document.getElementById('btn-cerca');
+  const ul = document.getElementById('rutas-resultados');
+  const desdeGps = !!ultimaPos;
+  const centro = desdeGps ? [ultimaPos[0], ultimaPos[1]]
+                          : [mapa.getCenter().lat, mapa.getCenter().lng];
+  $b.disabled = true; $b.textContent = 'Buscando…';
+  ul.innerHTML = '';
+  try {
+    const idx = await cargaIndiceRutas();
+    /* primero el filtro barato: solo las que su rectángulo pasa cerca */
+    const gLat = CERCA_M / 111000, gLon = gLat / Math.max(.2, Math.cos(centro[0] * Math.PI / 180));
+    const cand = idx.filter(r => pasaFiltros(r) && r.b
+      && r.b[0] - gLat <= centro[0] && r.b[2] + gLat >= centro[0]
+      && r.b[1] - gLon <= centro[1] && r.b[3] + gLon >= centro[1]);
+    if (!cand.length) { ul.innerHTML = '<li class="vacio">Ninguna ruta tuya pasa por aquí.</li>'; return; }
+    await Promise.all([...new Set(cand.map(r => r.c))].filter(c => c !== '@add').map(cargaCelda));
+    const cerca = [];
+    for (const r of cand) {
+      let segs;
+      if (r.c === '@add') segs = geoAnadidas.get(r.id);
+      else { const celda = geoRutas.get(r.c); segs = celda && celda[r.id]; }
+      if (!segs) continue;
+      let dmin = Infinity;
+      for (const seg of segs) for (const p of seg) {
+        const d = metrosEntre(centro, p);
+        if (d < dmin) dmin = d;
+      }
+      if (dmin <= CERCA_M) cerca.push({ r, d: dmin });
+    }
+    if (!cerca.length) { ul.innerHTML = '<li class="vacio">Ninguna ruta tuya pasa a menos de '
+      + (CERCA_M / 1000) + ' km de aquí.</li>'; return; }
+    cerca.sort((a, b) => a.d - b.d);
+    const cab = document.createElement('li');
+    cab.className = 'vacio';
+    cab.textContent = cerca.length + (cerca.length === 1 ? ' ruta tuya' : ' rutas tuyas')
+      + ' a menos de ' + (CERCA_M / 1000) + ' km '
+      + (desdeGps ? 'de donde estás.' : 'del centro del mapa (aún sin GPS).');
+    ul.appendChild(cab);
+    cerca.slice(0, 25).forEach(x => ul.appendChild(filaDeRuta(x.r, 'a ' + fmtDist(x.d))));
+    if (cerca.length > 25) {
+      const li = document.createElement('li'); li.className = 'vacio';
+      li.textContent = 'Y ' + (cerca.length - 25) + ' más.';
+      ul.appendChild(li);
+    }
+  } catch (e) {
+    ul.innerHTML = '<li class="vacio">No se ha podido mirar: ' + e.message + '</li>';
+  } finally { $b.disabled = false; $b.textContent = '¿Qué he hecho por aquí?'; }
+}
+
 async function buscaRutas() {
   const ul = document.getElementById('rutas-resultados');
   const q = sinTildes(document.getElementById('rutas-buscar').value.trim());
@@ -3327,24 +3593,11 @@ async function buscaRutas() {
   if (q.length < 2) return;
   const idx = await cargaIndiceRutas();
   const hallados = idx
-    .filter(r => (filtroAct === 'todas' || r.a === filtroAct) && sinTildes(nombreDe(r)).includes(q))
+    .filter(r => pasaFiltros(r) && sinTildes(nombreDe(r)).includes(q))
     .sort((a, b) => (b.f || '').localeCompare(a.f || ''));
   if (!hallados.length) { ul.innerHTML = '<li class="vacio">Ninguna ruta con ese nombre.</li>'; return; }
   const tope = hallados.slice(0, 40);
-  tope.forEach(r => {
-    const li = document.createElement('li');
-    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
-    li.querySelector('.nom').textContent = nombreDe(r);
-    const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
-    li.querySelector('.det').textContent =
-      [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
-    const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
-    ir.onclick = () => { mapa.fitBounds([[r.b[0],r.b[1]],[r.b[2],r.b[3]]], { padding:[20,20] }); cierraPanel(); };
-    const sg = document.createElement('button'); sg.textContent = 'Seguir';
-    sg.title = 'Cargarla como ruta a seguir';
-    sg.onclick = () => seguirRuta(r, sg);
-    li.append(ir, sg); ul.appendChild(li);
-  });
+  tope.forEach(r => ul.appendChild(filaDeRuta(r)));
   if (hallados.length > tope.length) {
     const li = document.createElement('li');
     li.className = 'vacio';
@@ -3401,6 +3654,9 @@ document.getElementById('rutas-ver').onchange = ev => {
   pintaRutas();
 };
 document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); buscaRutas(); };
+document.getElementById('rutas-anio').onchange   = ev => ponAnio(ev.target.value);
+document.getElementById('rutas-color').onchange  = ev => { modoColor = ev.target.value; pintaRutas(); };
+document.getElementById('btn-cerca').onclick     = rutasCerca;
 document.getElementById('btn-renom').onclick = exportaRenombres;
 document.getElementById('btn-pub-rutas').onclick = publicaRutas;
 
