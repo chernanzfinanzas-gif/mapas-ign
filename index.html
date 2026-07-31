@@ -722,13 +722,26 @@ img.leaflet-tile{image-rendering:auto}
 /* Fila de interruptores. A propósito NO ocupa todo el ancho: el hueco de la
    derecha queda para lo que venga (marcar un punto, aviso de desvío…). */
 #interruptores{position:absolute;top:calc(54px + var(--safe-t));left:8px;right:8px;z-index:600;
-  display:flex;gap:6px}
-.tog{display:flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--linea);
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+#interruptores::-webkit-scrollbar{display:none}
+/* el borde derecho se difumina: es la señal de que la fila sigue */
+#interruptores{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+.tog{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--linea);
   border-radius:999px;background:rgba(251,250,247,.9);box-shadow:var(--sombra);
-  font-size:12.5px;font-weight:600;color:#5d5a53;cursor:pointer;flex:0 0 auto}
-.tog input{width:15px;height:15px;margin:0;accent-color:var(--verde)}
+  font-size:12px;font-weight:600;color:#5d5a53;cursor:pointer;flex:0 0 auto;white-space:nowrap}
+.tog input{width:14px;height:14px;margin:0;accent-color:var(--verde)}
 .tog:has(input:checked){border-color:var(--verde);color:var(--verde)}
 .tog:has(input:disabled){opacity:.45}
+/* botón de grabación: en reposo es un aro rojo; grabando, punto latiendo y
+   fondo rojo, para que se vea de un vistazo que el GPS está trabajando */
+.tog.acc{border-color:var(--verde);color:var(--verde)}
+.tog.urg{border-color:#a8641f;color:#a8641f}
+.tog.rec{border-color:#b3261e;color:#b3261e}
+.tog.rec .pt{width:11px;height:11px;border-radius:50%;border:2.5px solid currentColor;flex:0 0 auto}
+.tog.rec.grabando{background:#b3261e;border-color:#b3261e;color:#fff}
+.tog.rec.grabando .pt{background:#fff;border-color:#fff;animation:late 1.4s infinite}
+@keyframes late{0%,100%{opacity:1}50%{opacity:.25}}
 #menu-capas{position:absolute;top:calc(146px + var(--safe-t));left:8px;right:8px;z-index:660;
   background:rgba(253,252,250,.98);border:1px solid var(--linea);border-radius:14px;
   box-shadow:0 8px 26px rgba(0,0,0,.2);overflow:hidden;max-height:60vh;overflow-y:auto}
@@ -875,6 +888,10 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
 .dlg .dlg-bot{display:flex;gap:8px;margin-top:12px}
 .dlg .dlg-bot .sec,.dlg .dlg-bot .accion{width:auto;flex:1 1 0}
 #hoja section h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
+.pin-punto{width:24px;height:24px;border-radius:50%;background:#2f6b4f;color:#fff;border:2px solid #fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.ficha-ruta .fr-borra{width:100%;padding:9px;border:1px solid #d8b4b0;border-radius:9px;background:#fff;
+  color:#a8321f;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
 .pin-coche{width:26px;height:26px;border-radius:50%;background:#1f2937;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
   box-shadow:0 2px 8px rgba(0,0,0,.4)}
@@ -916,15 +933,15 @@ button.sec{width:100%;padding:11px;border:1px solid var(--linea);border-radius:1
 #prog-txt{font-variant-numeric:tabular-nums;color:#4a4741}
 #prog-err{color:var(--rojo)}
 #prog-nota{color:var(--ambar);font-size:12.5px;margin-top:4px}
-ul#lista,ul#sendas-lista,ul#repo-lista,ul#gpx-lista,ul#rutas-resultados{list-style:none;margin:0;padding:0}
-ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li,ul#rutas-resultados li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
+ul#lista,ul#sendas-lista,ul#repo-lista,ul#gpx-lista,ul#rutas-resultados,ul#puntos-lista{list-style:none;margin:0;padding:0}
+ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li,ul#rutas-resultados li,ul#puntos-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
 ul#lista li:last-child,ul#sendas-lista li:last-child{border-bottom:0}
-ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info,ul#rutas-resultados .info{flex:1 1 auto;min-width:0}
-ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom,ul#rutas-resultados .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det,ul#rutas-resultados .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
-ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button,ul#rutas-resultados button{border:1px solid var(--linea);background:#fff;border-radius:9px;
+ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info,ul#rutas-resultados .info,ul#puntos-lista .info{flex:1 1 auto;min-width:0}
+ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom,ul#rutas-resultados .nom,ul#puntos-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det,ul#rutas-resultados .det,ul#puntos-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button,ul#rutas-resultados button,ul#puntos-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
-ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir,ul#rutas-resultados button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir,ul#rutas-resultados button.ir,ul#puntos-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
 .vacio{font-size:13px;color:#6b6862;font-style:italic}
 #almacen{font-size:13px;color:#4a4741;font-variant-numeric:tabular-nums}
 #almacen .aviso-purga{color:var(--ambar)}
@@ -949,7 +966,11 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
 </div>
 <div id="interruptores">
   <label class="tog" id="tog-gpx-caja"><input type="checkbox" id="tog-gpx" disabled><span>Track</span></label>
-  <label class="tog"><input type="checkbox" id="tog-rutas" checked><span>Mis rutas</span></label>
+  <label class="tog"><input type="checkbox" id="tog-rutas" checked><span>Rutas</span></label>
+  <label class="tog"><input type="checkbox" id="tog-sendas" checked><span>Sendas</span></label>
+  <button class="tog rec" id="tog-rec" title="Empezar a grabar la ruta"><span class="pt"></span><span class="tx">Grabar</span></button>
+  <button class="tog acc" id="tog-punto" title="Marcar un punto aquí">⚑ Punto</button>
+  <button class="tog urg" id="tog-sos" title="Pantalla de emergencia">▲ SOS</button>
 </div>
 <div id="selectores">
   <button class="sel" id="sel-base"><span class="et">Mapa</span><b>TOPO</b></button>
@@ -1094,6 +1115,10 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <div id="grab-estado" class="pista"></div>
       <button class="sec" id="grab-volver" hidden>Volver por donde vine</button>
       <button class="sec" id="grab-guardar" hidden>Guardar como ruta</button>
+
+      <h4>Puntos marcados</h4>
+      <p class="pista">El botón ⚑ de la pantalla los guarda al instante. Tócalos en el mapa para nombrarlos o borrarlos.</p>
+      <ul id="puntos-lista"></ul>
 
       <h4>Punto de partida</h4>
       <p class="pista">Marca dónde dejas el coche y tendrás siempre la distancia y el rumbo de vuelta.</p>
@@ -2871,7 +2896,9 @@ document.getElementById('btn-publicar').onclick = publicaEnGitHub;
 document.getElementById('btn-exportar-todo').onclick = exportaTodo;
 document.getElementById('gh-token').value = localStorage.getItem(LS_GH) || '';
 document.getElementById('sendas-ver').onchange = ev => {
-  sendasVisibles = ev.target.checked; pintaSendas();
+  sendasVisibles = ev.target.checked;
+  const $t = document.getElementById('tog-sendas'); if ($t) $t.checked = sendasVisibles;
+  pintaSendas();
 };
 
 /* ---------- 9. Mi colección de rutas -----------------------------------
@@ -3415,8 +3442,18 @@ async function pintaEmergencia() {
 
 /* ---- estado de la sección de seguridad en el panel ---- */
 function pintaSeguridad() {
-  const $e = document.getElementById('grab-estado'); if (!$e) return;
   const g = leeGrab();
+  /* el botón rojo de la pantalla, que existe aunque el panel esté cerrado */
+  const $r = document.getElementById('tog-rec');
+  if ($r) {
+    const act = !!(g && g.activa);
+    $r.classList.toggle('grabando', act);
+    $r.querySelector('.tx').textContent = act
+      ? (g.pts.length > 1 ? fmtDist(largoGrabacion(g)) : 'Grabando')
+      : 'Grabar';
+    $r.title = act ? 'Parar la grabación' : 'Empezar a grabar la ruta';
+  }
+  const $e = document.getElementById('grab-estado'); if (!$e) return;
   const $emp = document.getElementById('grab-empezar'), $par = document.getElementById('grab-parar');
   const activa = !!(g && g.activa);
   $emp.hidden = activa; $par.hidden = !activa;
@@ -3463,6 +3500,13 @@ async function guardaGrabacion() {
   avisa('Guardada como ruta cargada');
 }
 
+/* el botón rojo arranca y para sin abrir el panel: usa el modo que tengas
+   elegido, y si nunca elegiste ninguno, el continuo */
+document.getElementById('tog-rec').onclick = () => {
+  const g = leeGrab();
+  if (g && g.activa) paraGrabacion();
+  else empiezaGrabacion();
+};
 document.getElementById('grab-empezar').onclick = empiezaGrabacion;
 document.getElementById('grab-parar').onclick   = paraGrabacion;
 document.getElementById('grab-volver').onclick  = vuelvePorDondeVine;
@@ -3473,6 +3517,91 @@ document.getElementById('btn-emergencia').onclick = abreEmergencia;
 document.getElementById('grab-pantalla').onchange = ev => {
   const g = leeGrab(); if (g) { salvaGrab({ ...g, pantalla: ev.target.checked }); }
   if (g && g.activa) pideBloqueo(ev.target.checked);
+};
+
+/* ---- puntos marcados: fuentes, cruces, lo que quieras recordar ---------
+   Un toque los guarda con la posición del momento; el nombre se pone después
+   tocándolos en el mapa, que en marcha nadie escribe. */
+const LS_PUNTOS = 'ign.puntos';
+const leePuntos  = () => { try { return JSON.parse(localStorage.getItem(LS_PUNTOS)) || []; } catch (e) { return []; } };
+const salvaPuntos = p => localStorage.setItem(LS_PUNTOS, JSON.stringify(p));
+let capaPuntos = null;
+
+function pintaPuntos() {
+  if (capaPuntos) { mapa.removeLayer(capaPuntos); capaPuntos = null; }
+  const ps = leePuntos(); if (!ps.length) return;
+  capaPuntos = L.layerGroup(ps.map(pt => {
+    const m = L.marker(pt.g, { zIndexOffset:800, title: pt.nom,
+      icon: L.divIcon({ className:'', iconSize:[24,24], iconAnchor:[12,12],
+        html:'<div class="pin-punto">⚑</div>' }) });
+    m.bindTooltip(pt.nom, { direction:'top', offset:[0,-10] });
+    m.on('click', ev => { L.DomEvent.stop(ev); abreFichaPunto(pt, ev.latlng); });
+    return m;
+  })).addTo(mapa);
+}
+function marcaPunto() {
+  if (!ultimaPos) { avisa('Espera a tener posición'); if (!watch) arrancaGps(); return; }
+  const ps = leePuntos();
+  const pt = { id: 'p' + Date.now().toString(36), nom: 'Punto ' + (ps.length + 1),
+               g: [ +ultimaPos[0].toFixed(5), +ultimaPos[1].toFixed(5) ],
+               alt: ultimaPos[2] != null ? Math.round(ultimaPos[2]) : null, t: Date.now() };
+  ps.push(pt); salvaPuntos(ps);
+  pintaPuntos(); pintaListaPuntos();
+  avisa('Marcado «' + pt.nom + '». Tócalo en el mapa para nombrarlo');
+}
+function abreFichaPunto(pt, latlng) {
+  const cont = document.createElement('div');
+  cont.className = 'ficha-ruta';
+  const d = ultimaPos ? metrosEntre(ultimaPos, pt.g) : null;
+  const r = ultimaPos ? rumboEntre(ultimaPos, pt.g) : null;
+  cont.innerHTML = '<input type="text" class="fr-nom"><div class="fr-det"></div>'
+    + '<div class="fr-bot"><button class="fr-guarda">Guardar nombre</button>'
+    + '<button class="fr-borra">Borrar el punto</button></div>';
+  cont.querySelector('.fr-nom').value = pt.nom;
+  cont.querySelector('.fr-det').textContent =
+    [ pt.g[0].toFixed(5) + ', ' + pt.g[1].toFixed(5),
+      pt.alt != null ? pt.alt + ' m' : '',
+      d != null ? 'a ' + fmtDist(d) + ' ' + puntoCardinal(r) : '' ].filter(Boolean).join(' · ');
+  cont.querySelector('.fr-guarda').onclick = () => {
+    const n = (cont.querySelector('.fr-nom').value || '').trim();
+    const ps = leePuntos(); const x = ps.find(z => z.id === pt.id);
+    if (x && n) { x.nom = n; salvaPuntos(ps); }
+    mapa.closePopup(); pintaPuntos(); pintaListaPuntos();
+  };
+  cont.querySelector('.fr-borra').onclick = () => {
+    salvaPuntos(leePuntos().filter(z => z.id !== pt.id));
+    mapa.closePopup(); pintaPuntos(); pintaListaPuntos();
+    avisa('Punto borrado');
+  };
+  L.popup({ maxWidth:280 }).setLatLng(latlng).setContent(cont).openOn(mapa);
+}
+function pintaListaPuntos() {
+  const ul = document.getElementById('puntos-lista'); if (!ul) return;
+  const ps = leePuntos();
+  ul.innerHTML = '';
+  if (!ps.length) { ul.innerHTML = '<li class="vacio">Ningún punto marcado.</li>'; return; }
+  ps.slice().reverse().forEach(pt => {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
+    li.querySelector('.nom').textContent = pt.nom;
+    const d = ultimaPos ? metrosEntre(ultimaPos, pt.g) : null;
+    li.querySelector('.det').textContent = d != null
+      ? 'a ' + fmtDist(d) + ' hacia el ' + puntoCardinal(rumboEntre(ultimaPos, pt.g))
+      : pt.g[0].toFixed(5) + ', ' + pt.g[1].toFixed(5);
+    const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
+    ir.onclick = () => { mapa.setView(pt.g, Math.max(mapa.getZoom(), 16)); cierraPanel(); };
+    const bo = document.createElement('button'); bo.textContent = 'Borrar';
+    bo.onclick = () => { salvaPuntos(leePuntos().filter(z => z.id !== pt.id)); pintaPuntos(); pintaListaPuntos(); };
+    li.append(ir, bo); ul.appendChild(li);
+  });
+}
+
+document.getElementById('tog-punto').onclick = marcaPunto;
+document.getElementById('tog-sos').onclick   = abreEmergencia;
+document.getElementById('tog-sendas').onchange = ev => {
+  sendasVisibles = ev.target.checked;
+  const $p = document.getElementById('sendas-ver'); if ($p) $p.checked = sendasVisibles;
+  pintaSendas();
 };
 
 /* ---------- 11. Panel plegable ----------------------------------------
@@ -3557,7 +3686,8 @@ function abrePor(texto) {
   pintaListaGpx();
   await pintaGpxs();
   montaAcordeon();
-  pintaCoche(); pintaGrabacion(); pintaSeguridad();
+  pintaCoche(); pintaGrabacion(); pintaPuntos(); pintaListaPuntos(); pintaSeguridad();
+  document.getElementById('tog-sendas').checked = sendasVisibles;
   /* si estabas grabando y se cerró la app, se reanuda al volver */
   { const g = leeGrab(); if (g && g.activa) {
       document.getElementById('grab-modo').value = g.modo;
