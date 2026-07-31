@@ -901,6 +901,9 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
 #hoja section h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
 .pin-punto{width:24px;height:24px;border-radius:50%;background:#2f6b4f;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.ficha-ruta .fr-rev{display:flex;align-items:center;gap:7px;margin:8px 0 2px;
+  font-size:13px;color:#4a4741;cursor:pointer}
+.ficha-ruta .fr-rev input{width:17px;height:17px;accent-color:#6d28d9;flex:0 0 auto}
 .ficha-ruta .fr-borra{width:100%;padding:9px;border:1px solid #d8b4b0;border-radius:9px;background:#fff;
   color:#a8321f;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
 #velo-noche{position:fixed;inset:0;z-index:3000;pointer-events:none;
@@ -3339,6 +3342,43 @@ const ETIQ_ACT    = { sen:'senderismo', bici:'bici' };
 let indiceRutas = null, capaRutas = null, geoRutas = new Map(), filtroAct = 'todas';
 let filtroAnio = 'todos', modoColor = 'act';
 
+/* ---- rutas ya revisadas -------------------------------------------------
+   Repasar 692 nombres es trabajo de varias sentadas, y sin marca no hay forma
+   de saber por dónde ibas: las que ya has mirado y las que no se ven iguales.
+   Al marcar una, se dibuja en un tono mucho más claro del mismo color, así que
+   el mapa te va enseñando lo que te queda por revisar. Marcar no es corregir:
+   una ruta cuyo nombre estaba bien también se marca, y por eso la marca viaja
+   aparte de los nombres corregidos. */
+const LS_RUTAS_REV = 'ign.rutas.revisadas';
+const leeRevisadas  = () => { try { return new Set(JSON.parse(localStorage.getItem(LS_RUTAS_REV)) || []); } catch (e) { return new Set(); } };
+const salvaRevisadas = s => guarda(LS_RUTAS_REV, [...s]);
+let revisadas = leeRevisadas();
+const estaRevisada = id => revisadas.has(id);
+
+/* aclarar un color conservando su tono: el morado sigue siendo morado */
+function aclara(col, luz) {
+  let r, g, b;
+  const m = /^#([0-9a-f]{6})$/i.exec(col);
+  if (m) { const v = parseInt(m[1], 16); r = (v>>16)&255; g = (v>>8)&255; b = v&255; }
+  else {
+    const h = /^hsl\(\s*([\d.]+)/.exec(col);
+    if (h) return 'hsl(' + h[1] + ' 55% ' + Math.round(luz * 100) + '%)';
+    return col;
+  }
+  r/=255; g/=255; b/=255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx - mn;
+  let hh = 0;
+  if (d) {
+    if (mx === r) hh = ((g-b)/d) % 6;
+    else if (mx === g) hh = (b-r)/d + 2;
+    else hh = (r-g)/d + 4;
+    hh *= 60; if (hh < 0) hh += 360;
+  }
+  const l = (mx+mn)/2;
+  const sa = d ? d / (1 - Math.abs(2*l - 1)) : 0;
+  return 'hsl(' + hh.toFixed(0) + ' ' + Math.round(sa*100*.85) + '% ' + Math.round(luz*100) + '%)';
+}
+
 /* ---- colorear la colección por año --------------------------------------
    Con 692 rutas y catorce años dentro, el morado y el rojo cuentan qué hiciste
    pero no cuándo. Coloreando por año, el mapa pasa a ser una biografía: se ve
@@ -3351,12 +3391,16 @@ function colorAnio(t) {
 }
 const anioDe = r => (r.f && r.f.length >= 4) ? r.f.slice(0, 4) : '';
 let aniosCol = [];                      // los años presentes, de viejo a nuevo
-function colorDeRuta(r) {
+function colorBaseDeRuta(r) {
   if (modoColor !== 'anio') return COLOR_ACT[r.a] || '#555';
   const a = anioDe(r);
   const i = aniosCol.indexOf(a);
   if (i < 0) return '#8a857c';           // sin fecha
   return colorAnio(aniosCol.length > 1 ? i / (aniosCol.length - 1) : 0);
+}
+function colorDeRuta(r) {
+  const c = colorBaseDeRuta(r);
+  return estaRevisada(r.id) ? aclara(c, .72) : c;
 }
 
 /* la leyenda es además el filtro: tocar un año deja solo ese */
@@ -3370,7 +3414,7 @@ function pintaLeyenda(idx) {
   aniosCol.forEach(a => {
     const b = document.createElement('button');
     b.className = filtroAnio === a ? 'on' : '';
-    b.innerHTML = '<i style="background:' + colorDeRuta({ f:a + '0101', a:'sen' }) + '"></i>'
+    b.innerHTML = '<i style="background:' + colorBaseDeRuta({ f:a + '0101', a:'sen' }) + '"></i>'
       + a + ' <span class="cuenta">' + (cuenta.get(a) || 0) + '</span>';
     b.onclick = () => { ponAnio(filtroAnio === a ? 'todos' : a); };
     $l.appendChild(b);
@@ -3502,10 +3546,20 @@ function abreFichaRuta(r, latlng) {
   cont.className = 'ficha-ruta';
   const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
   cont.innerHTML = '<input type="text" class="fr-nom"><div class="fr-det"></div>'
+    + '<label class="fr-rev"><input type="checkbox" class="fr-rev-si"> Nombre revisado</label>'
     + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button>'
     + '<button class="fr-guarda">Guardar nombre</button></div>';
   const $i = cont.querySelector('.fr-nom');
   $i.value = nombreDe(r);
+  const $rev = cont.querySelector('.fr-rev-si');
+  $rev.checked = estaRevisada(r.id);
+  /* la marca se aplica al instante, sin pasar por «Guardar nombre»: muchas
+     rutas se revisan sin tocarles el nombre */
+  $rev.onchange = () => {
+    if ($rev.checked) revisadas.add(r.id); else revisadas.delete(r.id);
+    salvaRevisadas(revisadas);
+    pintaListaRenombres(); pintaRutas();
+  };
   cont.querySelector('.fr-det').textContent =
     [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
   cont.querySelector('.fr-seguir').onclick = () => { mapa.closePopup(); seguirRuta(r); };
@@ -3514,23 +3568,40 @@ function abreFichaRuta(r, latlng) {
     const n = leeNombres();
     if (!nuevo || nuevo === r.n) delete n[r.id]; else n[r.id] = nuevo;
     salvaNombres(n);
+    /* si le has cambiado el nombre, es que la has revisado */
+    if (nuevo && nuevo !== r.n) { revisadas.add(r.id); salvaRevisadas(revisadas); }
     mapa.closePopup();
     avisa(nuevo && nuevo !== r.n ? 'Nombre corregido' : 'Nombre original restaurado');
-    pintaListaRenombres();
+    pintaListaRenombres(); pintaRutas();
   };
   L.popup({ maxWidth:280, autoPan:true }).setLatLng(latlng).setContent(cont).openOn(mapa);
 }
 
-function pintaListaRenombres() {
+async function pintaListaRenombres() {
   const n = leeNombres(), c = Object.keys(n).length;
   const $c = document.getElementById('renom-cuenta');
-  if ($c) $c.textContent = c ? c + (c === 1 ? ' nombre corregido' : ' nombres corregidos')
-                             : 'Ningún nombre corregido todavía.';
-  const $b = document.getElementById('btn-renom'); if ($b) $b.disabled = !c;
+  const $b = document.getElementById('btn-renom');
+  if ($b) $b.disabled = !c && !revisadas.size;
+  if (!$c) return;
+  const total = indiceRutas ? indiceRutas.length : 0;
+  const rev = revisadas.size;
+  let txt = total ? '<b>' + fmtN(rev) + ' de ' + fmtN(total) + '</b> revisadas'
+                    + (total ? ' · ' + Math.round(100 * rev / total) + ' %' : '')
+                  : fmtN(rev) + ' revisadas';
+  txt += '<br>' + (c ? c + (c === 1 ? ' nombre corregido.' : ' nombres corregidos.')
+                     : 'Ningún nombre corregido todavía.');
+  $c.innerHTML = txt;
+  if (!total) {                     // aún no se ha leído el índice: se pide y se repinta
+    const idx = await cargaIndiceRutas();
+    if (idx.length) pintaListaRenombres();
+  }
 }
 function exportaRenombres() {
   const n = leeNombres();
-  const txt = JSON.stringify({ v:1, nombres:n }, null, 1);
+  /* van las dos cosas: los nombres corregidos y las que ya has repasado
+     aunque no les cambiaras nada. Lo segundo es lo que te deja retomar la
+     revisión en el otro dispositivo o después de limpiar el navegador. */
+  const txt = JSON.stringify({ v:2, nombres:n, revisadas:[...revisadas] }, null, 1);
   const url = URL.createObjectURL(new Blob([txt], { type:'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = 'renombres.json';
   document.body.appendChild(a); a.click(); a.remove();
