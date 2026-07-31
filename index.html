@@ -1572,6 +1572,9 @@ function pintaEstima() {
 }
 function abrePanel() {
   $panel.classList.add('abierto');
+  /* al abrir se vuelve a mirar si hay paquetes nuevos publicados: si no, habría
+     que recargar la app cada vez que publicas algo desde el otro dispositivo */
+  if (typeof pintaPaquetesRepo === 'function') pintaPaquetesRepo();
   pintaEstima(); pintaLista(); pintaAlmacen();
   mapa.on('moveend zoomend', pintaEstima);
 }
@@ -1650,9 +1653,12 @@ let capaGpx = null;
 function pintaGpx(pts) {
   if (capaGpx) { mapa.removeLayer(capaGpx); capaGpx = null; }
   if (!pts || pts.length < 2) return;
+  /* verde fosforito con reborde oscuro: el marrón anterior se confundía con las
+     sendas de OSM. El reborde oscuro, y no blanco, es lo que hace que el verde
+     siga leyéndose igual sobre la ortofoto que sobre el topográfico claro. */
   capaGpx = L.featureGroup([
-    L.polyline(pts, { color:'#fff', weight:7, opacity:.85, interactive:false }),
-    L.polyline(pts, { color:'#9e3b32', weight:3.5, interactive:false })
+    L.polyline(pts, { color:'#12300a', weight:7.5, opacity:.6, interactive:false }),
+    L.polyline(pts, { color:'#4ade00', weight:3.8, opacity:1, interactive:false })
   ]).addTo(mapa);
   document.getElementById('btn-gpx-quitar').hidden = false;
   const $g = document.getElementById('btn-sendas-gpx'); if ($g) $g.disabled = false;
