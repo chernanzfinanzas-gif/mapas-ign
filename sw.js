@@ -4,7 +4,7 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v33';
+const APP   = 'ign-app-v36';
 const TILES = 'ign-tiles-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
@@ -101,10 +101,15 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  /* --- los paquetes de senderos cambian cuando publicas: red primero, y la
-         copia guardada solo como respaldo. Si no, tras publicar seguirías
-         viendo la versión vieja hasta la segunda carga. --- */
-  if (url.origin === location.origin && url.pathname.includes('/sendas/')) {
+  /* --- lo que cambia cuando publicas —los paquetes de senderos y las rutas
+         que añades a la colección— va a la red primero, y la copia guardada
+         solo como respaldo. Si no, tras publicar seguirías viendo la versión
+         vieja hasta la segunda carga. --- */
+  /* Ojo: solo `anadidas.json`, no todo `/rutas/`. Los ficheros de celda de la
+     colección no cambian nunca y pesan; pedirlos a la red primero en el monte
+     sería esperar el tiempo de espera en cada uno. */
+  if (url.origin === location.origin
+      && (url.pathname.includes('/sendas/') || /\/anadidas\.json$/.test(url.pathname))) {
     e.respondWith((async () => {
       const cache = await caches.open(APP);
       try {

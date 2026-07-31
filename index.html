@@ -894,6 +894,11 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
   display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .ficha-ruta .fr-borra{width:100%;padding:9px;border:1px solid #d8b4b0;border-radius:9px;background:#fff;
   color:#a8321f;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
+.pin-wpt{width:12px;height:12px;border-radius:3px;border:2px solid #fff;margin:3px;
+  box-shadow:0 1px 4px rgba(0,0,0,.45);transform:rotate(45deg)}
+.perfil-caja{width:100%;overflow:hidden}
+.perfil-caja svg{display:block;width:100%;height:auto}
+.perfil-det{font-size:12.5px;color:#4a4741;margin-top:8px;font-variant-numeric:tabular-nums}
 .pin-coche{width:26px;height:26px;border-radius:50%;background:#1f2937;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
   box-shadow:0 2px 8px rgba(0,0,0,.4)}
@@ -1117,6 +1122,7 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <div id="grab-estado" class="pista"></div>
       <button class="sec" id="grab-volver" hidden>Volver por donde vine</button>
       <button class="sec" id="grab-guardar" hidden>Guardar como ruta</button>
+      <button class="sec" id="grab-gpx" hidden>Descargar la traza en .gpx</button>
 
       <h4>Puntos marcados</h4>
       <p class="pista">El botón ⚑ de la pantalla los guarda al instante. Tócalos en el mapa para nombrarlos o borrarlos.</p>
@@ -1265,7 +1271,37 @@ const SENDAS_KM2_MAX   = 6000;   // tope de la zona dibujada: una sierra entera
 const SENDAS_KM2_TROZO = 200;    // cada petición no pide más que esto
 const LS_ESTADO      = 'ign.estado';
 const LS_GPX         = 'ign.gpx';
-const ATRIB = '© <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
+
+/* ---- escribir en localStorage sin que reviente nada ------------------
+   localStorage tiene un techo de unos 5 MB para toda la app junta. Si se
+   llena, `setItem` lanza una excepción, y una excepción dentro del callback
+   del GPS mata la grabación en silencio — justo cuando más falta hace.
+   Todas las escrituras pasan por aquí: si fallan, avisan y siguen. */
+let avisadoLleno = false;
+function guarda(clave, valor) {
+  try {
+    localStorage.setItem(clave, typeof valor === 'string' ? valor : JSON.stringify(valor));
+    return true;
+  } catch (e) {
+    if (!avisadoLleno) {
+      avisadoLleno = true;
+      try { avisa('El almacenamiento está lleno: quita tracks o publica las rutas añadidas'); } catch (e2) {}
+      setTimeout(() => { avisadoLleno = false; }, 60000);
+    }
+    return false;
+  }
+}
+/* cuánto ocupa lo guardado, para poder enseñarlo en el panel */
+function bytesLocales() {
+  let n = 0;
+  try { for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('ign.')) n += k.length + (localStorage.getItem(k) || '').length;
+  } } catch (e) {}
+  return n * 2;                                   // UTF-16: dos bytes por carácter
+}
+
+const ATRIB ='© <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
 const TILE_VACIO = 'data:image/svg+xml;base64,' + btoa(
   '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e9e6df"/></svg>');
 
@@ -1518,7 +1554,7 @@ function aplicaGpxVisible() { pintaGpxs(); }
 document.getElementById('tog-gpx').onchange = ev => { gpxVisible = ev.target.checked; aplicaGpxVisible(); };
 document.getElementById('tog-rutas').onchange = ev => {
   rutasVisibles = ev.target.checked;
-  localStorage.setItem(LS_RUTAS_ON, rutasVisibles ? 'si' : 'no');
+  guarda(LS_RUTAS_ON, rutasVisibles ? 'si' : 'no');
   const $p = document.getElementById('rutas-ver'); if ($p) $p.checked = rutasVisibles;
   pintaRutas();
 };
@@ -1538,15 +1574,15 @@ document.getElementById('opacidad').onchange = guardaEstado;
 
 /* ---------- 5. Zonas guardadas ---------------------------------------- */
 const leeZonas  = () => { try { return JSON.parse(localStorage.getItem(LS_ZONAS)) || []; } catch (e) { return []; } };
-const salvaZonas = z => localStorage.setItem(LS_ZONAS, JSON.stringify(z));
+const salvaZonas = z => guarda(LS_ZONAS, z);
 
 function guardaEstado() {
   const c = mapa.getCenter();
-  localStorage.setItem(LS_ESTADO, JSON.stringify({
+  guarda(LS_ESTADO, {
     lat:c.lat, lng:c.lng, z:mapa.getZoom(), capa:capaActiva && capaActiva.options.cfg.id,
     zona:zonaActiva, encimaOn:modoEncima,
     encima:capaEncima && capaEncima.options.cfg.id, opac:opacidad, realce
-  }));
+  });
 }
 let zonaActiva = null;
 /* apaga los botones de las capas que esta zona no tiene descargadas; las
@@ -1829,6 +1865,12 @@ async function pintaAlmacen() {
   txt += persistente
     ? '<br>Almacenamiento <b>permanente</b>: el navegador no borrará nada por su cuenta.'
     : '<br><span class="aviso-purga">Almacenamiento no permanente: si el móvil se queda sin espacio, Chrome podría borrar lo guardado. Se pide el permiso al descargar, y se concede antes si tienes la app instalada en la pantalla de inicio.</span>';
+  /* Aparte va el cajón pequeño: preferencias, grabación, puntos y rutas
+     añadidas. Son unos 5 MB en total y es el único sitio que se puede llenar
+     de verdad, así que conviene tenerlo a la vista. */
+  const kb = bytesLocales() / 1024;
+  txt += '<br>Ajustes, grabación, puntos y rutas añadidas: <b>' + kb.toFixed(0) + ' KB</b> de unos 5.000'
+       + (kb > 3500 ? ' <span class="aviso-purga">— conviene publicar las rutas añadidas o quitar tracks.</span>' : '.');
   $a.innerHTML = txt;
 }
 
@@ -1874,7 +1916,7 @@ function onPos(p) {
   if (modo === 2) mapa.panTo(ll, { animate:true, duration:.5 });
   /* la seguridad se alimenta de cada lectura del GPS */
   ultimaPos = [ll[0], ll[1], p.coords.altitude, pr];
-  if (navigator.onLine) localStorage.setItem(LS_COBERTURA, JSON.stringify([ll[0], ll[1], Date.now()]));
+  if (navigator.onLine) guarda(LS_COBERTURA, [ll[0], ll[1], Date.now()]);
   apuntaPunto(ll);
   pintaSeguridad(); pintaEmergencia();
   $lec.style.display = 'block';
@@ -1908,7 +1950,7 @@ const COLOR_NAV   = '#d4a017';
 const REBORDE_NAV = '#000';
 
 const leeGpxs   = () => { try { return JSON.parse(localStorage.getItem(LS_GPXS)) || []; } catch (e) { return []; } };
-const salvaGpxs = g => localStorage.setItem(LS_GPXS, JSON.stringify(g));
+const salvaGpxs = g => guarda(LS_GPXS, g);
 const claveGpx  = id => 'https://gpx.local/' + id;
 async function salvaPuntosGpx(id, pts) {
   const c = await caches.open(CACHE_GPX);
@@ -1924,14 +1966,173 @@ async function leePuntosGpx(id) {
 }
 const memoriaGpx = new Map();
 
+/* Los waypoints van en su propia entrada de la caché, no en localStorage:
+   un GPX de un día largo puede traer cien y el cajón pequeño no da para eso. */
+const claveWpt = id => 'https://gpx.local/' + id + '/wpt';
+async function salvaWptGpx(id, w) {
+  const c = await caches.open(CACHE_GPX);
+  await c.put(claveWpt(id), new Response(JSON.stringify(w), { headers:{ 'Content-Type':'application/json' } }));
+}
+const memoriaWpt = new Map();
+async function leeWptGpx(id) {
+  if (memoriaWpt.has(id)) return memoriaWpt.get(id);
+  const c = await caches.open(CACHE_GPX);
+  const r = await c.match(claveWpt(id));
+  const v = r ? await r.json() : [];
+  memoriaWpt.set(id, v);
+  return v;
+}
+
+/* ---- sacar un track de la app como fichero .gpx ------------------------
+   Es el formato que entienden Garmin Connect, Wikiloc, OsmAnd y cualquier
+   otra cosa. Importa sobre todo para la grabación de seguridad: si el reloj
+   se quedó sin batería, la única copia de por dónde fuiste está aquí dentro,
+   y una traza que no puede salir del navegador no es un respaldo. */
+const escXml = t => String(t).replace(/[<>&'"]/g, c =>
+  ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', "'":'&apos;', '"':'&quot;' }[c]));
+
+function aGpx(nom, pts, waypts) {
+  const l = ['<?xml version="1.0" encoding="UTF-8"?>',
+    '<gpx version="1.1" creator="Mapas IGN offline" xmlns="http://www.topografix.com/GPX/1/1">',
+    '<metadata><name>' + escXml(nom) + '</name></metadata>'];
+  (waypts || []).forEach(w => {
+    l.push('<wpt lat="' + w.lat + '" lon="' + w.lon + '">'
+      + (w.ele != null ? '<ele>' + w.ele + '</ele>' : '')
+      + '<name>' + escXml(w.nom || '') + '</name>'
+      + (w.nota ? '<desc>' + escXml(w.nota) + '</desc>' : '') + '</wpt>');
+  });
+  if (pts && pts.length) {
+    l.push('<trk><name>' + escXml(nom) + '</name><trkseg>');
+    for (const p of pts) {
+      /* cada punto es [lat, lon, altura, hora]; las dos últimas pueden faltar */
+      l.push('<trkpt lat="' + p[0] + '" lon="' + p[1] + '">'
+        + (p[2] != null ? '<ele>' + p[2] + '</ele>' : '')
+        + (p[3] ? '<time>' + new Date(p[3]).toISOString() + '</time>' : '') + '</trkpt>');
+    }
+    l.push('</trkseg></trk>');
+  }
+  l.push('</gpx>');
+  return l.join('\n');
+}
+
+function bajaFichero(nombre, texto, tipo) {
+  try {
+    const u = URL.createObjectURL(new Blob([texto], { type: tipo || 'application/gpx+xml' }));
+    const a = document.createElement('a');
+    a.href = u; a.download = nombre; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 4000);
+    return true;
+  } catch (e) { avisa('No se ha podido preparar el fichero'); return false; }
+}
+
+/* nombre de fichero limpio: sin acentos, sin barras, sin sorpresas */
+const nombreFichero = t => (t || 'ruta').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^A-Za-z0-9 ._-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'ruta';
+
+/* ---- perfil de altura ---------------------------------------------------
+   Los ficheros del reloj traen la altura de cada punto y hasta ahora se tiraba
+   nada más leerla. Dibujada, contesta de un vistazo la única pregunta que
+   importa a media ruta: lo que queda, ¿es llano o es una pared? */
+function calculaPerfil(pts) {
+  const d = [], h = [];
+  let acum = 0, hay = false;
+  for (let i = 0; i < pts.length; i++) {
+    if (i) acum += metrosEntre(pts[i-1], pts[i]);
+    const e = pts[i][2];
+    if (e != null && isFinite(e)) hay = true;
+    d.push(acum); h.push(e != null && isFinite(e) ? e : null);
+  }
+  if (!hay) return null;
+  /* huecos sueltos del altímetro: se rellenan interpolando entre vecinos */
+  let ult = null;
+  for (let i = 0; i < h.length; i++) if (h[i] != null) { ult = h[i]; break; }
+  for (let i = 0; i < h.length; i++) { if (h[i] == null) h[i] = ult; else ult = h[i]; }
+  let sube = 0, baja = 0, acumP = 0, prev = h[0];
+  for (let i = 1; i < h.length; i++) {
+    acumP += h[i] - prev; prev = h[i];
+    if (acumP >= 3)  { sube += acumP; acumP = 0; }
+    else if (acumP <= -3) { baja -= acumP; acumP = 0; }
+  }
+  return { d, h, min: Math.min(...h), max: Math.max(...h),
+           sube: Math.round(sube), baja: Math.round(baja), km: acum / 1000 };
+}
+
+function svgPerfil(p, color) {
+  const W = 330, H = 120, mI = 34, mD = 6, mA = 8, mB = 18;
+  const ax = W - mI - mD, ay = H - mA - mB;
+  const hmin = Math.floor(p.min / 50) * 50, hmax = Math.ceil(p.max / 50) * 50;
+  const rango = Math.max(50, hmax - hmin), largo = p.d[p.d.length - 1] || 1;
+  const X = m => mI + ax * (m / largo);
+  const Y = h => mA + ay * (1 - (h - hmin) / rango);
+  /* con miles de puntos el SVG se hace enorme y no se nota: uno de cada n */
+  const paso = Math.max(1, Math.ceil(p.d.length / 400));
+  const pts = [];
+  for (let i = 0; i < p.d.length; i += paso) pts.push(X(p.d[i]).toFixed(1) + ',' + Y(p.h[i]).toFixed(1));
+  pts.push(X(largo).toFixed(1) + ',' + Y(p.h[p.h.length - 1]).toFixed(1));
+  const linea = 'M' + pts.join('L');
+  const area = linea + 'L' + X(largo).toFixed(1) + ',' + (mA + ay) + 'L' + mI + ',' + (mA + ay) + 'Z';
+  const rejilla = [];
+  for (let k = 0; k <= 4; k++) {
+    const h = hmin + rango * k / 4, y = Y(h).toFixed(1);
+    rejilla.push('<line x1="' + mI + '" y1="' + y + '" x2="' + (W - mD) + '" y2="' + y
+      + '" stroke="#ded9d0" stroke-width="1"/>'
+      + '<text x="' + (mI - 4) + '" y="' + (+y + 3.5) + '" text-anchor="end" font-size="9" fill="#8a857c">'
+      + Math.round(h) + '</text>');
+  }
+  const kms = [];
+  for (let k = 0; k <= 4; k++) {
+    const m = largo * k / 4;
+    kms.push('<text x="' + X(m).toFixed(1) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="9" fill="#8a857c">'
+      + (m / 1000).toFixed(largo > 20000 ? 0 : 1) + '</text>');
+  }
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img">'
+    + rejilla.join('') + kms.join('')
+    + '<path d="' + area + '" fill="' + color + '" fill-opacity=".18"/>'
+    + '<path d="' + linea + '" fill="none" stroke="' + color + '" stroke-width="1.8" '
+    + 'stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<text x="' + (W - mD) + '" y="' + (H - 4) + '" text-anchor="end" font-size="9" fill="#8a857c">km</text>'
+    + '</svg>';
+}
+
+async function abrePerfil(f) {
+  const pts = await leePuntosGpx(f.id);
+  const p = pts && calculaPerfil(pts);
+  const cont = document.createElement('div');
+  cont.className = 'dlg';
+  cont.innerHTML = '<h4></h4><div class="perfil-caja"></div><div class="perfil-det"></div>'
+    + '<div class="dlg-bot"><button class="sec" id="perf-no">Cerrar</button></div>';
+  cont.querySelector('h4').textContent = f.nom;
+  if (!p) {
+    cont.querySelector('.perfil-det').textContent = 'Este fichero no trae datos de altitud.';
+  } else {
+    cont.querySelector('.perfil-caja').innerHTML = svgPerfil(p, f.nav ? COLOR_NAV : f.color);
+    cont.querySelector('.perfil-det').innerHTML =
+      p.km.toFixed(2) + ' km · sube <b>' + fmtN(p.sube) + ' m</b> · baja <b>' + fmtN(p.baja) + ' m</b>'
+      + '<br>Entre ' + fmtN(Math.round(p.min)) + ' y ' + fmtN(Math.round(p.max)) + ' m de altitud.';
+  }
+  const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
+  document.body.appendChild(capa);
+  const cierra = () => capa.remove();
+  cont.querySelector('#perf-no').onclick = cierra;
+  capa.onclick = ev => { if (ev.target === capa) cierra(); };
+}
+
+async function bajaGpxCargado(f) {
+  const pts = await leePuntosGpx(f.id);
+  if (!pts || !pts.length) { avisa('Esa ruta no tiene puntos'); return; }
+  const wpt = f.w ? await leeWptGpx(f.id) : [];
+  bajaFichero(nombreFichero(f.nom) + '.gpx', aGpx(f.nom, pts, wpt));
+  avisa('Descargado ' + nombreFichero(f.nom) + '.gpx');
+}
+
 /* Douglas-Peucker: tus tracks traen un punto cada pocos metros y para dibujar
    sobran. Quitando los que caen en línea recta se pinta igual y ocupa una
    fracción. */
 function simplificaTrack(pts, tolM) {
   if (pts.length < 3) return pts.slice();
   const kx = 111320 * Math.cos(pts[0][0] * Math.PI / 180), ky = 110540;
-  const guarda = new Array(pts.length).fill(false);
-  guarda[0] = guarda[pts.length - 1] = true;
+  const quedan = new Array(pts.length).fill(false);
+  quedan[0] = quedan[pts.length - 1] = true;
   const pila = [[0, pts.length - 1]];
   while (pila.length) {
     const [i, j] = pila.pop();
@@ -1946,9 +2147,9 @@ function simplificaTrack(pts, tolM) {
                            : Math.hypot(px - ax, py - ay);
       if (d > dmax) { dmax = d; idx = k; }
     }
-    if (dmax > tolM && idx > 0) { guarda[idx] = true; pila.push([i, idx], [idx, j]); }
+    if (dmax > tolM && idx > 0) { quedan[idx] = true; pila.push([i, idx], [idx, j]); }
   }
-  return pts.filter((_, i) => guarda[i]);
+  return pts.filter((_, i) => quedan[i]);
 }
 function largoKm(pts) {
   let m = 0;
@@ -1983,6 +2184,22 @@ async function pintaGpxs() {
     }
   }
   capas.push(...encima);
+  /* los waypoints que traía el fichero: fuentes, cimas, cruces que marcaste
+     en el reloj. Van encima de la línea y se pueden tocar. */
+  for (const f of visibles) {
+    if (!f.w) continue;
+    const ws = await leeWptGpx(f.id);
+    for (const w of ws) {
+      const m = L.marker([w.lat, w.lon], { title: w.nom || 'Waypoint', zIndexOffset: 500,
+        icon: L.divIcon({ className:'', iconSize:[18,18], iconAnchor:[9,9],
+          html:'<div class="pin-wpt" style="background:' + (f.nav ? COLOR_NAV : f.color) + '"></div>' }) });
+      m.on('click', ev => { L.DomEvent.stop(ev);
+        L.popup({ closeButton:true }).setLatLng(ev.latlng)
+          .setContent('<b>' + escXml(w.nom || 'Waypoint') + '</b><br>' + f.nom
+            + (w.ele != null ? '<br>' + w.ele + ' m' : '')).openOn(mapa); });
+      capas.push(m);
+    }
+  }
   if (!capas.length) return;
   capaGpx = L.featureGroup(capas).addTo(mapa);
   capaGpx.bringToFront();
@@ -2020,7 +2237,9 @@ function pintaListaGpx() {
     if (f.nav) punto.style.borderColor = '#000';
     li.querySelector('.nom').textContent = f.nom;
     li.querySelector('.det').textContent = (f.nav ? 'EN NAVEGACIÓN · ' : '')
-      + f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos';
+      + f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos'
+      + (f.d ? ' · ' + fmtN(f.d) + ' m+' : '')
+      + (f.w ? ' · ' + f.w + (f.w === 1 ? ' punto marcado' : ' puntos marcados') : '');
     if (f.nav) li.querySelector('.det').classList.add('es-nav');
     const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
     ir.onclick = () => { mapa.fitBounds([[f.bbox[0],f.bbox[1]],[f.bbox[2],f.bbox[3]]], { padding:[20,20] }); cierraPanel(); };
@@ -2039,15 +2258,23 @@ function pintaListaGpx() {
       document.getElementById('sendas-nombre').value = f.nom;
       descargaSendas(b, nombrePaquete('Alrededor de'));
     };
+    const pf = document.createElement('button'); pf.textContent = 'Perfil';
+    pf.title = 'Ver el perfil de altura';
+    pf.onclick = () => abrePerfil(f);
+    if (f.alt === false) pf.disabled = true;
+    const bg = document.createElement('button'); bg.textContent = 'GPX';
+    bg.title = 'Descargar esta ruta como fichero .gpx';
+    bg.onclick = () => bajaGpxCargado(f);
     const qu = document.createElement('button'); qu.textContent = 'Quitar';
     qu.onclick = async () => {
-      const c = await caches.open(CACHE_GPX); await c.delete(claveGpx(f.id));
-      memoriaGpx.delete(f.id);
+      const c = await caches.open(CACHE_GPX);
+      await c.delete(claveGpx(f.id)); await c.delete(claveWpt(f.id));
+      memoriaGpx.delete(f.id); memoriaWpt.delete(f.id);
       salvaGpxs(leeGpxs().filter(z => z.id !== f.id));
       pintaListaGpx(); pintaGpxs();
     };
     li.prepend(punto); li.prepend(ver);
-    li.append(ir, nv, col, sd, qu); ul.appendChild(li);
+    li.append(ir, nv, col, sd, pf, bg, qu); ul.appendChild(li);
   });
 }
 
@@ -2109,9 +2336,12 @@ function pintaAnadidas() {
   const $e = document.getElementById('anadidas-estado');
   const $b = document.getElementById('btn-pub-rutas');
   if (!$e) return;
-  const n = leeAnadidas().length;
+  const n = sinPublicar().length;
+  const esperando = leeAnadidas().length - n;
   $e.textContent = n ? n + (n === 1 ? ' ruta añadida sin publicar.' : ' rutas añadidas sin publicar.')
-                     : '';
+                : esperando ? esperando + (esperando === 1 ? ' ruta publicada' : ' rutas publicadas')
+                              + ', esperando a que GitHub las sirva (un minuto).'
+                : '';
   if ($b) $b.hidden = !n;
 }
 
@@ -2136,13 +2366,16 @@ async function publicaRutas() {
     else if (prev.status === 403) throw new Error('el token no tiene permiso');
     const porId = new Map();
     previas.forEach(x => porId.set(x.id, x));
-    leeAnadidas().forEach(x => porId.set(x.id, x));
+    leeAnadidas().forEach(x => { const { pub, ...limpia } = x; porId.set(x.id, limpia); });
     const txt = JSON.stringify({ v:1, rutas:[...porId.values()] });
     const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
       body: JSON.stringify({ message:'Añade rutas a la colección desde la app',
         content: aBase64(txt), sha: sha || undefined }) });
     if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
-    salvaAnadidas([]);            // ya están publicadas: se leerán del repositorio
+    /* se marcan, no se borran: siguen viéndose en el mapa hasta que el
+       repositorio las sirva de verdad */
+    const ahora = Date.now();
+    salvaAnadidas(leeAnadidas().map(r => ({ ...r, pub: ahora })));
     olvidaIndiceRutas();
     await pintaRutas();
     pintaAnadidas();
@@ -2171,10 +2404,17 @@ document.getElementById('file-gpx').onchange = async ev => {
     try {
       const txt = await leeTexto(f);
       const doc = new DOMParser().parseFromString(txt, 'application/xml');
-      let nodos = [...doc.getElementsByTagName('trkpt')];
+      let nodos = [...doc.getElementsByTagName('trkpt')], soloWpt = false;
       if (!nodos.length) nodos = [...doc.getElementsByTagName('rtept')];
-      if (!nodos.length) nodos = [...doc.getElementsByTagName('wpt')];
-      const pts = nodos.map(n => [parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon'))])
+      if (!nodos.length) { nodos = [...doc.getElementsByTagName('wpt')]; soloWpt = true; }
+      /* la altura se conserva junto a cada punto —tercer elemento, que es lo
+         que Leaflet entiende por altitud— para poder dibujar el perfil */
+      const altDe = n => {
+        const e = n.getElementsByTagName('ele')[0];
+        const v = e ? parseFloat(e.textContent) : NaN;
+        return isFinite(v) ? Math.round(v) : null;
+      };
+      const pts = nodos.map(n => [parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon')), altDe(n)])
                        .filter(p => isFinite(p[0]) && isFinite(p[1]));
       if (pts.length < 2) { avisa('«' + f.name + '» no tiene puntos de ruta'); continue; }
       /* el nombre bueno suele estar dentro del GPX; el del fichero es el
@@ -2201,14 +2441,25 @@ document.getElementById('file-gpx').onchange = async ev => {
       if (t0 && /^\d{4}-\d{2}-\d{2}/.test(t0.textContent.trim()))
         fecha = t0.textContent.trim().slice(0,10).replace(/-/g,'');
       if (!fecha) { const m = f.name.match(/(\d{8})/); if (m) fecha = m[1]; }
-      const red = simplificaTrack(pts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
+      const red = simplificaTrack(pts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5), p[2] ]);
       let latmin = 90, lonmin = 180, latmax = -90, lonmax = -180;
       red.forEach(([a, o]) => { latmin = Math.min(latmin,a); latmax = Math.max(latmax,a);
                                 lonmin = Math.min(lonmin,o); lonmax = Math.max(lonmax,o); });
+      /* Los waypoints que trae el fichero —fuentes, cimas, cruces que marcaste
+         en el reloj— se guardaban a la basura. Ahora se conservan aparte de la
+         traza y se pintan en el mapa. */
+      const wpt = soloWpt ? [] : [...doc.getElementsByTagName('wpt')].map(n => {
+        const nn = n.getElementsByTagName('name')[0];
+        return { lat:+parseFloat(n.getAttribute('lat')).toFixed(5),
+                 lon:+parseFloat(n.getAttribute('lon')).toFixed(5),
+                 nom:(nn ? nn.textContent.trim() : '').slice(0, 60), ele:altDe(n) };
+      }).filter(w => isFinite(w.lat) && isFinite(w.lon)).slice(0, 400);
       const g = leeGpxs();
       const id = 'g' + Date.now().toString(36) + puestos.toString(36);
       await salvaPuntosGpx(id, red);
+      if (wpt.length) await salvaWptGpx(id, wpt);
       g.push({ id, nom, km, d: Math.round(subida), fecha, n: red.length,
+               alt: red.some(p => p[2] != null), w: wpt.length,
                color: COLORES_GPX[g.length % COLORES_GPX.length],
                bbox: [latmin, lonmin, latmax, lonmax] });
       salvaGpxs(g);
@@ -2252,7 +2503,7 @@ mapa.on('moveend zoomend', guardaEstado);
    Kilobytes en vez de megas, no caduca, y funciona sin cobertura.        */
 
 const leeSendas   = () => { try { return JSON.parse(localStorage.getItem(LS_SENDAS)) || []; } catch (e) { return []; } };
-const salvaSendasF = f => localStorage.setItem(LS_SENDAS, JSON.stringify(f));
+const salvaSendasF = f => guarda(LS_SENDAS, f);
 
 /* Puntos de interés que sí importan andando. La clave es la etiqueta de OSM;
    se pintan como círculos de color con su nombre al tocarlos. */
@@ -2640,7 +2891,7 @@ async function publicaEnGitHub() {
   const r = repoDeLaUrl();
   if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada en GitHub Pages, no en local.'; return; }
   if (!token) { $e.textContent = 'Falta el token.'; return; }
-  localStorage.setItem(LS_GH, token);
+  guarda(LS_GH, token);
   $b.disabled = true; $e.textContent = 'Publicando…';
   const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_PAQUETES;
   const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
@@ -2925,7 +3176,7 @@ const ETIQ_ACT    = { sen:'senderismo', bici:'bici' };
 let indiceRutas = null, capaRutas = null, geoRutas = new Map(), filtroAct = 'todas';
 let rutasVisibles = localStorage.getItem(LS_RUTAS_ON) !== 'no';
 const leeNombres  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_NOM)) || {}; } catch (e) { return {}; } };
-const salvaNombres = n => localStorage.setItem(LS_RUTAS_NOM, JSON.stringify(n));
+const salvaNombres = n => guarda(LS_RUTAS_NOM, n);
 const nombreDe = r => (leeNombres()[r.id] || r.n);
 
 /* Las rutas que añades tú viven aparte del índice generado: en el repositorio,
@@ -2936,7 +3187,12 @@ const LS_RUTAS_ADD = 'ign.rutas.anadidas';
 const RUTA_ANADIDAS = RUTAS_DIR + 'anadidas.json';
 const geoAnadidas = new Map();
 const leeAnadidas  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_ADD)) || []; } catch (e) { return []; } };
-const salvaAnadidas = a => localStorage.setItem(LS_RUTAS_ADD, JSON.stringify(a));
+const salvaAnadidas = a => guarda(LS_RUTAS_ADD, a);
+/* Al publicar NO se borran de aquí: GitHub Pages tarda cerca de un minuto en
+   reconstruir el sitio. Se marcan con `pub` y se retiran solas la primera vez
+   que se leen ya presentes en el repositorio. Así nunca hay un hueco en el que
+   la ruta no esté ni aquí ni allí. */
+const sinPublicar = () => leeAnadidas().filter(r => !r.pub);
 
 function fichaDeAnadida(r) {
   geoAnadidas.set(r.id, r.g);
@@ -2954,16 +3210,27 @@ async function cargaIndiceRutas() {
     const res = await fetch(RUTA_ANADIDAS);
     if (res.ok) publicadas = (await res.json()).rutas || [];
   } catch (e) {}
-  /* las locales sin publicar mandan sobre las publicadas con el mismo id */
+  /* limpieza: las que ya viajaron al repositorio y allí están dejan de hacer
+     falta en este navegador */
+  const enRepo = new Set(publicadas.map(r => r.id));
+  const locales = leeAnadidas();
+  const quedan = locales.filter(r => !(r.pub && enRepo.has(r.id)));
+  if (quedan.length !== locales.length) salvaAnadidas(quedan);
+  /* las locales mandan sobre las publicadas con el mismo id */
   const porId = new Map();
   publicadas.forEach(r => porId.set(r.id, r));
-  leeAnadidas().forEach(r => porId.set(r.id, r));
+  quedan.forEach(r => porId.set(r.id, r));
   indiceRutas = base.concat([...porId.values()].map(fichaDeAnadida));
   return indiceRutas;
 }
 function olvidaIndiceRutas() { indiceRutas = null; geoAnadidas.clear(); }
+/* Cada celda son cientos de trazas en memoria. En una sesión larga moviéndote
+   por el mapa se acumularían todas; se guardan las últimas y las demás se
+   sueltan — volver a leerlas es un fetch que ya sirve el service worker. */
+const CELDAS_EN_MEMORIA = 12;
 async function cargaCelda(celda) {
   if (geoRutas.has(celda)) return geoRutas.get(celda);
+  while (geoRutas.size >= CELDAS_EN_MEMORIA) geoRutas.delete(geoRutas.keys().next().value);
   geoRutas.set(celda, null);                       // marca "pedida"
   try {
     const res = await fetch(RUTAS_DIR + 'geo-' + celda + '.json');
@@ -3129,7 +3396,7 @@ document.getElementById('rutas-buscar').oninput = () => {
 };
 document.getElementById('rutas-ver').onchange = ev => {
   rutasVisibles = ev.target.checked;
-  localStorage.setItem(LS_RUTAS_ON, rutasVisibles ? 'si' : 'no');
+  guarda(LS_RUTAS_ON, rutasVisibles ? 'si' : 'no');
   document.getElementById('tog-rutas').checked = rutasVisibles;
   pintaRutas();
 };
@@ -3147,6 +3414,11 @@ document.getElementById('btn-pub-rutas').onclick = publicaRutas;
 const LS_GRAB      = 'ign.grabacion';
 const LS_COCHE     = 'ign.coche';
 const LS_COBERTURA = 'ign.cobertura';
+/* Un punto grabado es [lat, lon, altura, hora]. Las grabaciones de versiones
+   anteriores traían [lat, lon, hora] y se siguen leyendo bien. */
+const horaPunto = p => p.length >= 4 ? p[3] : p[2];
+const altPunto  = p => p.length >= 4 ? p[2] : null;
+
 const GRAB_MODOS = {
   continua: { seg: 60, metros: 30,  et:'Continua' },
   ahorro:   { seg:180, metros:100, et:'Ahorro'   },
@@ -3154,7 +3426,7 @@ const GRAB_MODOS = {
 };
 
 const leeGrab   = () => { try { return JSON.parse(localStorage.getItem(LS_GRAB)) || null; } catch (e) { return null; } };
-const salvaGrab = g => localStorage.setItem(LS_GRAB, JSON.stringify(g));
+const salvaGrab = g => guarda(LS_GRAB, g);
 let capaGrab = null, bloqueoPantalla = null, ultimaPos = null;
 
 /* ---- coordenadas UTM: es el formato que pide el 112 en el monte ---- */
@@ -3259,7 +3531,7 @@ function pintaCoche() {
 }
 function marcaCoche() {
   if (!ultimaPos) { avisa('Espera a tener posición'); return; }
-  localStorage.setItem(LS_COCHE, JSON.stringify([ultimaPos[0], ultimaPos[1]]));
+  guarda(LS_COCHE, [ultimaPos[0], ultimaPos[1]]);
   pintaCoche(); pintaSeguridad();
   avisa('Punto de partida marcado');
 }
@@ -3312,12 +3584,22 @@ function apuntaPunto(pos, forzar) {
   const cfg = GRAB_MODOS[g.modo] || GRAB_MODOS.continua;
   const ult = g.pts[g.pts.length - 1];
   if (!forzar && ult) {
-    const dt = (Date.now() - ult[2]) / 1000, dm = metrosEntre([ult[0], ult[1]], pos);
+    const dt = (Date.now() - horaPunto(ult)) / 1000, dm = metrosEntre([ult[0], ult[1]], pos);
     if (g.modo === 'migas') { if (dt < 60 && dm < 50) return; }
     else if (dt < cfg.seg && dm < cfg.metros) return;
   }
-  g.pts.push([ +pos[0].toFixed(5), +pos[1].toFixed(5), Date.now() ]);
-  salvaGrab(g);
+  g.pts.push([ +pos[0].toFixed(5), +pos[1].toFixed(5),
+               pos[2] != null && isFinite(pos[2]) ? Math.round(pos[2]) : null, Date.now() ]);
+  /* Si no cabe, se adelgaza la traza —un punto de cada dos, conservando
+     siempre el último— y se vuelve a intentar. Antes perder resolución que
+     perder la grabación entera, que es lo que te saca del monte. */
+  if (!salvaGrab(g)) {
+    const ult = g.pts[g.pts.length - 1];
+    g.pts = g.pts.filter((p, i) => i % 2 === 0);
+    if (g.pts[g.pts.length - 1] !== ult) g.pts.push(ult);
+    g.ralo = (g.ralo || 0) + 1;
+    salvaGrab(g);
+  }
   pintaGrabacion(); pintaSeguridad();
 }
 function largoGrabacion(g) {
@@ -3471,6 +3753,9 @@ function pintaSeguridad() {
   } else $e.textContent = activa ? 'Esperando la primera posición…' : '';
   document.getElementById('grab-volver').hidden = !(g && g.pts.length > 1);
   document.getElementById('grab-guardar').hidden = !(g && !g.activa && g.pts.length > 1);
+  /* la descarga se ofrece también con la grabación en marcha: si te queda
+     poca batería, mejor tener el fichero ya guardado */
+  document.getElementById('grab-gpx').hidden = !(g && g.pts.length > 1);
 
   const c = leeCoche();
   const $c = document.getElementById('coche-estado');
@@ -3485,7 +3770,9 @@ function pintaSeguridad() {
    o mandarla a la colección con lo que ya existe */
 async function guardaGrabacion() {
   const g = leeGrab(); if (!g || g.pts.length < 2) return;
-  const pts = g.pts.map(x => [x[0], x[1]]);
+  /* se conservan altura y hora de cada punto: es lo que hace que el .gpx
+     exportado lleve perfil y ritmo, no solo el dibujo */
+  const pts = g.pts.map(x => [x[0], x[1], altPunto(x), horaPunto(x)]);
   let latmin=90, lonmin=180, latmax=-90, lonmax=-180;
   pts.forEach(([a,o]) => { latmin=Math.min(latmin,a); latmax=Math.max(latmax,a);
                            lonmin=Math.min(lonmin,o); lonmax=Math.max(lonmax,o); });
@@ -3516,6 +3803,17 @@ document.getElementById('grab-empezar').onclick = empiezaGrabacion;
 document.getElementById('grab-parar').onclick   = paraGrabacion;
 document.getElementById('grab-volver').onclick  = vuelvePorDondeVine;
 document.getElementById('grab-guardar').onclick = guardaGrabacion;
+document.getElementById('grab-gpx').onclick = () => {
+  const g = leeGrab(); if (!g || g.pts.length < 2) { avisa('No hay traza grabada todavía'); return; }
+  const d = new Date(g.ini);
+  const nom = 'Grabación ' + d.toLocaleDateString('es-ES');
+  /* van también los puntos que hayas marcado: en el fichero quedan como
+     waypoints, que es donde los espera cualquier programa */
+  const wpt = leePuntos().map(p => ({ lat:p.g[0], lon:p.g[1], nom:p.nom, ele:p.alt }));
+  const pts = g.pts.map(x => [x[0], x[1], altPunto(x), horaPunto(x)]);
+  bajaFichero(nombreFichero(nom) + '.gpx', aGpx(nom, pts, wpt));
+  avisa('Traza descargada en .gpx');
+};
 document.getElementById('coche-marcar').onclick = marcaCoche;
 document.getElementById('coche-borrar').onclick = borraCoche;
 document.getElementById('btn-emergencia').onclick = abreEmergencia;
@@ -3529,7 +3827,7 @@ document.getElementById('grab-pantalla').onchange = ev => {
    tocándolos en el mapa, que en marcha nadie escribe. */
 const LS_PUNTOS = 'ign.puntos';
 const leePuntos  = () => { try { return JSON.parse(localStorage.getItem(LS_PUNTOS)) || []; } catch (e) { return []; } };
-const salvaPuntos = p => localStorage.setItem(LS_PUNTOS, JSON.stringify(p));
+const salvaPuntos = p => guarda(LS_PUNTOS, p);
 let capaPuntos = null;
 
 function pintaPuntos() {
@@ -3632,7 +3930,7 @@ function abreSeccion(i, desplaza) {
   document.querySelectorAll('#hoja section').forEach(sec => {
     sec.classList.toggle('abierta', +sec.dataset.sec === i);
   });
-  localStorage.setItem(LS_SECCION, i);
+  guarda(LS_SECCION, i);
   if (desplaza !== false) {
     const sec = document.querySelector('#hoja section[data-sec="' + i + '"]');
     if (sec) setTimeout(() => sec.scrollIntoView({ block:'start', behavior:'smooth' }), 60);
@@ -3641,7 +3939,7 @@ function abreSeccion(i, desplaza) {
 function alternaSeccion(i) {
   const sec = document.querySelector('#hoja section[data-sec="' + i + '"]');
   if (sec && sec.classList.contains('abierta')) {
-    sec.classList.remove('abierta'); localStorage.setItem(LS_SECCION, '');
+    sec.classList.remove('abierta'); guarda(LS_SECCION, '');
   } else abreSeccion(i);
 }
 /* para abrir desde el código la sección que toca según lo que estés haciendo */
