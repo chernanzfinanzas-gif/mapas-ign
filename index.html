@@ -722,12 +722,12 @@ img.leaflet-tile{image-rendering:auto}
 /* Fila de interruptores. A propósito NO ocupa todo el ancho: el hueco de la
    derecha queda para lo que venga (marcar un punto, aviso de desvío…). */
 #interruptores{position:absolute;top:calc(54px + var(--safe-t));left:8px;right:8px;z-index:600;
-  display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 #interruptores::-webkit-scrollbar{display:none}
 /* el borde derecho se difumina: es la señal de que la fila sigue */
 #interruptores{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
   mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
-.tog{display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--linea);
+.tog{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid var(--linea);
   border-radius:999px;background:rgba(251,250,247,.9);box-shadow:var(--sombra);
   font-size:12px;font-weight:600;color:#5d5a53;cursor:pointer;flex:0 0 auto;white-space:nowrap}
 .tog input{width:14px;height:14px;margin:0;accent-color:var(--verde)}
@@ -737,7 +737,9 @@ img.leaflet-tile{image-rendering:auto}
    fondo rojo, para que se vea de un vistazo que el GPS está trabajando */
 .tog.acc{border-color:var(--verde);color:var(--verde)}
 .tog.urg{border-color:#a8641f;color:#a8641f}
-.tog.rec{border-color:#b3261e;color:#b3261e}
+/* el botón de grabar vive en la banda inferior, a la derecha de los créditos */
+#tog-rec{position:absolute;right:8px;bottom:calc(6px + var(--safe-b));z-index:630}
+.tog.rec{border-color:#b3261e;color:#b3261e;background:rgba(251,250,247,.94)}
 .tog.rec .pt{width:11px;height:11px;border-radius:50%;border:2.5px solid currentColor;flex:0 0 auto}
 .tog.rec.grabando{background:#b3261e;border-color:#b3261e;color:#fff}
 .tog.rec.grabando .pt{background:#fff;border-color:#fff;animation:late 1.4s infinite}
@@ -968,14 +970,14 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
   <label class="tog" id="tog-gpx-caja"><input type="checkbox" id="tog-gpx" disabled><span>Track</span></label>
   <label class="tog"><input type="checkbox" id="tog-rutas" checked><span>Rutas</span></label>
   <label class="tog"><input type="checkbox" id="tog-sendas" checked><span>Sendas</span></label>
-  <button class="tog rec" id="tog-rec" title="Empezar a grabar la ruta"><span class="pt"></span><span class="tx">Grabar</span></button>
   <button class="tog acc" id="tog-punto" title="Marcar un punto aquí">⚑ Punto</button>
-  <button class="tog urg" id="tog-sos" title="Pantalla de emergencia">▲ SOS</button>
+  <button class="tog urg" id="tog-sos" title="Pantalla de emergencia">SOS</button>
 </div>
 <div id="selectores">
   <button class="sel" id="sel-base"><span class="et">Mapa</span><b>TOPO</b></button>
   <button class="sel" id="sel-encima"><span class="et">Encima</span><b>ninguna</b></button>
 </div>
+<button class="tog rec" id="tog-rec" title="Empezar a grabar la ruta"><span class="pt"></span><span class="tx">Grabar</span></button>
 <div id="menu-capas" hidden></div>
 
 <div id="barra-dibujo" hidden>
@@ -1338,7 +1340,10 @@ const CapaIGN = L.TileLayer.extend({
 /* zoom mínimo 3: a ese nivel cabe un continente en pantalla, que es lo que
    hace falta para plantarse en Italia o en Argentina sin veinte pellizcos */
 const mapa = L.map('map', { zoomControl:false, attributionControl:true, tap:false, minZoom:3, maxZoom:19 });
-L.control.scale({ imperial:false, position:'bottomright', maxWidth:110 }).addTo(mapa);
+L.control.scale({ imperial:false, position:'bottomleft', maxWidth:110 }).addTo(mapa);
+/* créditos a la izquierda: la derecha de esa banda queda para el botón de
+   grabar, que así no ocupa sitio en la fila de arriba */
+mapa.attributionControl.setPosition('bottomleft');
 
 /* panel propio para los senderos de OSM: por encima de las teselas (200) y por
    debajo del track cargado (400), para que la ruta que sigues mande siempre.
