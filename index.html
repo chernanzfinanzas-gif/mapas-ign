@@ -849,9 +849,13 @@ ul#sendas-lista .ver1,ul#gpx-lista .ver1{width:18px;height:18px;flex:0 0 auto;ac
 .ficha-ruta .fr-nom{width:100%;box-sizing:border-box;padding:8px 9px;border:1px solid var(--linea);
   border-radius:9px;font:inherit;font-size:14px;font-weight:600}
 .ficha-ruta .fr-det{font-size:12.5px;color:#6b6862;margin:7px 0 9px;font-variant-numeric:tabular-nums}
-.ficha-ruta .fr-guarda{width:100%;padding:9px;border:0;border-radius:9px;background:var(--verde);
-  color:#fff;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
+.ficha-ruta .fr-bot{display:flex;flex-direction:column;gap:6px}
+.ficha-ruta .fr-seguir{width:100%;padding:9px;border:0;border-radius:9px;background:#4a7c1f;
+  color:#fff;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+.ficha-ruta .fr-guarda{width:100%;padding:9px;border:1px solid var(--linea);border-radius:9px;
+  background:#fff;color:#5d5a53;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}
 ul#gpx-lista .color{width:12px;height:12px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(0,0,0,.25)}
+ul#rutas-resultados{max-height:44vh;overflow-y:auto}
 #gh-estado{font-size:12.5px;color:#5d5a53;margin-top:6px}
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
@@ -873,15 +877,15 @@ button.sec{width:100%;padding:11px;border:1px solid var(--linea);border-radius:1
 #prog-txt{font-variant-numeric:tabular-nums;color:#4a4741}
 #prog-err{color:var(--rojo)}
 #prog-nota{color:var(--ambar);font-size:12.5px;margin-top:4px}
-ul#lista,ul#sendas-lista,ul#repo-lista,ul#gpx-lista{list-style:none;margin:0;padding:0}
-ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
+ul#lista,ul#sendas-lista,ul#repo-lista,ul#gpx-lista,ul#rutas-resultados{list-style:none;margin:0;padding:0}
+ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li,ul#rutas-resultados li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
 ul#lista li:last-child,ul#sendas-lista li:last-child{border-bottom:0}
-ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info{flex:1 1 auto;min-width:0}
-ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
-ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
+ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info,ul#rutas-resultados .info{flex:1 1 auto;min-width:0}
+ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom,ul#rutas-resultados .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det,ul#rutas-resultados .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button,ul#rutas-resultados button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
-ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir,ul#rutas-resultados button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
 .vacio{font-size:13px;color:#6b6862;font-style:italic}
 #almacen{font-size:13px;color:#4a4741;font-variant-numeric:tabular-nums}
 #almacen .aviso-purga{color:var(--ambar)}
@@ -1013,6 +1017,10 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <h3>Mis rutas</h3>
       <p class="pista">Tu colección de tracks, dibujada sobre el mapa. Toca una para ver sus datos y corregirle el nombre.</p>
       <label class="ver-sendas"><input type="checkbox" id="rutas-ver" checked> Mostrarlas sobre el mapa</label>
+      <label class="campo">Buscar por nombre
+        <input type="search" id="rutas-buscar" placeholder="Cazorla, Peñalara, Cares…" autocomplete="off">
+      </label>
+      <ul id="rutas-resultados"></ul>
       <label class="campo">Actividad
         <select id="rutas-filtro">
           <option value="todas">Todas</option>
@@ -2410,7 +2418,9 @@ async function pintaPaquetesRepo() {
   cont.hidden = false;
   const ul = document.getElementById('repo-lista');
   ul.innerHTML = '';
-  const puestos = new Set(leeSendas().map(f => f.origen).filter(Boolean));
+  /* «ya lo tienes» vale tanto si lo trajiste del repositorio (origen) como si
+     lo descargaste tú aquí: en ese caso el id sale de su propio nombre */
+  const puestos = new Set(leeSendas().flatMap(f => [f.origen, idDesde(f.nom)]).filter(Boolean));
   lista.forEach(p => {
     const li = document.createElement('li');
     li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
@@ -2700,11 +2710,13 @@ function abreFichaRuta(r, latlng) {
   cont.className = 'ficha-ruta';
   const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
   cont.innerHTML = '<input type="text" class="fr-nom"><div class="fr-det"></div>'
-    + '<div class="fr-bot"><button class="fr-guarda">Guardar nombre</button></div>';
+    + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button>'
+    + '<button class="fr-guarda">Guardar nombre</button></div>';
   const $i = cont.querySelector('.fr-nom');
   $i.value = nombreDe(r);
   cont.querySelector('.fr-det').textContent =
     [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
+  cont.querySelector('.fr-seguir').onclick = () => { mapa.closePopup(); seguirRuta(r); };
   cont.querySelector('.fr-guarda').onclick = () => {
     const nuevo = ($i.value || '').trim();
     const n = leeNombres();
@@ -2734,13 +2746,91 @@ function exportaRenombres() {
   avisa('Descargado renombres.json');
 }
 
+/* ---- buscador y ruta a seguir ----------------------------------------
+   Con 692 rutas, encontrarlas arrastrando el mapa es inviable. Se busca por
+   nombre —sin tildes ni mayúsculas, para que «penalara» encuentre «Peñalara»—
+   y desde el resultado se puede saltar a ella o cargarla como ruta a seguir. */
+const sinTildes = t => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+async function buscaRutas() {
+  const ul = document.getElementById('rutas-resultados');
+  const q = sinTildes(document.getElementById('rutas-buscar').value.trim());
+  ul.innerHTML = '';
+  if (q.length < 2) return;
+  const idx = await cargaIndiceRutas();
+  const hallados = idx
+    .filter(r => (filtroAct === 'todas' || r.a === filtroAct) && sinTildes(nombreDe(r)).includes(q))
+    .sort((a, b) => (b.f || '').localeCompare(a.f || ''));
+  if (!hallados.length) { ul.innerHTML = '<li class="vacio">Ninguna ruta con ese nombre.</li>'; return; }
+  const tope = hallados.slice(0, 40);
+  tope.forEach(r => {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
+    li.querySelector('.nom').textContent = nombreDe(r);
+    const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
+    li.querySelector('.det').textContent =
+      [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
+    const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
+    ir.onclick = () => { mapa.fitBounds([[r.b[0],r.b[1]],[r.b[2],r.b[3]]], { padding:[20,20] }); cierraPanel(); };
+    const sg = document.createElement('button'); sg.textContent = 'Seguir';
+    sg.title = 'Cargarla como ruta a seguir';
+    sg.onclick = () => seguirRuta(r, sg);
+    li.append(ir, sg); ul.appendChild(li);
+  });
+  if (hallados.length > tope.length) {
+    const li = document.createElement('li');
+    li.className = 'vacio';
+    li.textContent = 'Y ' + fmtN(hallados.length - tope.length) + ' más. Afina la búsqueda.';
+    ul.appendChild(li);
+  }
+}
+
+/* Pasa una ruta de la colección a la lista de rutas cargadas: allí se dibuja en
+   verde fosforito, tiene su interruptor y puede pedir sus senderos. Es la que
+   vigilará el aviso de desvío cuando lo hagamos. */
+async function seguirRuta(r, boton) {
+  if (boton) { boton.disabled = true; boton.textContent = 'Cargando…'; }
+  try {
+    const celda = await cargaCelda(r.c);
+    const segs = celda && celda[r.id];
+    if (!segs || !segs.length) throw new Error('sin geometría');
+    const pts = segs.flat();
+    const g = leeGpxs();
+    const yaEsta = g.find(x => x.origen === r.id);
+    if (yaEsta) { avisa('Esa ruta ya está cargada'); if (boton) { boton.textContent = 'Ya está'; } return; }
+    let latmin = 90, lonmin = 180, latmax = -90, lonmax = -180;
+    pts.forEach(([a, o]) => { latmin = Math.min(latmin,a); latmax = Math.max(latmax,a);
+                              lonmin = Math.min(lonmin,o); lonmax = Math.max(lonmax,o); });
+    const id = 'g' + Date.now().toString(36);
+    await salvaPuntosGpx(id, pts);
+    g.push({ id, origen: r.id, nom: nombreDe(r), km: r.km, n: pts.length,
+             color: COLORES_GPX[g.length % COLORES_GPX.length],
+             bbox: [latmin, lonmin, latmax, lonmax] });
+    salvaGpxs(g);
+    gpxVisible = true;
+    const $t = document.getElementById('tog-gpx'); if ($t) $t.checked = true;
+    pintaListaGpx(); await pintaGpxs();
+    if (boton) boton.textContent = 'Cargada';
+    avisa('Ruta a seguir: ' + nombreDe(r));
+    mapa.fitBounds([[latmin,lonmin],[latmax,lonmax]], { padding:[20,20] });
+    cierraPanel();
+  } catch (e) {
+    if (boton) { boton.disabled = false; boton.textContent = 'Seguir'; }
+    avisa('No se pudo cargar: ' + e.message);
+  }
+}
+
+let tBusca = null;
+document.getElementById('rutas-buscar').oninput = () => {
+  clearTimeout(tBusca); tBusca = setTimeout(buscaRutas, 220);
+};
 document.getElementById('rutas-ver').onchange = ev => {
   rutasVisibles = ev.target.checked;
   localStorage.setItem(LS_RUTAS_ON, rutasVisibles ? 'si' : 'no');
   document.getElementById('tog-rutas').checked = rutasVisibles;
   pintaRutas();
 };
-document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); };
+document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); buscaRutas(); };
 document.getElementById('btn-renom').onclick = exportaRenombres;
 
 (async function arranca() {
