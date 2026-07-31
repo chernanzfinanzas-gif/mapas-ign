@@ -866,6 +866,14 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
 #hoja section h3:active{opacity:.6}
 #hoja section .cuerpo{display:none;padding-bottom:12px}
 #hoja section.abierta .cuerpo{display:block}
+/* diálogo pequeño, centrado, para los datos de la ruta que se añade */
+.dlg-fondo{position:fixed;inset:0;z-index:1200;background:rgba(20,24,20,.45);
+  display:flex;align-items:center;justify-content:center;padding:18px}
+.dlg{background:var(--papel);border-radius:16px;padding:16px;width:100%;max-width:360px;
+  box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.dlg h4{margin:0 0 10px;font-size:15px}
+.dlg .dlg-bot{display:flex;gap:8px;margin-top:12px}
+.dlg .dlg-bot .sec,.dlg .dlg-bot .accion{width:auto;flex:1 1 0}
 #gh-estado{font-size:12.5px;color:#5d5a53;margin-top:6px}
 #sendas-prog{font-size:12.5px;color:#5d5a53;margin:8px 0 2px;min-height:1px}
 #sendas-lista{list-style:none;margin:6px 0 0;padding:0}
@@ -1039,6 +1047,8 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
         </select>
       </label>
       <div id="rutas-estado"></div>
+      <div id="anadidas-estado" class="pista"></div>
+      <button class="sec" id="btn-pub-rutas" hidden>Publicar las rutas añadidas</button>
       <div id="renom-cuenta" class="pista"></div>
       <button class="sec solo-pc" id="btn-renom" disabled>Exportar los nombres corregidos</button>
     </section>
@@ -1933,6 +1943,9 @@ function pintaListaGpx() {
     nv.className = f.nav ? 'ir' : '';
     nv.title = f.nav ? 'Dejar de usarla como ruta de navegación' : 'Usarla como ruta de navegación';
     nv.onclick = () => ponEnNavegacion(f.id);
+    const col = document.createElement('button'); col.textContent = 'A la colección';
+    col.title = 'Añadirla a tu historial de rutas';
+    col.onclick = () => pideDatosColeccion(f);
     const sd = document.createElement('button'); sd.textContent = 'Senderos';
     sd.title = 'Descargar los senderos de OSM alrededor de esta ruta';
     sd.onclick = () => {
@@ -1948,8 +1961,110 @@ function pintaListaGpx() {
       pintaListaGpx(); pintaGpxs();
     };
     li.prepend(punto); li.prepend(ver);
-    li.append(ir, nv, sd, qu); ul.appendChild(li);
+    li.append(ir, nv, col, sd, qu); ul.appendChild(li);
   });
+}
+
+/* ---- añadir una ruta hecha a la colección ------------------------------
+   El reloj graba, tú exportas el GPX y lo sueltas aquí: la app lo convierte al
+   mismo formato que las 692 de tu histórico y lo publica al repositorio, para
+   que aparezca en los dos dispositivos. */
+function pideDatosColeccion(f) {
+  const hoy = new Date();
+  const porDefecto = f.fecha || (hoy.getFullYear() + String(hoy.getMonth()+1).padStart(2,'0')
+                                 + String(hoy.getDate()).padStart(2,'0'));
+  const cont = document.createElement('div');
+  cont.className = 'dlg';
+  cont.innerHTML = '<h4>Añadir a mi colección</h4>'
+    + '<label class="campo">Nombre<input type="text" id="col-nom"></label>'
+    + '<label class="campo">Fecha<input type="date" id="col-fecha"></label>'
+    + '<label class="campo">Actividad<select id="col-act">'
+    +   '<option value="sen">Senderismo</option><option value="bici">Bici</option></select></label>'
+    + '<div id="col-det" class="pista"></div>'
+    + '<div class="dlg-bot"><button class="sec" id="col-no">Cancelar</button>'
+    + '<button class="accion" id="col-si">Añadir</button></div>';
+  const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
+  document.body.appendChild(capa);
+  cont.querySelector('#col-nom').value = f.nom;
+  cont.querySelector('#col-fecha').value =
+    porDefecto.slice(0,4) + '-' + porDefecto.slice(4,6) + '-' + porDefecto.slice(6,8);
+  cont.querySelector('#col-det').textContent =
+    f.km.toFixed(2) + ' km · ' + (f.d ? f.d + ' m de desnivel' : 'sin datos de altitud');
+  const cierra = () => capa.remove();
+  cont.querySelector('#col-no').onclick = cierra;
+  capa.onclick = ev => { if (ev.target === capa) cierra(); };
+  cont.querySelector('#col-si').onclick = async () => {
+    const nom = (cont.querySelector('#col-nom').value || '').trim() || f.nom;
+    const fch = (cont.querySelector('#col-fecha').value || '').replace(/-/g, '');
+    const act = cont.querySelector('#col-act').value;
+    cierra();
+    await anadeAColeccion(f, nom, fch, act);
+  };
+}
+
+async function anadeAColeccion(f, nom, fecha, act) {
+  const pts = await leePuntosGpx(f.id);
+  if (!pts || pts.length < 2) { avisa('Esa ruta no tiene puntos'); return; }
+  /* se simplifica con la misma tolerancia que usé para tus 692, para que el
+     histórico sea homogéneo */
+  const red = simplificaTrack(pts, 8).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
+  const id = (fecha ? fecha + '-' : '') + idDesde(nom);
+  const a = leeAnadidas().filter(x => x.id !== id);
+  a.push({ id, n:nom, f:fecha, a:act, km:+f.km.toFixed(2), d:f.d || 0, b:f.bbox, g:[red] });
+  salvaAnadidas(a);
+  olvidaIndiceRutas();
+  await pintaRutas();
+  pintaAnadidas();
+  avisa('Añadida a la colección: ' + nom);
+}
+
+/* estado y publicación de las añadidas */
+function pintaAnadidas() {
+  const $e = document.getElementById('anadidas-estado');
+  const $b = document.getElementById('btn-pub-rutas');
+  if (!$e) return;
+  const n = leeAnadidas().length;
+  $e.textContent = n ? n + (n === 1 ? ' ruta añadida sin publicar.' : ' rutas añadidas sin publicar.')
+                     : '';
+  if ($b) $b.hidden = !n;
+}
+
+async function publicaRutas() {
+  const $b = document.getElementById('btn-pub-rutas');
+  const $e = document.getElementById('anadidas-estado');
+  const token = tokenGh();
+  const r = repoDeLaUrl();
+  if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada.'; return; }
+  if (!token) { $e.textContent = 'Falta el token de GitHub, en la sección de senderos.'; return; }
+  $b.disabled = true; $e.textContent = 'Publicando…';
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_ANADIDAS;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  try {
+    let sha = null, previas = [];
+    const prev = await fetch(api, { headers:cab });
+    if (prev.ok) {
+      const meta = await prev.json(); sha = meta.sha;
+      try { previas = JSON.parse(decodeURIComponent(escape(atob((meta.content||'').replace(/\n/g,''))))).rutas || []; }
+      catch (e) { previas = []; }
+    } else if (prev.status === 401) throw new Error('el token no es válido');
+    else if (prev.status === 403) throw new Error('el token no tiene permiso');
+    const porId = new Map();
+    previas.forEach(x => porId.set(x.id, x));
+    leeAnadidas().forEach(x => porId.set(x.id, x));
+    const txt = JSON.stringify({ v:1, rutas:[...porId.values()] });
+    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Añade rutas a la colección desde la app',
+        content: aBase64(txt), sha: sha || undefined }) });
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
+    salvaAnadidas([]);            // ya están publicadas: se leerán del repositorio
+    olvidaIndiceRutas();
+    await pintaRutas();
+    pintaAnadidas();
+    $e.textContent = 'Publicadas. El fichero tiene ahora ' + porId.size
+      + (porId.size === 1 ? ' ruta añadida.' : ' rutas añadidas.');
+  } catch (err) {
+    $e.textContent = 'No se han podido publicar: ' + err.message;
+  } finally { $b.disabled = false; }
 }
 
 document.getElementById('btn-gpx').onclick = () => document.getElementById('file-gpx').click();
@@ -1981,6 +2096,25 @@ document.getElementById('file-gpx').onchange = async ev => {
       const et = doc.getElementsByTagName('name')[0];
       const nom = ((et && et.textContent.trim()) || f.name.replace(/\.gpx$/i, '')).slice(0, 80);
       const km = largoKm(pts);
+      /* el desnivel se calcula aquí, sobre los puntos originales, porque luego
+         solo se guardan las coordenadas: acumula subidas de más de 3 m para no
+         contar el ruido del altímetro */
+      const eles = [...doc.getElementsByTagName('trkpt')].map(n => {
+        const e = n.getElementsByTagName('ele')[0];
+        return e ? parseFloat(e.textContent) : null;
+      });
+      let subida = 0, prev = null, acum = 0;
+      eles.forEach(e => {
+        if (e == null || !isFinite(e)) return;
+        if (prev != null) { acum += e - prev; if (acum >= 3) { subida += acum; acum = 0; } else if (acum < 0) acum = 0; }
+        prev = e;
+      });
+      /* fecha: la del primer punto si el GPX la trae, si no la del nombre */
+      const t0 = doc.getElementsByTagName('time')[0];
+      let fecha = '';
+      if (t0 && /^\d{4}-\d{2}-\d{2}/.test(t0.textContent.trim()))
+        fecha = t0.textContent.trim().slice(0,10).replace(/-/g,'');
+      if (!fecha) { const m = f.name.match(/(\d{8})/); if (m) fecha = m[1]; }
       const red = simplificaTrack(pts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
       let latmin = 90, lonmin = 180, latmax = -90, lonmax = -180;
       red.forEach(([a, o]) => { latmin = Math.min(latmin,a); latmax = Math.max(latmax,a);
@@ -1988,7 +2122,8 @@ document.getElementById('file-gpx').onchange = async ev => {
       const g = leeGpxs();
       const id = 'g' + Date.now().toString(36) + puestos.toString(36);
       await salvaPuntosGpx(id, red);
-      g.push({ id, nom, km, n: red.length, color: COLORES_GPX[g.length % COLORES_GPX.length],
+      g.push({ id, nom, km, d: Math.round(subida), fecha, n: red.length,
+               color: COLORES_GPX[g.length % COLORES_GPX.length],
                bbox: [latmin, lonmin, latmax, lonmax] });
       salvaGpxs(g);
       ultimo = [[latmin, lonmin], [latmax, lonmax]];
@@ -2390,6 +2525,13 @@ async function exportaTodo() {
    sale de tu dispositivo salvo hacia la propia API de GitHub. Conviene que
    sea de los restringidos: un solo repositorio y permiso de contenidos.  */
 const LS_GH = 'ign.gh';
+/* el token puede estar en su campo o guardado de una vez anterior: su sección
+   del panel suele estar plegada cuando publicas rutas */
+const tokenGh = () => {
+  const $t = document.getElementById('gh-token');
+  const v = (($t && $t.value) || '').trim();
+  return v || (localStorage.getItem(LS_GH) || '').trim();
+};
 /* de https://usuario.github.io/repo/ se deducen dueño y repositorio */
 function repoDeLaUrl() {
   const m = location.hostname.match(/^([^.]+)\.github\.io$/);
@@ -2408,7 +2550,7 @@ const aBase64 = txt => {
 async function publicaEnGitHub() {
   const $b = document.getElementById('btn-publicar');
   const $e = document.getElementById('gh-estado');
-  const token = (document.getElementById('gh-token').value || '').trim();
+  const token = tokenGh();
   const r = repoDeLaUrl();
   if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada en GitHub Pages, no en local.'; return; }
   if (!token) { $e.textContent = 'Falta el token.'; return; }
@@ -2698,15 +2840,40 @@ const leeNombres  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTA
 const salvaNombres = n => localStorage.setItem(LS_RUTAS_NOM, JSON.stringify(n));
 const nombreDe = r => (leeNombres()[r.id] || r.n);
 
+/* Las rutas que añades tú viven aparte del índice generado: en el repositorio,
+   en `rutas/anadidas.json`, y mientras no las publiques, en este navegador.
+   Llevan su geometría dentro, que son unos pocos kilobytes cada una, así que
+   no hacen falta ficheros de celda. */
+const LS_RUTAS_ADD = 'ign.rutas.anadidas';
+const RUTA_ANADIDAS = RUTAS_DIR + 'anadidas.json';
+const geoAnadidas = new Map();
+const leeAnadidas  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_ADD)) || []; } catch (e) { return []; } };
+const salvaAnadidas = a => localStorage.setItem(LS_RUTAS_ADD, JSON.stringify(a));
+
+function fichaDeAnadida(r) {
+  geoAnadidas.set(r.id, r.g);
+  return { id:r.id, n:r.n, f:r.f, a:r.a, km:r.km, d:r.d, b:r.b, c:'@add' };
+}
+
 async function cargaIndiceRutas() {
   if (indiceRutas) return indiceRutas;
+  let base = [], publicadas = [];
   try {
     const res = await fetch(RUTAS_DIR + 'index.json');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    indiceRutas = (await res.json()).rutas || [];
-  } catch (e) { indiceRutas = []; }
+    if (res.ok) base = (await res.json()).rutas || [];
+  } catch (e) {}
+  try {
+    const res = await fetch(RUTA_ANADIDAS);
+    if (res.ok) publicadas = (await res.json()).rutas || [];
+  } catch (e) {}
+  /* las locales sin publicar mandan sobre las publicadas con el mismo id */
+  const porId = new Map();
+  publicadas.forEach(r => porId.set(r.id, r));
+  leeAnadidas().forEach(r => porId.set(r.id, r));
+  indiceRutas = base.concat([...porId.values()].map(fichaDeAnadida));
   return indiceRutas;
 }
+function olvidaIndiceRutas() { indiceRutas = null; geoAnadidas.clear(); }
 async function cargaCelda(celda) {
   if (geoRutas.has(celda)) return geoRutas.get(celda);
   geoRutas.set(celda, null);                       // marca "pedida"
@@ -2731,12 +2898,14 @@ async function pintaRutas() {
   const enVista = idx.filter(r => (filtroAct === 'todas' || r.a === filtroAct) && tocaLaVista(r.b, v));
   if ($s) $s.textContent = enVista.length + ' de ' + idx.length + ' rutas por esta zona.';
   if (!enVista.length) return;
-  await Promise.all([...new Set(enVista.map(r => r.c))].map(cargaCelda));
+  await Promise.all([...new Set(enVista.map(r => r.c))].filter(c => c !== '@add').map(cargaCelda));
 
   const capas = [];
   for (const r of enVista) {
-    const celda = geoRutas.get(r.c); if (!celda) continue;
-    const segs = celda[r.id]; if (!segs) continue;
+    let segs;
+    if (r.c === '@add') segs = geoAnadidas.get(r.id);
+    else { const celda = geoRutas.get(r.c); segs = celda && celda[r.id]; }
+    if (!segs) continue;
     for (const s of segs) {
       const ln = L.polyline(s, { renderer:lienzoSendas, pane:'rutas',
         color: COLOR_ACT[r.a] || '#555', weight:3.4, opacity:.8 });
@@ -2835,8 +3004,9 @@ async function buscaRutas() {
 async function seguirRuta(r, boton) {
   if (boton) { boton.disabled = true; boton.textContent = 'Cargando…'; }
   try {
-    const celda = await cargaCelda(r.c);
-    const segs = celda && celda[r.id];
+    let segs;
+    if (r.c === '@add') segs = geoAnadidas.get(r.id);
+    else { const celda = await cargaCelda(r.c); segs = celda && celda[r.id]; }
     if (!segs || !segs.length) throw new Error('sin geometría');
     const pts = segs.flat();
     const g = leeGpxs();
@@ -2877,6 +3047,7 @@ document.getElementById('rutas-ver').onchange = ev => {
 };
 document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); buscaRutas(); };
 document.getElementById('btn-renom').onclick = exportaRenombres;
+document.getElementById('btn-pub-rutas').onclick = publicaRutas;
 
 /* ---------- 10. Panel plegable ----------------------------------------
    Seis secciones abiertas a la vez eran un muro de texto. Ahora cada una se
@@ -2968,6 +3139,7 @@ function abrePor(texto) {
   pintaPaquetesRepo();
   document.getElementById('rutas-ver').checked = rutasVisibles;
   pintaListaRenombres();
+  pintaAnadidas();
   pintaRutas();
   if (!zs.length) setTimeout(() => avisa('Pulsa ☰ para descargar tu primera zona'), 900);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
