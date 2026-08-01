@@ -910,6 +910,18 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
   background:rgba(105,28,0,.26);mix-blend-mode:multiply}
 .pin-wpt{width:12px;height:12px;border-radius:3px;border:2px solid #fff;margin:3px;
   box-shadow:0 1px 4px rgba(0,0,0,.45);transform:rotate(45deg)}
+.cmp-caja{width:100%;overflow:hidden;margin-bottom:6px}
+.cmp-caja svg{display:block;width:100%;height:auto;border-radius:10px}
+.cmp-leyenda{display:flex;gap:14px;font-size:12px;color:#6b6862;margin-bottom:8px}
+.cmp-leyenda span{display:flex;align-items:center;gap:5px}
+.cmp-leyenda i{width:14px;height:3.5px;border-radius:2px}
+.cmp-leyenda i.cmp-obj{background:#8a857c}
+.cmp-leyenda i.cmp-hec{background:#12306e}
+table.cmp{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;margin-bottom:6px}
+table.cmp th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#8a857c;font-weight:600;text-align:right;padding:0 0 4px}
+table.cmp th:first-child{text-align:left}
+table.cmp td{padding:3px 0;border-top:1px solid var(--linea);text-align:right}
+table.cmp td:first-child{text-align:left;color:#6b6862}
 .perfil-caja{width:100%;overflow:hidden}
 .perfil-caja svg{display:block;width:100%;height:auto}
 .perfil-det{font-size:12.5px;color:#4a4741;margin-top:8px;font-variant-numeric:tabular-nums}
@@ -1193,9 +1205,11 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <p class="pista">Las rutas que quieres hacer. Se cargan de un GPX y, si las publicas, las tienes en el ordenador y en el móvil sin volver a cargarlas. Distinto de «Mis rutas», que es lo que ya has hecho.</p>
       <button class="sec" id="btn-gpx">Cargar GPX como objetivo…</button>
       <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,text/xml" multiple hidden>
+      <input type="file" id="file-hecha" accept=".gpx,application/gpx+xml,text/xml" hidden>
       <ul id="gpx-lista"></ul>
       <div id="obj-estado" class="pista"></div>
       <button class="sec" id="btn-pub-obj" hidden>Subirlos todos al repositorio</button>
+      <button class="sec" id="btn-hecha-suelta">Añadir una ruta ya hecha…</button>
       <p class="pista">Usa el mismo token de GitHub de la sección de senderos.</p>
     </section>
 
@@ -2327,8 +2341,9 @@ function pintaListaGpx() {
     nv.title = f.nav ? 'Dejar de usarla como ruta de navegación' : 'Usarla como ruta de navegación';
     nv.onclick = () => ponEnNavegacion(f.id);
     const col = document.createElement('button'); col.textContent = 'Hecha';
-    col.title = 'Ya la has hecho: pasarla a tu colección y quitarla de objetivos';
-    col.onclick = () => pideDatosColeccion(f);
+    col.className = 'ir';
+    col.title = 'Ya la has hecho: elige el GPX del reloj y se cierra el ciclo';
+    col.onclick = () => pideCierreDeCiclo(f);
     const sd = document.createElement('button'); sd.textContent = 'Senderos';
     sd.title = 'Descargar los senderos de OSM alrededor de esta ruta';
     sd.onclick = () => {
@@ -2371,41 +2386,164 @@ function pintaListaGpx() {
    El reloj graba, tú exportas el GPX y lo sueltas aquí: la app lo convierte al
    mismo formato que las 692 de tu histórico y lo publica al repositorio, para
    que aparezca en los dos dispositivos. */
-function pideDatosColeccion(f) {
-  const hoy = new Date();
-  const porDefecto = f.fecha || (hoy.getFullYear() + String(hoy.getMonth()+1).padStart(2,'0')
-                                 + String(hoy.getDate()).padStart(2,'0'));
+/* ---- cerrar el ciclo: el objetivo cumplido y la traza de verdad ----------
+   Un objetivo es la intención; la colección es el registro. Lo que merece
+   quedarse en catorce años de histórico es por dónde pasaste TÚ —con tus
+   paradas, tus desvíos y tu ritmo—, no el track que te descargaste para
+   seguirlo. Por eso cerrar una ruta pide el GPX del reloj.
+
+   Reparto: la app maneja el repositorio y la colección; el fichero completo se
+   descarga con el nombre de tu convención y lo archiva el script, que es quien
+   sabe tocar `Tracks Diario` y el Excel. */
+
+/* cuánto de A pasa por encima de B, con la misma rejilla de los senderos
+   pisados: es lineal, y comparar punto contra punto sería un cuadrado */
+function coincidencia(a, b) {
+  if (!a || !b || a.length < 2 || b.length < 2) return 0;
+  const rej = rejillaDe([b], a[0][0]);
+  return fraccionPisada(a, rej);
+}
+
+/* las dos trazas superpuestas, en el mismo encuadre */
+function svgDosTrazas(obj, hecha) {
+  const W = 330, H = 200, m = 8;
+  const todos = obj.concat(hecha);
+  let laMin=90, loMin=180, laMax=-90, loMax=-180;
+  todos.forEach(p => { laMin=Math.min(laMin,p[0]); laMax=Math.max(laMax,p[0]);
+                       loMin=Math.min(loMin,p[1]); loMax=Math.max(loMax,p[1]); });
+  const kx = Math.cos((laMin+laMax)/2 * Math.PI/180);
+  const anchoG = Math.max(1e-9, (loMax-loMin) * kx), altoG = Math.max(1e-9, laMax-laMin);
+  const esc = Math.min((W-2*m)/anchoG, (H-2*m)/altoG);
+  const cx = (W - anchoG*esc)/2, cy = (H - altoG*esc)/2;
+  const camino = pts => {
+    const paso = Math.max(1, Math.ceil(pts.length / 500)), d = [];
+    for (let i = 0; i < pts.length; i += paso)
+      d.push(((pts[i][1]-loMin)*kx*esc + cx).toFixed(1) + ',' + ((laMax-pts[i][0])*esc + cy).toFixed(1));
+    const u = pts[pts.length-1];
+    d.push(((u[1]-loMin)*kx*esc + cx).toFixed(1) + ',' + ((laMax-u[0])*esc + cy).toFixed(1));
+    return 'M' + d.join('L');
+  };
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">'
+    + '<rect width="' + W + '" height="' + H + '" fill="#f2efe9" rx="10"/>'
+    + '<path d="' + camino(obj) + '" fill="none" stroke="#8a857c" stroke-width="4.5" '
+    + 'stroke-linejoin="round" stroke-linecap="round" opacity=".55"/>'
+    + '<path d="' + camino(hecha) + '" fill="none" stroke="#12306e" stroke-width="2.2" '
+    + 'stroke-linejoin="round" stroke-linecap="round"/>'
+    + '</svg>';
+}
+
+/* `f` puede ser null: es una ruta hecha que nunca fue objetivo —un GPX viejo
+   del reloj que quieres meter en el histórico— y entonces no hay nada que
+   comparar ni que retirar. El resto del camino es idéntico. */
+async function pideCierreDeCiclo(f) {
+  const ent = document.getElementById('file-hecha');
+  ent.onchange = async ev => {
+    const fich = ev.target.files[0]; ev.target.value = '';
+    if (!fich) return;
+    let r = null;
+    try { r = leeGpxDoc(await leeTexto(fich), fich.name); }
+    catch (e) { avisa('No se pudo leer «' + fich.name + '»'); return; }
+    if (!r) { avisa('Ese fichero no tiene puntos de ruta'); return; }
+    const objPts = await leePuntosGpx(f.id);
+    abreCierre(f, objPts, r, fich);
+  };
+  ent.click();
+}
+
+function abreCierre(f, objPts, r, fich) {
+  const cobObj   = objPts ? coincidencia(objPts, r.red) : 0;   // del objetivo, ¿cuánto hiciste?
+  const cobHecha = objPts ? coincidencia(r.red, objPts) : 0;   // de lo que hiciste, ¿cuánto era el objetivo?
   const cont = document.createElement('div');
   cont.className = 'dlg';
-  cont.innerHTML = '<h4>Objetivo cumplido</h4>'
-    + '<label class="campo">Nombre<input type="text" id="col-nom"></label>'
-    + '<label class="campo">Fecha<input type="date" id="col-fecha"></label>'
-    + '<label class="campo">Actividad<select id="col-act">'
+  cont.innerHTML = '<h4>' + (f ? 'Cerrar el ciclo' : 'Añadir una ruta hecha') + '</h4>'
+    + '<div class="cmp-caja"></div>'
+    + '<div class="cmp-leyenda"><span><i class="cmp-obj"></i>El objetivo</span>'
+    +   '<span><i class="cmp-hec"></i>Lo que hiciste</span></div>'
+    + '<table class="cmp"><tr><th></th><th>Objetivo</th><th>Tu ruta</th></tr>'
+    +   '<tr><td>Distancia</td><td id="c-ko"></td><td id="c-kh"></td></tr>'
+    +   '<tr><td>Desnivel</td><td id="c-do"></td><td id="c-dh"></td></tr>'
+    +   '<tr><td>Fecha</td><td id="c-fo"></td><td id="c-fh"></td></tr>'
+    +   '<tr><td>Duración</td><td>—</td><td id="c-hh"></td></tr></table>'
+    + '<div id="c-coin" class="pista"></div>'
+    + '<label class="campo">Nombre en tu colección<input type="text" id="c-nom"></label>'
+    + '<label class="campo">Actividad<select id="c-act">'
     +   '<option value="sen">Senderismo</option><option value="bici">Bici</option></select></label>'
-    + '<label class="fr-rev"><input type="checkbox" id="col-quita" checked> Quitarlo de mis objetivos</label>'
-    + '<div id="col-det" class="pista"></div>'
-    + '<div class="dlg-bot"><button class="sec" id="col-no">Cancelar</button>'
-    + '<button class="accion" id="col-si">Pasar a la colección</button></div>';
+    + '<div id="c-nota" class="pista"></div>'
+    + '<div class="dlg-bot"><button class="sec" id="c-no">Cancelar</button>'
+    + '<button class="accion" id="c-si">Es esta ruta</button></div>';
+
+  const fmtF = t => t && t.length === 8 ? t.slice(6,8) + '/' + t.slice(4,6) + '/' + t.slice(0,4) : '—';
+  if (objPts) cont.querySelector('.cmp-caja').innerHTML = svgDosTrazas(objPts, r.red);
+  else { cont.querySelector('.cmp-caja').remove(); cont.querySelector('.cmp-leyenda').remove(); }
+  cont.querySelector('#c-ko').textContent = f ? f.km.toFixed(2) + ' km' : '—';
+  cont.querySelector('#c-kh').textContent = r.km.toFixed(2) + ' km';
+  cont.querySelector('#c-do').textContent = f && f.d ? fmtN(f.d) + ' m' : '—';
+  cont.querySelector('#c-dh').textContent = r.d ? fmtN(r.d) + ' m' : '—';
+  cont.querySelector('#c-fo').textContent = fmtF(f && f.fecha);
+  cont.querySelector('#c-fh').textContent = fmtF(r.fecha);
+  cont.querySelector('#c-hh').textContent = r.horas
+    ? Math.floor(r.horas) + ' h ' + Math.round((r.horas % 1) * 60) + ' min' : '—';
+  const pc = n => Math.round(n * 100);
+  cont.querySelector('#c-coin').innerHTML = objPts
+    ? 'Hiciste el <b>' + pc(cobObj) + ' %</b> del objetivo, y el <b>' + pc(cobHecha)
+      + ' %</b> de tu ruta iba por él.'
+      + (cobObj < .5 ? '<br><b>Ojo:</b> coincide poco. ¿Seguro que es esta ruta?' : '')
+    : 'El objetivo no tiene traza para comparar.';
+  cont.querySelector('#c-nom').value = (f && f.nom) || r.nom;
+  cont.querySelector('#c-nota').textContent = f
+    ? 'Al confirmar: tu traza reducida entra en la colección, el objetivo se retira '
+      + '(también del repositorio), y se descarga el GPX del reloj con el nombre de la '
+      + 'convención para que lo archive «Archivar Rutas.bat».'
+    : 'Al confirmar: tu traza reducida entra en la colección y se descarga el GPX con '
+      + 'el nombre de la convención para que lo archive «Archivar Rutas.bat».';
+
   const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
   document.body.appendChild(capa);
-  cont.querySelector('#col-nom').value = f.nom;
-  cont.querySelector('#col-fecha').value =
-    porDefecto.slice(0,4) + '-' + porDefecto.slice(4,6) + '-' + porDefecto.slice(6,8);
-  cont.querySelector('#col-det').innerHTML =
-    f.km.toFixed(2) + ' km · ' + (f.d ? f.d + ' m de desnivel' : 'sin datos de altitud')
-    + '<br>La traza se simplifica a la misma tolerancia que el resto de tu colección.'
-    + (f.pub ? '<br>Está publicado como objetivo: al quitarlo se borra también del repositorio.' : '');
   const cierra = () => capa.remove();
-  cont.querySelector('#col-no').onclick = cierra;
+  cont.querySelector('#c-no').onclick = cierra;
   capa.onclick = ev => { if (ev.target === capa) cierra(); };
-  cont.querySelector('#col-si').onclick = async () => {
-    const nom = (cont.querySelector('#col-nom').value || '').trim() || f.nom;
-    const fch = (cont.querySelector('#col-fecha').value || '').replace(/-/g, '');
-    const act = cont.querySelector('#col-act').value;
-    const quita = cont.querySelector('#col-quita').checked;
+  cont.querySelector('#c-si').onclick = async () => {
+    const nom = (cont.querySelector('#c-nom').value || '').trim() || f.nom;
+    const act = cont.querySelector('#c-act').value;
     cierra();
-    await anadeAColeccion(f, nom, fch, act, quita);
+    await cierraCiclo(f, r, fich, nom, act);
   };
+}
+
+async function cierraCiclo(f, r, fich, nom, act) {
+  const fecha = r.fecha || (f && f.fecha) || '';
+  /* 1. a la colección va TU traza, simplificada igual que las otras 692 */
+  const red = simplificaTrack(r.pts, 8).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
+  const id = (fecha ? fecha + '-' : '') + idDesde(nom);
+  const a = leeAnadidas().filter(x => x.id !== id);
+  a.push({ id, n:nom, f:fecha, a:act, km:+r.km.toFixed(2), d:r.d || 0, b:r.bbox, g:[red] });
+  salvaAnadidas(a);
+  olvidaIndiceRutas();
+  await pintaRutas();
+  pintaAnadidas();
+
+  /* 2. el fichero del reloj, tal cual vino, con el nombre de la convención.
+        No se vuelve a serializar: así conserva pulso, cadencia y todo lo que
+        mete Garmin y que aquí no sabemos leer. */
+  const base = (fecha ? fecha + ' ' : '') + nombreFichero(nom);
+  try {
+    const u = URL.createObjectURL(fich);
+    const el = document.createElement('a');
+    el.href = u; el.download = base + '.gpx';
+    document.body.appendChild(el); el.click();
+    setTimeout(() => { URL.revokeObjectURL(u); el.remove(); }, 4000);
+  } catch (e) { avisa('No se ha podido descargar el GPX'); }
+
+  /* 3. la hoja de ruta para el script: qué fichero es, cómo se llama la ruta,
+        de qué actividad, y los números de verdad para el Excel */
+  bajaFichero('archivar-' + (fecha || 'sf') + '-' + nombreFichero(nom) + '.json',
+    JSON.stringify({ v:1, rutas:[{ fichero: base + '.gpx', nom, fecha, act,
+      km:+r.km.toFixed(2), d:r.d || 0, horas:+r.horas.toFixed(2), id }] }, null, 1),
+    'application/json');
+
+  /* 4. y el objetivo deja de serlo (si lo era) */
+  const aviso = f ? await retiraObjetivo(f) : '';
+  avisa('Cerrada: ' + nom + '. Descargado ' + base + '.gpx — lanza «Archivar Rutas.bat».' + aviso);
 }
 
 /* Retirar un objetivo cumplido: de la caché, de la lista, y del repositorio si
@@ -2429,25 +2567,6 @@ async function retiraObjetivo(f) {
   salvaGpxs(leeGpxs().filter(z => z.id !== f.id));
   pintaListaGpx(); await pintaGpxs(); pintaEstadoObjetivos();
   return avisoRepo;
-}
-
-async function anadeAColeccion(f, nom, fecha, act, quitaObjetivo) {
-  const pts = await leePuntosGpx(f.id);
-  if (!pts || pts.length < 2) { avisa('Esa ruta no tiene puntos'); return; }
-  /* se simplifica con la misma tolerancia que usé para tus 692, para que el
-     histórico sea homogéneo */
-  const red = simplificaTrack(pts, 8).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
-  const id = (fecha ? fecha + '-' : '') + idDesde(nom);
-  const a = leeAnadidas().filter(x => x.id !== id);
-  a.push({ id, n:nom, f:fecha, a:act, km:+f.km.toFixed(2), d:f.d || 0, b:f.bbox, g:[red] });
-  salvaAnadidas(a);
-  olvidaIndiceRutas();
-  await pintaRutas();
-  pintaAnadidas();
-  /* solo se retira el objetivo DESPUÉS de que la ruta esté guardada: si algo
-     fallara arriba, no se pierde la traza */
-  const aviso = quitaObjetivo ? await retiraObjetivo(f) : '';
-  avisa((quitaObjetivo ? 'Hecha: ' : 'Añadida a la colección: ') + nom + '.' + aviso);
 }
 
 /* estado y publicación de las añadidas */
@@ -2688,6 +2807,7 @@ async function borraObjetivoDelRepo(f, boton) {
 }
 
 document.getElementById('btn-pub-obj').onclick = publicaObjetivos;
+document.getElementById('btn-hecha-suelta').onclick = () => pideCierreDeCiclo(null);
 document.getElementById('btn-gpx').onclick = () => document.getElementById('file-gpx').click();
 const leeTexto = f => new Promise((ok, mal) => {
   const fr = new FileReader();
@@ -2698,74 +2818,82 @@ const leeTexto = f => new Promise((ok, mal) => {
 /* Los ficheros se procesan DE UNO EN UNO a propósito. Leyéndolos a la vez, cada
    uno cargaba la lista, le añadía lo suyo y la volvía a guardar: el último en
    terminar borraba a los demás. */
+/* ---- lectura de un GPX -------------------------------------------------
+   Sacada aparte porque la usan dos sitios: cargar un objetivo, y cerrar el
+   ciclo con la traza del reloj. Devuelve la traza completa y la simplificada,
+   que sirven para cosas distintas: la completa para comparar y medir, la
+   reducida para dibujar y guardar. */
+function leeGpxDoc(txt, nombreFichero) {
+  const doc = new DOMParser().parseFromString(txt, 'application/xml');
+  let nodos = [...doc.getElementsByTagName('trkpt')], soloWpt = false;
+  if (!nodos.length) nodos = [...doc.getElementsByTagName('rtept')];
+  if (!nodos.length) { nodos = [...doc.getElementsByTagName('wpt')]; soloWpt = true; }
+  /* la altura se conserva junto a cada punto —tercer elemento, que es lo
+     que Leaflet entiende por altitud— para poder dibujar el perfil */
+  const altDe = n => {
+    const e = n.getElementsByTagName('ele')[0];
+    const v = e ? parseFloat(e.textContent) : NaN;
+    return isFinite(v) ? Math.round(v) : null;
+  };
+  const pts = nodos.map(n => [parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon')), altDe(n)])
+                   .filter(p => isFinite(p[0]) && isFinite(p[1]));
+  if (pts.length < 2) return null;
+  /* el nombre bueno suele estar dentro del GPX; el del fichero es el
+     respaldo por si viene sin etiqueta */
+  const et = doc.getElementsByTagName('name')[0];
+  const nom = ((et && et.textContent.trim()) || (nombreFichero || '').replace(/\.gpx$/i, '')).slice(0, 80);
+  /* el desnivel acumula subidas de más de 3 m, para no contar el ruido del
+     altímetro barométrico */
+  let subida = 0, prev = null, acum = 0;
+  pts.forEach(p => {
+    const e = p[2];
+    if (e == null || !isFinite(e)) return;
+    if (prev != null) { acum += e - prev; if (acum >= 3) { subida += acum; acum = 0; } else if (acum < 0) acum = 0; }
+    prev = e;
+  });
+  /* fecha y duración, de las marcas de tiempo del fichero */
+  const tiempos = [...doc.getElementsByTagName('time')].map(t => t.textContent.trim())
+                    .filter(t => /^\d{4}-\d{2}-\d{2}T/.test(t));
+  let fecha = tiempos.length ? tiempos[0].slice(0,10).replace(/-/g,'') : '';
+  if (!fecha) { const m = (nombreFichero || '').match(/(\d{8})/); if (m) fecha = m[1]; }
+  let horas = 0;
+  if (tiempos.length > 1) {
+    const a = Date.parse(tiempos[0]), b = Date.parse(tiempos[tiempos.length - 1]);
+    if (isFinite(a) && isFinite(b) && b > a) horas = (b - a) / 3600000;
+  }
+  const red = simplificaTrack(pts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5), p[2] ]);
+  let latmin = 90, lonmin = 180, latmax = -90, lonmax = -180;
+  red.forEach(([a, o]) => { latmin = Math.min(latmin,a); latmax = Math.max(latmax,a);
+                            lonmin = Math.min(lonmin,o); lonmax = Math.max(lonmax,o); });
+  /* Los waypoints —fuentes, cimas, cruces que marcaste en el reloj— se
+     conservan aparte de la traza y se pintan en el mapa. */
+  const wpt = soloWpt ? [] : [...doc.getElementsByTagName('wpt')].map(n => {
+    const nn = n.getElementsByTagName('name')[0];
+    return { lat:+parseFloat(n.getAttribute('lat')).toFixed(5),
+             lon:+parseFloat(n.getAttribute('lon')).toFixed(5),
+             nom:(nn ? nn.textContent.trim() : '').slice(0, 60), ele:altDe(n) };
+  }).filter(w => isFinite(w.lat) && isFinite(w.lon)).slice(0, 400);
+  return { pts, red, wpt, nom, fecha, horas, km: largoKm(pts), d: Math.round(subida),
+           bbox: [latmin, lonmin, latmax, lonmax] };
+}
+
 document.getElementById('file-gpx').onchange = async ev => {
   const ficheros = [...ev.target.files]; ev.target.value = '';
   if (!ficheros.length) return;
   let puestos = 0, ultimo = null;
   for (const f of ficheros) {
     try {
-      const txt = await leeTexto(f);
-      const doc = new DOMParser().parseFromString(txt, 'application/xml');
-      let nodos = [...doc.getElementsByTagName('trkpt')], soloWpt = false;
-      if (!nodos.length) nodos = [...doc.getElementsByTagName('rtept')];
-      if (!nodos.length) { nodos = [...doc.getElementsByTagName('wpt')]; soloWpt = true; }
-      /* la altura se conserva junto a cada punto —tercer elemento, que es lo
-         que Leaflet entiende por altitud— para poder dibujar el perfil */
-      const altDe = n => {
-        const e = n.getElementsByTagName('ele')[0];
-        const v = e ? parseFloat(e.textContent) : NaN;
-        return isFinite(v) ? Math.round(v) : null;
-      };
-      const pts = nodos.map(n => [parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon')), altDe(n)])
-                       .filter(p => isFinite(p[0]) && isFinite(p[1]));
-      if (pts.length < 2) { avisa('«' + f.name + '» no tiene puntos de ruta'); continue; }
-      /* el nombre bueno suele estar dentro del GPX; el del fichero es el
-         respaldo por si viene sin etiqueta */
-      const et = doc.getElementsByTagName('name')[0];
-      const nom = ((et && et.textContent.trim()) || f.name.replace(/\.gpx$/i, '')).slice(0, 80);
-      const km = largoKm(pts);
-      /* el desnivel se calcula aquí, sobre los puntos originales, porque luego
-         solo se guardan las coordenadas: acumula subidas de más de 3 m para no
-         contar el ruido del altímetro */
-      const eles = [...doc.getElementsByTagName('trkpt')].map(n => {
-        const e = n.getElementsByTagName('ele')[0];
-        return e ? parseFloat(e.textContent) : null;
-      });
-      let subida = 0, prev = null, acum = 0;
-      eles.forEach(e => {
-        if (e == null || !isFinite(e)) return;
-        if (prev != null) { acum += e - prev; if (acum >= 3) { subida += acum; acum = 0; } else if (acum < 0) acum = 0; }
-        prev = e;
-      });
-      /* fecha: la del primer punto si el GPX la trae, si no la del nombre */
-      const t0 = doc.getElementsByTagName('time')[0];
-      let fecha = '';
-      if (t0 && /^\d{4}-\d{2}-\d{2}/.test(t0.textContent.trim()))
-        fecha = t0.textContent.trim().slice(0,10).replace(/-/g,'');
-      if (!fecha) { const m = f.name.match(/(\d{8})/); if (m) fecha = m[1]; }
-      const red = simplificaTrack(pts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5), p[2] ]);
-      let latmin = 90, lonmin = 180, latmax = -90, lonmax = -180;
-      red.forEach(([a, o]) => { latmin = Math.min(latmin,a); latmax = Math.max(latmax,a);
-                                lonmin = Math.min(lonmin,o); lonmax = Math.max(lonmax,o); });
-      /* Los waypoints que trae el fichero —fuentes, cimas, cruces que marcaste
-         en el reloj— se guardaban a la basura. Ahora se conservan aparte de la
-         traza y se pintan en el mapa. */
-      const wpt = soloWpt ? [] : [...doc.getElementsByTagName('wpt')].map(n => {
-        const nn = n.getElementsByTagName('name')[0];
-        return { lat:+parseFloat(n.getAttribute('lat')).toFixed(5),
-                 lon:+parseFloat(n.getAttribute('lon')).toFixed(5),
-                 nom:(nn ? nn.textContent.trim() : '').slice(0, 60), ele:altDe(n) };
-      }).filter(w => isFinite(w.lat) && isFinite(w.lon)).slice(0, 400);
+      const r = leeGpxDoc(await leeTexto(f), f.name);
+      if (!r) { avisa('«' + f.name + '» no tiene puntos de ruta'); continue; }
       const g = leeGpxs();
       const id = 'g' + Date.now().toString(36) + puestos.toString(36);
-      await salvaPuntosGpx(id, red);
-      if (wpt.length) await salvaWptGpx(id, wpt);
-      g.push({ id, nom, km, d: Math.round(subida), fecha, n: red.length,
-               alt: red.some(p => p[2] != null), w: wpt.length,
-               color: COLORES_GPX[g.length % COLORES_GPX.length],
-               bbox: [latmin, lonmin, latmax, lonmax] });
+      await salvaPuntosGpx(id, r.red);
+      if (r.wpt.length) await salvaWptGpx(id, r.wpt);
+      g.push({ id, nom:r.nom, km:r.km, d:r.d, fecha:r.fecha, n:r.red.length,
+               alt: r.red.some(p => p[2] != null), w: r.wpt.length,
+               color: COLORES_GPX[g.length % COLORES_GPX.length], bbox: r.bbox });
       salvaGpxs(g);
-      ultimo = [[latmin, lonmin], [latmax, lonmax]];
+      ultimo = [[r.bbox[0], r.bbox[1]], [r.bbox[2], r.bbox[3]]];
       puestos++;
     } catch (e) { avisa('No se pudo leer «' + f.name + '»'); }
   }
