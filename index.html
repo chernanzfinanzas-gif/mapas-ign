@@ -963,6 +963,18 @@ ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det,ul#rutas
 ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button,ul#rutas-resultados button,ul#puntos-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
 ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir,ul#rutas-resultados button.ir,ul#puntos-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+/* Los objetivos llevan ocho botones por fila. En el ordenador caben; en el
+   móvil aplastaban el nombre hasta dejarlo en dos letras y se salían por la
+   derecha. Aquí la fila se parte: arriba el interruptor, el color y los datos;
+   debajo los botones, que envuelven solos las líneas que hagan falta. */
+ul#gpx-lista li{flex-wrap:wrap;row-gap:9px;column-gap:8px;align-items:flex-start;padding:13px 0}
+ul#gpx-lista .ver1,ul#gpx-lista .color{margin-top:3px}
+ul#gpx-lista .info{flex:1 1 calc(100% - 64px)}
+ul#gpx-lista .nom{white-space:normal;overflow:visible;line-height:1.25}
+ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
+@media (max-width:520px){
+  ul#gpx-lista button{font-size:12.5px;padding:8px 9px}
+}
 .vacio{font-size:13px;color:#6b6862;font-style:italic}
 #almacen{font-size:13px;color:#4a4741;font-variant-numeric:tabular-nums}
 #almacen .aviso-purga{color:var(--ambar)}
@@ -2314,8 +2326,8 @@ function pintaListaGpx() {
     nv.className = f.nav ? 'ir' : '';
     nv.title = f.nav ? 'Dejar de usarla como ruta de navegación' : 'Usarla como ruta de navegación';
     nv.onclick = () => ponEnNavegacion(f.id);
-    const col = document.createElement('button'); col.textContent = 'A la colección';
-    col.title = 'Añadirla a tu historial de rutas';
+    const col = document.createElement('button'); col.textContent = 'Colección';
+    col.title = 'Añadirla a tu historial de rutas ya hechas';
     col.onclick = () => pideDatosColeccion(f);
     const sd = document.createElement('button'); sd.textContent = 'Senderos';
     sd.title = 'Descargar los senderos de OSM alrededor de esta ruta';
