@@ -46,7 +46,7 @@ del origen, y un fichero local da un resultado que no vale.</p>
 <p class="pista">Se queda en este navegador. No se manda a ningún sitio que no sea AEMET.</p>
 
 <button id="ir">1 · Probar el acceso</button>
-<button id="macizos" disabled>2 · Descubrir los macizos (va despacio)</button>
+<button id="macizos" disabled>2 · Probar el boletín de Guadarrama</button>
 
 <div id="salida"></div>
 
@@ -55,22 +55,31 @@ const $ = s => document.querySelector(s);
 const BASE = 'https://opendata.aemet.es/opendata/api';
 const espera = ms => new Promise(r => setTimeout(r, ms));
 
-/* Las áreas de montaña de AEMET. No están todas documentadas en un sitio
-   único, así que se prueban las conocidas y se ve cuáles responden: de paso
-   averiguamos el código del Sistema Central, que es el que te interesa. */
+/* Áreas de montaña de AEMET, con los códigos de verdad. `mad2` es el tuyo.
+   Ojo a la ruta: lleva «montaña» CON EÑE y un tramo «pasada/area» que no es
+   obvio. Escribiéndola mal, AEMET devuelve un 404 desde el servidor web —sin
+   cabecera de permiso— y el navegador lo cuenta como «Failed to fetch», que
+   parece un bloqueo de CORS y no lo es. Ahí perdimos un intento. */
 const AREAS = [
   ['peu1', 'Picos de Europa'],
   ['nav1', 'Pirineo Navarro'],
   ['arn1', 'Pirineo Aragonés'],
   ['cat1', 'Pirineo Catalán'],
   ['rio1', 'Ibérica Riojana'],
-  ['ara1', 'Ibérica Aragonesa'],
-  ['nev1', 'Sierra Nevada'],
-  ['gre1', 'Sistema Central — Gredos'],
-  ['cen1', 'Sistema Central'],
-  ['gua1', 'Guadarrama'],
-  ['sca1', 'Sistema Central (variante)'],
-  ['mad1', 'Madrid — Guadarrama']
+  ['arn2', 'Ibérica Aragonesa'],
+  ['mad2', 'Sierras de Guadarrama y Somosierra'],
+  ['gre1', 'Sierra de Gredos'],
+  ['nev1', 'Sierra Nevada']
+];
+
+/* Dos formas de escribir el tramo: con eñe de verdad y con «nya». La
+   documentación dice eñe, pero hay código por ahí que usa la otra, así que se
+   prueban las dos en vez de discutir. */
+const RUTAS_MONTANA = [
+  a => '/prediccion/especifica/monta\u00f1a/pasada/area/' + a + '/dia/0',
+  a => '/prediccion/especifica/montanya/pasada/area/' + a + '/dia/0',
+  a => '/prediccion/especifica/monta\u00f1a/pasada/area/' + a,
+  a => '/prediccion/especifica/montanya/pasada/area/' + a
 ];
 
 function fila(clase, et, txt, crudo) {
@@ -157,7 +166,7 @@ $('#ir').onclick = async () => {
     ? '<b>Se puede.</b> El navegador deja llamar a AEMET desde tu dominio'
       + (paso2 ? ' en los dos pasos, datos incluidos.'
                : '. El segundo salto no se ha podido comprobar todavía — mira arriba.')
-      + ' Ahora dale al botón 2 para averiguar los códigos de los macizos.'
+      + ' Ahora dale al botón 2 para probar el boletín de montaña.'
     : '<b>No se puede.</b> AEMET no autoriza llamadas desde el navegador, así que la app no puede '
       + 'pedirle datos por mucho que programemos. Nos quedamos con Open-Meteo para la previsión y '
       + 'la comparación de zonas, y el boletín de montaña habría que mirarlo en la web de AEMET.';
@@ -173,39 +182,63 @@ $('#ir').onclick = async () => {
   $('#ir').disabled = false; $('#ir').textContent = '1 · Probar otra vez';
 };
 
-/* Descubrir los macizos va aparte y despacio: son diez llamadas y el límite de
-   AEMET es de pocas decenas por minuto. Tres segundos entre una y otra, y si
-   aun así corta, se espera y se reintenta. */
+/* El botón 2 ya no adivina códigos: los conocemos. Lo que busca es cuál de
+   las cuatro formas de escribir la URL funciona, probando solo con Guadarrama.
+   Cuatro llamadas en vez de doce, que el límite de AEMET es corto. */
 $('#macizos').onclick = async () => {
   const clave = $('#k').value.trim();
   if (!clave) { alert('Pega la clave primero'); return; }
   $('#macizos').disabled = true;
-  $('#salida').innerHTML = '<h2>Macizos con boletín</h2><div class="res"></div>';
-  const marcador = fila('', 'PROGRESO', 'Empezando…');
-  const hay = [], no = [], cortes = [];
-  for (let i = 0; i < AREAS.length; i++) {
-    const [cod, nom] = AREAS[i];
-    marcador.innerHTML = '<span class="et">PROGRESO</span> ' + (i + 1) + ' de ' + AREAS.length
-      + ' · probando <code>' + cod + '</code>…';
+  $('#salida').innerHTML = '<h2>Boletín de Guadarrama</h2><div class="res"></div>';
+  const marcador = fila('', 'PROGRESO', 'Probando cómo se escribe la ruta…');
+  let buena = null;
+
+  for (let i = 0; i < RUTAS_MONTANA.length && !buena; i++) {
+    const ruta = RUTAS_MONTANA[i]('mad2');
+    marcador.innerHTML = '<span class="et">PROGRESO</span> forma ' + (i + 1) + ' de '
+      + RUTAS_MONTANA.length + '…';
     try {
-      const r = await pide(BASE + '/prediccion/especifica/montanya/' + cod + '/dia/0?api_key='
-                           + encodeURIComponent(clave), 2);
-      if (r.estado === 200 && r.j && r.j.datos) hay.push([cod, nom]);
-      else if (r.estado === 429) cortes.push(cod);
-      else no.push(cod);
-    } catch (e) { no.push(cod + ' (' + e.message + ')'); }
-    if (i < AREAS.length - 1) await espera(3000);
+      const r = await pide(BASE + ruta + '?api_key=' + encodeURIComponent(clave), 1);
+      if (r.estado === 200 && r.j && r.j.datos) {
+        buena = { ruta, datos: r.j.datos };
+        fila('ok', 'RUTA BUENA', '<code>' + ruta + '</code>');
+      } else {
+        fila('', 'no', '<code>' + ruta + '</code> → estado ' + r.estado);
+      }
+    } catch (e) {
+      fila('', 'no', '<code>' + ruta + '</code> → ' + e.message);
+    }
+    await espera(2500);
   }
-  marcador.innerHTML = '<span class="et ok">PROGRESO</span> terminado.';
-  fila(hay.length ? 'ok' : 'avi', 'CON BOLETÍN',
-    hay.length ? hay.map(([c, n]) => '<code>' + c + '</code> — ' + n).join('<br>')
-               : 'Ninguno de los códigos probados.');
-  if (no.length) fila('', 'SIN BOLETÍN', no.map(c => '<code>' + c + '</code>').join(', '));
-  if (cortes.length) fila('avi', 'CORTADO POR EL LÍMITE',
-    cortes.map(c => '<code>' + c + '</code>').join(', ')
-    + '<br>Espera un par de minutos y vuelve a darle: esos no sabemos si existen.');
+  marcador.innerHTML = '<span class="et ' + (buena ? 'ok' : 'mal') + '">PROGRESO</span> terminado.';
+
+  /* si hay ruta buena, se traen los datos y se enseña un trozo del boletín:
+     así vemos de una vez que los dos saltos funcionan y qué pinta tiene */
+  if (buena) {
+    try {
+      const d = await pide(buena.datos, 1);
+      if (d.estado === 200 && d.j) {
+        const b = Array.isArray(d.j) ? d.j[0] : d.j;
+        fila('ok', 'BOLETÍN', 'Leído. Estos son los campos que trae:',
+          JSON.stringify(b, null, 1).slice(0, 1400));
+      } else {
+        fila('mal', 'SEGUNDO SALTO', 'La URL de datos devolvió ' + d.estado + '.');
+      }
+    } catch (e) {
+      fila('mal', 'SEGUNDO SALTO', 'Bloqueado: ' + e.message);
+    }
+  }
+
+  const v = document.createElement('div');
+  v.className = 'veredicto ' + (buena ? 'v-ok' : 'v-mal');
+  v.innerHTML = buena
+    ? '<b>El boletín de montaña se puede leer.</b> Mándame la ruta buena y el trozo de datos '
+      + 'de arriba, y lo monto en la app. Los demás macizos usan la misma ruta cambiando el código: '
+      + AREAS.map(([c, n]) => '<code>' + c + '</code> ' + n).join(' · ')
+    : '<b>Ninguna de las cuatro formas funciona.</b> Mándame lo que ponga arriba y lo miro.';
+  $('#salida').appendChild(v);
   $('#macizos').disabled = false;
 };
-</script>
+</script></script>
 </body>
 </html>
