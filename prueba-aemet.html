@@ -97,19 +97,52 @@ function fila(clase, et, txt, crudo) {
    Y AEMET corta a las pocas decenas de peticiones por minuto. Ante un 429 se
    espera y se reintenta, en vez de dar el sitio por inexistente: la primera
    versión de esta página confundía «vas muy rápido» con «no existe». */
+/* AEMET sirve los datos en ISO-8859-1, no en UTF-8. Leyéndolos como hace el
+   navegador por defecto, «Predicción de montaña» sale «Predicci?n de monta?a».
+   Hay que coger los bytes crudos y descodificarlos con el juego correcto.
+   La cabecera dice el juego cuando lo dice; cuando no, se asume latin-1, que
+   es lo que manda AEMET. */
+async function leeTexto(r) {
+  const buf = await r.arrayBuffer();
+  const ct = (r.headers.get('content-type') || '').toLowerCase();
+  const m = /charset=([\w-]+)/.exec(ct);
+  let juego = m ? m[1] : 'iso-8859-1';
+  if (juego === 'utf8') juego = 'utf-8';
+  try { return new TextDecoder(juego).decode(buf); }
+  catch (e) { return new TextDecoder('iso-8859-1').decode(buf); }
+}
+
 async function pide(url, reintentos) {
   const tope = reintentos == null ? 2 : reintentos;
   for (let i = 0; ; i++) {
     const r = await fetch(url);
-    const txt = await r.text();
+    const txt = await leeTexto(r);
     let j = null;
     try { j = JSON.parse(txt); } catch (e) {}
     if (r.status === 429 && i < tope) {
       await espera(6000 * (i + 1));          // 6 s, luego 12 s
       continue;
     }
-    return { estado: r.status, txt, j };
+    return { estado: r.status, txt, j, tipo: r.headers.get('content-type') || '' };
   }
+}
+
+/* un mapa del JSON: qué claves hay, de qué tipo, y una muestra del contenido.
+   Con esto se puede escribir el código que lo pinta sin ir a ciegas. */
+function mapaDe(v, prof, ruta) {
+  prof = prof || 0; ruta = ruta || '';
+  const sang = '  '.repeat(prof);
+  if (Array.isArray(v)) {
+    if (!v.length) return sang + ruta + ': [] (vacío)\n';
+    return sang + ruta + ': lista de ' + v.length + '\n' + mapaDe(v[0], prof + 1, '[0]');
+  }
+  if (v && typeof v === 'object') {
+    let t = ruta ? sang + ruta + ':\n' : '';
+    for (const k of Object.keys(v)) t += mapaDe(v[k], prof + 1, k);
+    return t;
+  }
+  const s = String(v == null ? '(vacío)' : v);
+  return sang + ruta + ' = ' + (s.length > 90 ? s.slice(0, 90) + '…' : s) + '\n';
 }
 $('#ir').onclick = async () => {
   const clave = $('#k').value.trim();
@@ -219,8 +252,10 @@ $('#macizos').onclick = async () => {
       const d = await pide(buena.datos, 1);
       if (d.estado === 200 && d.j) {
         const b = Array.isArray(d.j) ? d.j[0] : d.j;
-        fila('ok', 'BOLETÍN', 'Leído. Estos son los campos que trae:',
-          JSON.stringify(b, null, 1).slice(0, 1400));
+        fila('', 'CODIFICACIÓN', 'Cabecera: <code>' + (d.tipo || '(ninguna)') + '</code>. '
+          + 'Prueba de acentos: <b>' + ((b.origin && b.origin.tipo) || (b.origen && b.origen.tipo) || '?')
+          + '</b> — si aquí se lee «Predicción de montaña» con sus tildes, está resuelto.');
+        fila('ok', 'ESTRUCTURA', 'Mapa del boletín:', mapaDe(b).slice(0, 3000));
       } else {
         fila('mal', 'SEGUNDO SALTO', 'La URL de datos devolvió ' + d.estado + '.');
       }
@@ -232,8 +267,8 @@ $('#macizos').onclick = async () => {
   const v = document.createElement('div');
   v.className = 'veredicto ' + (buena ? 'v-ok' : 'v-mal');
   v.innerHTML = buena
-    ? '<b>El boletín de montaña se puede leer.</b> Mándame la ruta buena y el trozo de datos '
-      + 'de arriba, y lo monto en la app. Los demás macizos usan la misma ruta cambiando el código: '
+    ? '<b>El boletín de montaña se puede leer.</b> Mándame el mapa de la estructura de arriba '
+      + 'y lo monto en la app. Los demás macizos usan la misma ruta cambiando el código: '
       + AREAS.map(([c, n]) => '<code>' + c + '</code> ' + n).join(' · ')
     : '<b>Ninguna de las cuatro formas funciona.</b> Mándame lo que ponga arriba y lo miro.';
   $('#salida').appendChild(v);
