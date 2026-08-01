@@ -2326,8 +2326,8 @@ function pintaListaGpx() {
     nv.className = f.nav ? 'ir' : '';
     nv.title = f.nav ? 'Dejar de usarla como ruta de navegación' : 'Usarla como ruta de navegación';
     nv.onclick = () => ponEnNavegacion(f.id);
-    const col = document.createElement('button'); col.textContent = 'Colección';
-    col.title = 'Añadirla a tu historial de rutas ya hechas';
+    const col = document.createElement('button'); col.textContent = 'Hecha';
+    col.title = 'Ya la has hecho: pasarla a tu colección y quitarla de objetivos';
     col.onclick = () => pideDatosColeccion(f);
     const sd = document.createElement('button'); sd.textContent = 'Senderos';
     sd.title = 'Descargar los senderos de OSM alrededor de esta ruta';
@@ -2377,21 +2377,24 @@ function pideDatosColeccion(f) {
                                  + String(hoy.getDate()).padStart(2,'0'));
   const cont = document.createElement('div');
   cont.className = 'dlg';
-  cont.innerHTML = '<h4>Añadir a mi colección</h4>'
+  cont.innerHTML = '<h4>Objetivo cumplido</h4>'
     + '<label class="campo">Nombre<input type="text" id="col-nom"></label>'
     + '<label class="campo">Fecha<input type="date" id="col-fecha"></label>'
     + '<label class="campo">Actividad<select id="col-act">'
     +   '<option value="sen">Senderismo</option><option value="bici">Bici</option></select></label>'
+    + '<label class="fr-rev"><input type="checkbox" id="col-quita" checked> Quitarlo de mis objetivos</label>'
     + '<div id="col-det" class="pista"></div>'
     + '<div class="dlg-bot"><button class="sec" id="col-no">Cancelar</button>'
-    + '<button class="accion" id="col-si">Añadir</button></div>';
+    + '<button class="accion" id="col-si">Pasar a la colección</button></div>';
   const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
   document.body.appendChild(capa);
   cont.querySelector('#col-nom').value = f.nom;
   cont.querySelector('#col-fecha').value =
     porDefecto.slice(0,4) + '-' + porDefecto.slice(4,6) + '-' + porDefecto.slice(6,8);
-  cont.querySelector('#col-det').textContent =
-    f.km.toFixed(2) + ' km · ' + (f.d ? f.d + ' m de desnivel' : 'sin datos de altitud');
+  cont.querySelector('#col-det').innerHTML =
+    f.km.toFixed(2) + ' km · ' + (f.d ? f.d + ' m de desnivel' : 'sin datos de altitud')
+    + '<br>La traza se simplifica a la misma tolerancia que el resto de tu colección.'
+    + (f.pub ? '<br>Está publicado como objetivo: al quitarlo se borra también del repositorio.' : '');
   const cierra = () => capa.remove();
   cont.querySelector('#col-no').onclick = cierra;
   capa.onclick = ev => { if (ev.target === capa) cierra(); };
@@ -2399,12 +2402,36 @@ function pideDatosColeccion(f) {
     const nom = (cont.querySelector('#col-nom').value || '').trim() || f.nom;
     const fch = (cont.querySelector('#col-fecha').value || '').replace(/-/g, '');
     const act = cont.querySelector('#col-act').value;
+    const quita = cont.querySelector('#col-quita').checked;
     cierra();
-    await anadeAColeccion(f, nom, fch, act);
+    await anadeAColeccion(f, nom, fch, act, quita);
   };
 }
 
-async function anadeAColeccion(f, nom, fecha, act) {
+/* Retirar un objetivo cumplido: de la caché, de la lista, y del repositorio si
+   estaba publicado. Se apunta además en «fuera» porque, si el borrado remoto
+   no sale —sin token, sin cobertura—, la sincronización lo volvería a bajar. */
+async function retiraObjetivo(f) {
+  const c = await caches.open(CACHE_GPX);
+  await c.delete(claveGpx(f.id)); await c.delete(claveWpt(f.id));
+  memoriaGpx.delete(f.id); memoriaWpt.delete(f.id);
+  let avisoRepo = '';
+  if (f.pub) {
+    const fu = leeObjFuera(); fu.add(f.pub); salvaObjFuera(fu);
+    const token = tokenGh(), r = repoDeLaUrl();
+    if (token && r) {
+      try {
+        await escribeObjetivos(token, r, lista => lista.filter(o => o.id !== f.pub),
+                               'Objetivo cumplido: pasa a la colección');
+      } catch (e) { avisoRepo = ' Sigue en el repositorio: ' + e.message; }
+    } else avisoRepo = ' Sigue en el repositorio: falta el token de GitHub.';
+  }
+  salvaGpxs(leeGpxs().filter(z => z.id !== f.id));
+  pintaListaGpx(); await pintaGpxs(); pintaEstadoObjetivos();
+  return avisoRepo;
+}
+
+async function anadeAColeccion(f, nom, fecha, act, quitaObjetivo) {
   const pts = await leePuntosGpx(f.id);
   if (!pts || pts.length < 2) { avisa('Esa ruta no tiene puntos'); return; }
   /* se simplifica con la misma tolerancia que usé para tus 692, para que el
@@ -2417,7 +2444,10 @@ async function anadeAColeccion(f, nom, fecha, act) {
   olvidaIndiceRutas();
   await pintaRutas();
   pintaAnadidas();
-  avisa('Añadida a la colección: ' + nom);
+  /* solo se retira el objetivo DESPUÉS de que la ruta esté guardada: si algo
+     fallara arriba, no se pierde la traza */
+  const aviso = quitaObjetivo ? await retiraObjetivo(f) : '';
+  avisa((quitaObjetivo ? 'Hecha: ' : 'Añadida a la colección: ') + nom + '.' + aviso);
 }
 
 /* estado y publicación de las añadidas */
