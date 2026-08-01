@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba de AEMET OpenData</title>
+<style>
+:root{--verde:#2f6b4f;--papel:#fbfaf7;--linea:#ded9d0;--rojo:#a8321f;--ambar:#a8781f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papel);color:#2b2823;padding:20px;
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:0 auto}
+h1{font-size:19px;margin:0 0 4px}
+h2{font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--verde);margin:22px 0 6px}
+p{margin:0 0 10px}
+.pista{font-size:13px;color:#6b6862}
+label{display:block;font-size:12.5px;color:#57544e;margin:14px 0 4px;font-weight:600}
+input{width:100%;padding:11px;border:1px solid var(--linea);border-radius:10px;font:inherit;background:#fff}
+button{width:100%;padding:13px;border:0;border-radius:11px;background:var(--verde);color:#fff;
+  font:inherit;font-weight:700;font-size:15px;cursor:pointer;margin-top:12px}
+button:disabled{opacity:.5;cursor:default}
+.res{margin-top:16px;border:1px solid var(--linea);border-radius:12px;overflow:hidden;background:#fff}
+.res div{padding:11px 13px;border-bottom:1px solid var(--linea);font-size:13.5px}
+.res div:last-child{border-bottom:0}
+.ok{color:var(--verde)} .mal{color:var(--rojo)} .avi{color:var(--ambar)}
+.et{font-weight:700}
+pre{background:#f2efe9;padding:11px;border-radius:9px;font-size:12px;overflow:auto;margin:8px 0 0;
+  white-space:pre-wrap;word-break:break-word;max-height:220px}
+.veredicto{margin-top:18px;padding:15px;border-radius:12px;font-size:14.5px;line-height:1.45}
+.v-ok{background:#eef5f0;border:1px solid var(--verde)}
+.v-mal{background:#f7edeb;border:1px solid #d8b4b0}
+code{background:#f2efe9;padding:1px 5px;border-radius:5px;font-size:12.5px}
+</style>
+</head>
+<body>
+
+<h1>Prueba de AEMET OpenData</h1>
+<p class="pista">Responde a una sola pregunta: <b>¿puede la app llamar a AEMET directamente desde el navegador?</b>
+Si la respuesta es no, no hay forma de arreglarlo desde el código — haría falta un servidor intermedio, y GitHub Pages solo sirve ficheros.</p>
+
+<p class="pista"><b>Importante:</b> esta página tiene que abrirse desde tu dominio
+(<code>chernanzfinanzas-gif.github.io</code>), no desde el disco. El permiso que estamos probando depende
+del origen, y un fichero local da un resultado que no vale.</p>
+
+<label for="k">Tu clave de AEMET</label>
+<input id="k" type="password" placeholder="eyJhbGciOi…" autocomplete="off" spellcheck="false">
+<p class="pista">Se queda en este navegador. No se manda a ningún sitio que no sea AEMET.</p>
+
+<button id="ir">Probar</button>
+
+<div id="salida"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const BASE = 'https://opendata.aemet.es/opendata/api';
+
+/* Las áreas de montaña de AEMET. No están todas documentadas en un sitio
+   único, así que se prueban las conocidas y se ve cuáles responden: de paso
+   averiguamos el código del Sistema Central, que es el que te interesa. */
+const AREAS = [
+  ['peu1', 'Picos de Europa'],
+  ['nav1', 'Pirineo Navarro'],
+  ['arn1', 'Pirineo Aragonés'],
+  ['cat1', 'Pirineo Catalán'],
+  ['rio1', 'Ibérica Riojana'],
+  ['ara1', 'Ibérica Aragonesa'],
+  ['nev1', 'Sierra Nevada'],
+  ['gre1', 'Sistema Central — Gredos'],
+  ['cen1', 'Sistema Central'],
+  ['gua1', 'Guadarrama']
+];
+
+function fila(clase, et, txt, crudo) {
+  const d = document.createElement('div');
+  d.innerHTML = '<span class="et ' + clase + '">' + et + '</span> ' + txt
+    + (crudo ? '<pre>' + crudo.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</pre>' : '');
+  $('#salida').querySelector('.res').appendChild(d);
+  return d;
+}
+
+/* AEMET va en dos pasos: la primera llamada devuelve un JSON con una URL
+   («datos») donde están los datos de verdad. Los dos pasos tienen que pasar
+   el filtro del navegador, así que se prueban los dos. */
+async function pide(url) {
+  const r = await fetch(url);
+  const txt = await r.text();
+  let j = null;
+  try { j = JSON.parse(txt); } catch (e) {}
+  return { estado: r.status, txt, j };
+}
+
+$('#ir').onclick = async () => {
+  const clave = $('#k').value.trim();
+  if (!clave) { alert('Pega la clave primero'); return; }
+  $('#ir').disabled = true; $('#ir').textContent = 'Probando…';
+  $('#salida').innerHTML = '<h2>Resultado</h2><div class="res"></div>';
+
+  let cors = null, paso2 = false, areasOk = [];
+
+  /* --- 1. la llamada más simple: predicción diaria de un municipio --- */
+  try {
+    const r = await pide(BASE + '/prediccion/especifica/municipio/diaria/28068?api_key='
+                         + encodeURIComponent(clave));
+    cors = true;
+    if (r.estado === 200 && r.j && r.j.datos) {
+      fila('ok', 'PASO 1 · OK', 'AEMET responde y el navegador deja leer la respuesta. '
+        + 'Estado ' + r.estado + '.');
+      /* --- 2. el segundo salto, donde están los datos --- */
+      try {
+        const d = await pide(r.j.datos);
+        paso2 = d.estado === 200;
+        if (paso2) {
+          const n = d.j && d.j[0] && d.j[0].nombre ? d.j[0].nombre : '(sin nombre)';
+          const dias = d.j && d.j[0] && d.j[0].prediccion ? d.j[0].prediccion.dia.length : 0;
+          fila('ok', 'PASO 2 · OK', 'Datos leídos: <b>' + n + '</b>, ' + dias + ' días de predicción.');
+        } else {
+          fila('mal', 'PASO 2 · FALLA', 'La URL de datos devolvió ' + d.estado + '.');
+        }
+      } catch (e) {
+        fila('mal', 'PASO 2 · BLOQUEADO', 'El primer salto pasa pero el segundo no: <code>'
+          + e.message + '</code>. Los datos viven en otro servidor y ese sí bloquea.');
+      }
+    } else if (r.estado === 401) {
+      cors = true;
+      fila('avi', 'CLAVE', 'El navegador SÍ deja llamar, pero la clave no vale (401). '
+        + 'Repásala y vuelve a probar — la parte importante, el CORS, funciona.');
+    } else if (r.estado === 429) {
+      cors = true;
+      fila('avi', 'LÍMITE', 'Has superado el límite de peticiones (429). El CORS funciona; '
+        + 'espera un minuto y repite.');
+    } else {
+      fila('avi', 'PASO 1 · RARO', 'Estado ' + r.estado + '.', r.txt.slice(0, 400));
+    }
+  } catch (e) {
+    cors = false;
+    fila('mal', 'PASO 1 · BLOQUEADO', 'El navegador no deja leer la respuesta: <code>'
+      + e.message + '</code>');
+  }
+
+  /* --- 3. qué áreas de montaña existen (solo si se puede llamar) --- */
+  if (cors) {
+    fila('', 'MONTAÑA', 'Probando qué macizos tienen boletín…');
+    for (const [cod, nom] of AREAS) {
+      try {
+        const r = await pide(BASE + '/prediccion/especifica/montanya/' + cod + '/dia/0?api_key='
+                             + encodeURIComponent(clave));
+        if (r.estado === 200 && r.j && r.j.datos) { areasOk.push(cod + ' — ' + nom); }
+      } catch (e) { /* da igual: solo interesa cuáles responden */ }
+      await new Promise(r => setTimeout(r, 250));
+    }
+    fila(areasOk.length ? 'ok' : 'avi', 'MACIZOS',
+      areasOk.length ? areasOk.join('<br>') : 'Ninguno de los códigos probados responde.');
+  }
+
+  /* --- veredicto --- */
+  const v = document.createElement('div');
+  v.className = 'veredicto ' + (cors ? 'v-ok' : 'v-mal');
+  v.innerHTML = cors
+    ? '<b>Se puede.</b> El navegador deja llamar a AEMET desde tu dominio'
+      + (paso2 ? ' en los dos pasos.' : ', aunque el segundo salto ha dado problemas — mira arriba.')
+      + ' Podemos montar el boletín de montaña dentro de la app.'
+    : '<b>No se puede.</b> AEMET no autoriza llamadas desde el navegador, así que la app no puede '
+      + 'pedirle datos por mucho que programemos. Nos quedamos con Open-Meteo para la previsión y '
+      + 'la comparación de zonas, y el boletín de montaña habría que mirarlo en la web de AEMET.';
+  $('#salida').appendChild(v);
+
+  const nota = document.createElement('p');
+  nota.className = 'pista';
+  nota.style.marginTop = '12px';
+  nota.textContent = 'Cuéntame lo que ponga aquí y seguimos.';
+  $('#salida').appendChild(nota);
+
+  $('#ir').disabled = false; $('#ir').textContent = 'Probar otra vez';
+};
+</script>
+</body>
+</html>
