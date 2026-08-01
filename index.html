@@ -1183,7 +1183,7 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
       <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,text/xml" multiple hidden>
       <ul id="gpx-lista"></ul>
       <div id="obj-estado" class="pista"></div>
-      <button class="sec" id="btn-pub-obj" hidden>Publicar objetivos</button>
+      <button class="sec" id="btn-pub-obj" hidden>Subirlos todos al repositorio</button>
       <p class="pista">Usa el mismo token de GitHub de la sección de senderos.</p>
     </section>
 
@@ -2331,13 +2331,13 @@ function pintaListaGpx() {
     const bg = document.createElement('button'); bg.textContent = 'GPX';
     bg.title = 'Descargar esta ruta como fichero .gpx';
     bg.onclick = () => bajaGpxCargado(f);
-    /* publicado o no, y el botón para sacarlo del repositorio */
+    /* subirlo o sacarlo del repositorio, uno a uno */
     const rp = document.createElement('button');
-    rp.textContent = f.pub ? 'Del repo' : 'Solo aquí';
-    rp.disabled = !f.pub;
+    rp.textContent = f.pub ? 'Del repo' : 'Subir';
+    rp.className = f.pub ? '' : 'ir';
     rp.title = f.pub ? 'Borrarlo del repositorio: desaparecerá de todos tus dispositivos'
-                     : 'Todavía no está publicado';
-    if (f.pub) rp.onclick = () => borraObjetivoDelRepo(f, rp);
+                     : 'Subirlo al repositorio para tenerlo en todos tus dispositivos';
+    rp.onclick = () => f.pub ? borraObjetivoDelRepo(f, rp) : subeObjetivo(f, rp);
     const qu = document.createElement('button'); qu.textContent = 'Quitar';
     qu.title = 'Quitarlo de este dispositivo';
     qu.onclick = async () => {
@@ -2534,6 +2534,28 @@ function pintaEstadoObjetivos() {
              : 'Los ' + g.length + ' objetivos están publicados.';
 }
 
+/* Leer el fichero del repositorio, dejar que quien llama decida qué lista
+   queda, y escribirlo. Lo comparten subir uno, subirlos todos y borrar: así el
+   manejo del sha y del acumulado está en un solo sitio y no en tres. */
+async function escribeObjetivos(token, r, transforma, mensaje) {
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_OBJETIVOS;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  let sha = null, previos = [];
+  const prev = await fetch(api, { headers:cab });
+  if (prev.ok) {
+    const meta = await prev.json(); sha = meta.sha;
+    try { previos = JSON.parse(decodeURIComponent(escape(atob((meta.content||'').replace(/\n/g,''))))).objetivos || []; }
+    catch (e) { previos = []; }
+  } else if (prev.status === 401) throw new Error('el token no es válido');
+  else if (prev.status === 403) throw new Error('el token no tiene permiso');
+  const quedan = transforma(previos);
+  const txt = JSON.stringify({ v:1, objetivos:quedan });
+  const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+    body: JSON.stringify({ message:mensaje, content: aBase64(txt), sha: sha || undefined }) });
+  if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
+  return quedan.length;
+}
+
 async function publicaObjetivos() {
   const $b = document.getElementById('btn-pub-obj');
   const $e = document.getElementById('obj-estado');
@@ -2541,40 +2563,56 @@ async function publicaObjetivos() {
   if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada, no en local.'; return; }
   if (!token) { $e.textContent = 'Falta el token de GitHub, en la sección de senderos.'; return; }
   $b.disabled = true; $e.textContent = 'Publicando…';
-  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_OBJETIVOS;
-  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
   try {
-    let sha = null, previos = [];
-    const prev = await fetch(api, { headers:cab });
-    if (prev.ok) {
-      const meta = await prev.json(); sha = meta.sha;
-      try { previos = JSON.parse(decodeURIComponent(escape(atob((meta.content||'').replace(/\n/g,''))))).objetivos || []; }
-      catch (e) { previos = []; }
-    } else if (prev.status === 401) throw new Error('el token no es válido');
-    else if (prev.status === 403) throw new Error('el token no tiene permiso');
-    const porId = new Map();
-    previos.forEach(o => porId.set(o.id, o));       // publicar acumula, no sustituye
-    const local = leeGpxs();
-    for (const f of local) {
-      const ficha = await fichaObjetivo(f);
-      if (ficha) porId.set(ficha.id, ficha);
-    }
-    const txt = JSON.stringify({ v:1, objetivos:[...porId.values()] });
-    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
-      body: JSON.stringify({ message:'Actualiza mis objetivos desde la app',
-        content: aBase64(txt), sha: sha || undefined }) });
-    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
+    /* se preparan aquí, antes de tocar el repositorio: si alguno no tiene
+       puntos, mejor enterarse ahora */
+    const fichas = [];
+    for (const f of leeGpxs()) { const fi = await fichaObjetivo(f); if (fi) fichas.push([f, fi]); }
+    const n = await escribeObjetivos(token, r, lista => {
+      const porId = new Map(lista.map(o => [o.id, o]));   // publicar acumula, no sustituye
+      fichas.forEach(([, fi]) => porId.set(fi.id, fi));
+      return [...porId.values()];
+    }, 'Actualiza mis objetivos desde la app');
     /* se marcan con su id del repositorio: así se sabe cuáles ya viajan */
     const g = leeGpxs();
-    for (const f of g) if (!f.pub) { const fi = await fichaObjetivo(f); if (fi) f.pub = fi.id; }
+    fichas.forEach(([f, fi]) => { const x = g.find(z => z.id === f.id); if (x) x.pub = fi.id; });
     salvaGpxs(g);
     pintaListaGpx(); pintaEstadoObjetivos();
-    $e.textContent = 'Publicados. El fichero tiene ahora ' + porId.size
-      + (porId.size === 1 ? ' objetivo.' : ' objetivos.')
+    $e.textContent = 'Publicados. El fichero tiene ahora ' + n
+      + (n === 1 ? ' objetivo.' : ' objetivos.')
       + ' En un minuto estará en el otro dispositivo.';
   } catch (err) {
     $e.textContent = 'No se han podido publicar: ' + err.message;
   } finally { $b.disabled = false; }
+}
+
+/* Subir un objetivo suelto. El interruptor del mapa NO decide esto: dice si lo
+   ves, no si viaja. Un objetivo publicado puede estar oculto aquí, y esconderlo
+   no debe borrarlo del móvil. Por eso se sube eligiéndolo, no marcándolo. */
+async function subeObjetivo(f, boton) {
+  const token = tokenGh(), r = repoDeLaUrl();
+  const $e = document.getElementById('obj-estado');
+  if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada, no en local.'; return; }
+  if (!token) { $e.textContent = 'Falta el token de GitHub, en la sección de senderos.'; return; }
+  if (boton) { boton.disabled = true; boton.textContent = '…'; }
+  try {
+    const ficha = await fichaObjetivo(f);
+    if (!ficha) throw new Error('esa ruta no tiene puntos');
+    const n = await escribeObjetivos(token, r, lista => {
+      const porId = new Map(lista.map(o => [o.id, o]));
+      porId.set(ficha.id, ficha);
+      return [...porId.values()];
+    }, 'Sube un objetivo desde la app');
+    const g = leeGpxs();
+    const x = g.find(z => z.id === f.id);
+    if (x) { x.pub = ficha.id; salvaGpxs(g); }
+    pintaListaGpx(); pintaEstadoObjetivos();
+    $e.textContent = '«' + f.nom + '» publicado. El fichero tiene ahora ' + n
+      + (n === 1 ? ' objetivo.' : ' objetivos.') + ' En un minuto estará en el otro dispositivo.';
+  } catch (err) {
+    $e.textContent = 'No se ha podido subir: ' + err.message;
+    if (boton) { boton.disabled = false; boton.textContent = 'Subir'; }
+  }
 }
 
 /* Borrar del repositorio: es lo que faltaba en los senderos y aquí sí está.
@@ -2586,29 +2624,21 @@ async function borraObjetivoDelRepo(f, boton) {
   if (!r || !token) { $e.textContent = 'Hace falta la app publicada y el token de GitHub.'; return; }
   if (!confirm('¿Borrar «' + f.nom + '» del repositorio?\n\nDesaparecerá de todos tus dispositivos. Aquí puedes conservarlo.')) return;
   if (boton) { boton.disabled = true; boton.textContent = '…'; }
-  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_OBJETIVOS;
-  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
   try {
-    const prev = await fetch(api, { headers:cab });
-    if (!prev.ok) throw new Error('no se puede leer el fichero (HTTP ' + prev.status + ')');
-    const meta = await prev.json();
-    let lista = [];
-    try { lista = JSON.parse(decodeURIComponent(escape(atob((meta.content||'').replace(/\n/g,''))))).objetivos || []; }
-    catch (e) { throw new Error('el fichero publicado no se entiende'); }
-    const quedan = lista.filter(o => o.id !== f.pub);
-    if (quedan.length === lista.length) throw new Error('ese objetivo no estaba en el fichero');
-    const txt = JSON.stringify({ v:1, objetivos:quedan });
-    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
-      body: JSON.stringify({ message:'Quita un objetivo desde la app',
-        content: aBase64(txt), sha: meta.sha }) });
-    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
+    let estaba = false;
+    const n = await escribeObjetivos(token, r, lista => {
+      const quedan = lista.filter(o => o.id !== f.pub);
+      estaba = quedan.length !== lista.length;
+      return quedan;
+    }, 'Quita un objetivo desde la app');
+    if (!estaba) throw new Error('ese objetivo no estaba en el fichero publicado');
     /* aquí se queda, pero ya sin vínculo con el repositorio */
     const g = leeGpxs();
     const x = g.find(z => z.id === f.id);
     if (x) { delete x.pub; salvaGpxs(g); }
     pintaListaGpx(); pintaEstadoObjetivos();
-    $e.textContent = 'Borrado del repositorio. Quedan ' + quedan.length
-      + (quedan.length === 1 ? ' objetivo publicado.' : ' objetivos publicados.');
+    $e.textContent = 'Borrado del repositorio. Quedan ' + n
+      + (n === 1 ? ' objetivo publicado.' : ' objetivos publicados.');
   } catch (err) {
     $e.textContent = 'No se ha podido borrar: ' + err.message;
     if (boton) { boton.disabled = false; boton.textContent = 'Del repo'; }
