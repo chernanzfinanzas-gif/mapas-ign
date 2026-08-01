@@ -45,13 +45,15 @@ del origen, y un fichero local da un resultado que no vale.</p>
 <input id="k" type="password" placeholder="eyJhbGciOi…" autocomplete="off" spellcheck="false">
 <p class="pista">Se queda en este navegador. No se manda a ningún sitio que no sea AEMET.</p>
 
-<button id="ir">Probar</button>
+<button id="ir">1 · Probar el acceso</button>
+<button id="macizos" disabled>2 · Descubrir los macizos (va despacio)</button>
 
 <div id="salida"></div>
 
 <script>
 const $ = s => document.querySelector(s);
 const BASE = 'https://opendata.aemet.es/opendata/api';
+const espera = ms => new Promise(r => setTimeout(r, ms));
 
 /* Las áreas de montaña de AEMET. No están todas documentadas en un sitio
    único, así que se prueban las conocidas y se ve cuáles responden: de paso
@@ -66,7 +68,9 @@ const AREAS = [
   ['nev1', 'Sierra Nevada'],
   ['gre1', 'Sistema Central — Gredos'],
   ['cen1', 'Sistema Central'],
-  ['gua1', 'Guadarrama']
+  ['gua1', 'Guadarrama'],
+  ['sca1', 'Sistema Central (variante)'],
+  ['mad1', 'Madrid — Guadarrama']
 ];
 
 function fila(clase, et, txt, crudo) {
@@ -78,16 +82,26 @@ function fila(clase, et, txt, crudo) {
 }
 
 /* AEMET va en dos pasos: la primera llamada devuelve un JSON con una URL
-   («datos») donde están los datos de verdad. Los dos pasos tienen que pasar
-   el filtro del navegador, así que se prueban los dos. */
-async function pide(url) {
-  const r = await fetch(url);
-  const txt = await r.text();
-  let j = null;
-  try { j = JSON.parse(txt); } catch (e) {}
-  return { estado: r.status, txt, j };
-}
+   («datos») donde están los datos de verdad. Los dos tienen que pasar el
+   filtro del navegador, así que se prueban por separado.
 
+   Y AEMET corta a las pocas decenas de peticiones por minuto. Ante un 429 se
+   espera y se reintenta, en vez de dar el sitio por inexistente: la primera
+   versión de esta página confundía «vas muy rápido» con «no existe». */
+async function pide(url, reintentos) {
+  const tope = reintentos == null ? 2 : reintentos;
+  for (let i = 0; ; i++) {
+    const r = await fetch(url);
+    const txt = await r.text();
+    let j = null;
+    try { j = JSON.parse(txt); } catch (e) {}
+    if (r.status === 429 && i < tope) {
+      await espera(6000 * (i + 1));          // 6 s, luego 12 s
+      continue;
+    }
+    return { estado: r.status, txt, j };
+  }
+}
 $('#ir').onclick = async () => {
   const clave = $('#k').value.trim();
   if (!clave) { alert('Pega la clave primero'); return; }
@@ -136,32 +150,19 @@ $('#ir').onclick = async () => {
       + e.message + '</code>');
   }
 
-  /* --- 3. qué áreas de montaña existen (solo si se puede llamar) --- */
-  if (cors) {
-    fila('', 'MONTAÑA', 'Probando qué macizos tienen boletín…');
-    for (const [cod, nom] of AREAS) {
-      try {
-        const r = await pide(BASE + '/prediccion/especifica/montanya/' + cod + '/dia/0?api_key='
-                             + encodeURIComponent(clave));
-        if (r.estado === 200 && r.j && r.j.datos) { areasOk.push(cod + ' — ' + nom); }
-      } catch (e) { /* da igual: solo interesa cuáles responden */ }
-      await new Promise(r => setTimeout(r, 250));
-    }
-    fila(areasOk.length ? 'ok' : 'avi', 'MACIZOS',
-      areasOk.length ? areasOk.join('<br>') : 'Ninguno de los códigos probados responde.');
-  }
-
   /* --- veredicto --- */
   const v = document.createElement('div');
   v.className = 'veredicto ' + (cors ? 'v-ok' : 'v-mal');
   v.innerHTML = cors
     ? '<b>Se puede.</b> El navegador deja llamar a AEMET desde tu dominio'
-      + (paso2 ? ' en los dos pasos.' : ', aunque el segundo salto ha dado problemas — mira arriba.')
-      + ' Podemos montar el boletín de montaña dentro de la app.'
+      + (paso2 ? ' en los dos pasos, datos incluidos.'
+               : '. El segundo salto no se ha podido comprobar todavía — mira arriba.')
+      + ' Ahora dale al botón 2 para averiguar los códigos de los macizos.'
     : '<b>No se puede.</b> AEMET no autoriza llamadas desde el navegador, así que la app no puede '
       + 'pedirle datos por mucho que programemos. Nos quedamos con Open-Meteo para la previsión y '
       + 'la comparación de zonas, y el boletín de montaña habría que mirarlo en la web de AEMET.';
   $('#salida').appendChild(v);
+  if (cors) $('#macizos').disabled = false;
 
   const nota = document.createElement('p');
   nota.className = 'pista';
@@ -169,7 +170,41 @@ $('#ir').onclick = async () => {
   nota.textContent = 'Cuéntame lo que ponga aquí y seguimos.';
   $('#salida').appendChild(nota);
 
-  $('#ir').disabled = false; $('#ir').textContent = 'Probar otra vez';
+  $('#ir').disabled = false; $('#ir').textContent = '1 · Probar otra vez';
+};
+
+/* Descubrir los macizos va aparte y despacio: son diez llamadas y el límite de
+   AEMET es de pocas decenas por minuto. Tres segundos entre una y otra, y si
+   aun así corta, se espera y se reintenta. */
+$('#macizos').onclick = async () => {
+  const clave = $('#k').value.trim();
+  if (!clave) { alert('Pega la clave primero'); return; }
+  $('#macizos').disabled = true;
+  $('#salida').innerHTML = '<h2>Macizos con boletín</h2><div class="res"></div>';
+  const marcador = fila('', 'PROGRESO', 'Empezando…');
+  const hay = [], no = [], cortes = [];
+  for (let i = 0; i < AREAS.length; i++) {
+    const [cod, nom] = AREAS[i];
+    marcador.innerHTML = '<span class="et">PROGRESO</span> ' + (i + 1) + ' de ' + AREAS.length
+      + ' · probando <code>' + cod + '</code>…';
+    try {
+      const r = await pide(BASE + '/prediccion/especifica/montanya/' + cod + '/dia/0?api_key='
+                           + encodeURIComponent(clave), 2);
+      if (r.estado === 200 && r.j && r.j.datos) hay.push([cod, nom]);
+      else if (r.estado === 429) cortes.push(cod);
+      else no.push(cod);
+    } catch (e) { no.push(cod + ' (' + e.message + ')'); }
+    if (i < AREAS.length - 1) await espera(3000);
+  }
+  marcador.innerHTML = '<span class="et ok">PROGRESO</span> terminado.';
+  fila(hay.length ? 'ok' : 'avi', 'CON BOLETÍN',
+    hay.length ? hay.map(([c, n]) => '<code>' + c + '</code> — ' + n).join('<br>')
+               : 'Ninguno de los códigos probados.');
+  if (no.length) fila('', 'SIN BOLETÍN', no.map(c => '<code>' + c + '</code>').join(', '));
+  if (cortes.length) fila('avi', 'CORTADO POR EL LÍMITE',
+    cortes.map(c => '<code>' + c + '</code>').join(', ')
+    + '<br>Espera un par de minutos y vuelve a darle: esos no sabemos si existen.');
+  $('#macizos').disabled = false;
 };
 </script>
 </body>
