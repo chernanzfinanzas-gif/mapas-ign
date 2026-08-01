@@ -1177,11 +1177,19 @@ ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-list
     </section>
 
     <section>
-      <h3>Ruta y almacenamiento</h3>
-      <div id="almacen"></div>
-      <button class="sec" id="btn-gpx">Cargar GPX sobre el mapa…</button>
+      <h3>Mis objetivos</h3>
+      <p class="pista">Las rutas que quieres hacer. Se cargan de un GPX y, si las publicas, las tienes en el ordenador y en el móvil sin volver a cargarlas. Distinto de «Mis rutas», que es lo que ya has hecho.</p>
+      <button class="sec" id="btn-gpx">Cargar GPX como objetivo…</button>
       <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,text/xml" multiple hidden>
       <ul id="gpx-lista"></ul>
+      <div id="obj-estado" class="pista"></div>
+      <button class="sec" id="btn-pub-obj" hidden>Publicar objetivos</button>
+      <p class="pista">Usa el mismo token de GitHub de la sección de senderos.</p>
+    </section>
+
+    <section>
+      <h3>Ruta y almacenamiento</h3>
+      <div id="almacen"></div>
     </section>
   </div>
 </div>
@@ -2278,7 +2286,7 @@ function pintaListaGpx() {
   const ul = document.getElementById('gpx-lista'); if (!ul) return;
   const fs = leeGpxs().slice().sort((a, b) => a.nom.localeCompare(b.nom, 'es'));
   ul.innerHTML = '';
-  if (!fs.length) { ul.innerHTML = '<li class="vacio">No has cargado ninguna ruta.</li>'; return; }
+  if (!fs.length) { ul.innerHTML = '<li class="vacio">Ningún objetivo cargado.</li>'; pintaEstadoObjetivos(); return; }
   fs.forEach(f => {
     const li = document.createElement('li');
     li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
@@ -2294,6 +2302,7 @@ function pintaListaGpx() {
     if (f.nav) punto.style.borderColor = '#000';
     li.querySelector('.nom').textContent = f.nom;
     li.querySelector('.det').textContent = (f.nav ? 'EN NAVEGACIÓN · ' : '')
+      + (f.pub ? 'EN EL REPO · ' : '')
       + f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos'
       + (f.d ? ' · ' + fmtN(f.d) + ' m+' : '')
       + (f.w ? ' · ' + f.w + (f.w === 1 ? ' punto marcado' : ' puntos marcados') : '');
@@ -2322,17 +2331,28 @@ function pintaListaGpx() {
     const bg = document.createElement('button'); bg.textContent = 'GPX';
     bg.title = 'Descargar esta ruta como fichero .gpx';
     bg.onclick = () => bajaGpxCargado(f);
+    /* publicado o no, y el botón para sacarlo del repositorio */
+    const rp = document.createElement('button');
+    rp.textContent = f.pub ? 'Del repo' : 'Solo aquí';
+    rp.disabled = !f.pub;
+    rp.title = f.pub ? 'Borrarlo del repositorio: desaparecerá de todos tus dispositivos'
+                     : 'Todavía no está publicado';
+    if (f.pub) rp.onclick = () => borraObjetivoDelRepo(f, rp);
     const qu = document.createElement('button'); qu.textContent = 'Quitar';
+    qu.title = 'Quitarlo de este dispositivo';
     qu.onclick = async () => {
       const c = await caches.open(CACHE_GPX);
       await c.delete(claveGpx(f.id)); await c.delete(claveWpt(f.id));
       memoriaGpx.delete(f.id); memoriaWpt.delete(f.id);
+      /* si venía del repositorio se apunta, o volvería a bajarse al recargar */
+      if (f.pub) { const fu = leeObjFuera(); fu.add(f.pub); salvaObjFuera(fu); }
       salvaGpxs(leeGpxs().filter(z => z.id !== f.id));
-      pintaListaGpx(); pintaGpxs();
+      pintaListaGpx(); pintaGpxs(); pintaEstadoObjetivos();
     };
     li.prepend(punto); li.prepend(ver);
-    li.append(ir, nv, col, sd, pf, bg, qu); ul.appendChild(li);
+    li.append(ir, nv, col, sd, pf, bg, rp, qu); ul.appendChild(li);
   });
+  pintaEstadoObjetivos();
 }
 
 /* ---- añadir una ruta hecha a la colección ------------------------------
@@ -2443,6 +2463,159 @@ async function publicaRutas() {
   } finally { $b.disabled = false; }
 }
 
+/* ---- Mis objetivos: los tracks cargados, sincronizados por el repositorio --
+   Un GPX que cargas es una ruta que quieres hacer. Vivía solo en el navegador
+   donde lo cargaste, así que preparabas la salida en el ordenador y en el
+   monte no tenías nada. Publicarlos los sube a `objetivos/objetivos.json`, de
+   donde los recoge cualquier dispositivo la próxima vez que abre la app.
+
+   Van con su geometría dentro, ya simplificada: unos kilobytes cada uno. No se
+   parecen a los mapas, que no escalan; se parecen a los senderos, que sí.
+
+   Qué es de cada quién:
+     · el repositorio manda sobre QUÉ objetivos existen,
+     · cada dispositivo decide CUÁLES ve y cuál está en navegación.
+   Por eso el interruptor de visibilidad no viaja, y quitar uno de un
+   dispositivo no lo borra de los demás. Para eso está «Borrar del repo». */
+const RUTA_OBJETIVOS = 'objetivos/objetivos.json';
+const LS_OBJ_FUERA   = 'ign.objetivos.fuera';   // los que has quitado de ESTE aparato
+const leeObjFuera  = () => { try { return new Set(JSON.parse(localStorage.getItem(LS_OBJ_FUERA)) || []); } catch (e) { return new Set(); } };
+const salvaObjFuera = s => guarda(LS_OBJ_FUERA, [...s]);
+
+/* trae del repositorio los objetivos que aquí no están todavía */
+async function sincronizaObjetivos() {
+  let doc = null;
+  try {
+    const res = await fetch(RUTA_OBJETIVOS, { cache:'no-store' });
+    if (!res.ok) return 0;
+    doc = await res.json();
+  } catch (e) { return 0; }                 // sin cobertura: se queda como está
+  const remotos = (doc && doc.objetivos) || [];
+  if (!remotos.length) return 0;
+  const fuera = leeObjFuera();
+  const g = leeGpxs();
+  const yaEstan = new Set(g.map(x => x.pub).filter(Boolean));
+  let nuevos = 0;
+  for (const o of remotos) {
+    if (yaEstan.has(o.id) || fuera.has(o.id)) continue;
+    if (!o.g || !o.g.length) continue;
+    const id = 'o' + Date.now().toString(36) + nuevos.toString(36);
+    await salvaPuntosGpx(id, o.g);
+    if (o.w && o.w.length) await salvaWptGpx(id, o.w);
+    g.push({ id, pub:o.id, nom:o.nom, km:o.km || largoKm(o.g), d:o.d || 0, fecha:o.fecha || '',
+             n:o.g.length, alt:o.g.some(p => p[2] != null), w:(o.w || []).length,
+             color: COLORES_GPX[g.length % COLORES_GPX.length], bbox:o.b });
+    nuevos++;
+  }
+  if (nuevos) { salvaGpxs(g); pintaListaGpx(); await pintaGpxs(); }
+  return nuevos;
+}
+
+/* la ficha que viaja: lo mínimo para volver a dibujar la ruta en otro sitio */
+async function fichaObjetivo(f) {
+  const pts = await leePuntosGpx(f.id);
+  if (!pts || pts.length < 2) return null;
+  /* el id lleva nombre, fecha y número de puntos: dos GPX que se llamen igual
+     no se pisan el uno al otro en el fichero publicado */
+  return { id: f.pub || ('o-' + idDesde(f.nom) + '-' + (f.fecha || '0') + '-' + pts.length),
+           nom: f.nom, fecha: f.fecha || '', km: +(f.km || 0).toFixed(2), d: f.d || 0,
+           b: f.bbox, g: pts, w: f.w ? await leeWptGpx(f.id) : [] };
+}
+
+function pintaEstadoObjetivos() {
+  const $e = document.getElementById('obj-estado');
+  const $b = document.getElementById('btn-pub-obj');
+  if (!$e) return;
+  const g = leeGpxs();
+  const sinPub = g.filter(x => !x.pub).length;
+  if ($b) $b.hidden = !g.length;
+  $e.textContent = !g.length ? ''
+    : sinPub ? sinPub + (sinPub === 1 ? ' objetivo sin publicar.' : ' objetivos sin publicar.')
+             : 'Los ' + g.length + ' objetivos están publicados.';
+}
+
+async function publicaObjetivos() {
+  const $b = document.getElementById('btn-pub-obj');
+  const $e = document.getElementById('obj-estado');
+  const token = tokenGh(), r = repoDeLaUrl();
+  if (!r)     { $e.textContent = 'Esto solo funciona en la app publicada, no en local.'; return; }
+  if (!token) { $e.textContent = 'Falta el token de GitHub, en la sección de senderos.'; return; }
+  $b.disabled = true; $e.textContent = 'Publicando…';
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_OBJETIVOS;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  try {
+    let sha = null, previos = [];
+    const prev = await fetch(api, { headers:cab });
+    if (prev.ok) {
+      const meta = await prev.json(); sha = meta.sha;
+      try { previos = JSON.parse(decodeURIComponent(escape(atob((meta.content||'').replace(/\n/g,''))))).objetivos || []; }
+      catch (e) { previos = []; }
+    } else if (prev.status === 401) throw new Error('el token no es válido');
+    else if (prev.status === 403) throw new Error('el token no tiene permiso');
+    const porId = new Map();
+    previos.forEach(o => porId.set(o.id, o));       // publicar acumula, no sustituye
+    const local = leeGpxs();
+    for (const f of local) {
+      const ficha = await fichaObjetivo(f);
+      if (ficha) porId.set(ficha.id, ficha);
+    }
+    const txt = JSON.stringify({ v:1, objetivos:[...porId.values()] });
+    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Actualiza mis objetivos desde la app',
+        content: aBase64(txt), sha: sha || undefined }) });
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
+    /* se marcan con su id del repositorio: así se sabe cuáles ya viajan */
+    const g = leeGpxs();
+    for (const f of g) if (!f.pub) { const fi = await fichaObjetivo(f); if (fi) f.pub = fi.id; }
+    salvaGpxs(g);
+    pintaListaGpx(); pintaEstadoObjetivos();
+    $e.textContent = 'Publicados. El fichero tiene ahora ' + porId.size
+      + (porId.size === 1 ? ' objetivo.' : ' objetivos.')
+      + ' En un minuto estará en el otro dispositivo.';
+  } catch (err) {
+    $e.textContent = 'No se han podido publicar: ' + err.message;
+  } finally { $b.disabled = false; }
+}
+
+/* Borrar del repositorio: es lo que faltaba en los senderos y aquí sí está.
+   Quita el objetivo del fichero publicado, y con él desaparece de todos los
+   dispositivos la próxima vez que abran. */
+async function borraObjetivoDelRepo(f, boton) {
+  const token = tokenGh(), r = repoDeLaUrl();
+  const $e = document.getElementById('obj-estado');
+  if (!r || !token) { $e.textContent = 'Hace falta la app publicada y el token de GitHub.'; return; }
+  if (!confirm('¿Borrar «' + f.nom + '» del repositorio?\n\nDesaparecerá de todos tus dispositivos. Aquí puedes conservarlo.')) return;
+  if (boton) { boton.disabled = true; boton.textContent = '…'; }
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_OBJETIVOS;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  try {
+    const prev = await fetch(api, { headers:cab });
+    if (!prev.ok) throw new Error('no se puede leer el fichero (HTTP ' + prev.status + ')');
+    const meta = await prev.json();
+    let lista = [];
+    try { lista = JSON.parse(decodeURIComponent(escape(atob((meta.content||'').replace(/\n/g,''))))).objetivos || []; }
+    catch (e) { throw new Error('el fichero publicado no se entiende'); }
+    const quedan = lista.filter(o => o.id !== f.pub);
+    if (quedan.length === lista.length) throw new Error('ese objetivo no estaba en el fichero');
+    const txt = JSON.stringify({ v:1, objetivos:quedan });
+    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Quita un objetivo desde la app',
+        content: aBase64(txt), sha: meta.sha }) });
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || ('HTTP '+res.status)); }
+    /* aquí se queda, pero ya sin vínculo con el repositorio */
+    const g = leeGpxs();
+    const x = g.find(z => z.id === f.id);
+    if (x) { delete x.pub; salvaGpxs(g); }
+    pintaListaGpx(); pintaEstadoObjetivos();
+    $e.textContent = 'Borrado del repositorio. Quedan ' + quedan.length
+      + (quedan.length === 1 ? ' objetivo publicado.' : ' objetivos publicados.');
+  } catch (err) {
+    $e.textContent = 'No se ha podido borrar: ' + err.message;
+    if (boton) { boton.disabled = false; boton.textContent = 'Del repo'; }
+  }
+}
+
+document.getElementById('btn-pub-obj').onclick = publicaObjetivos;
 document.getElementById('btn-gpx').onclick = () => document.getElementById('file-gpx').click();
 const leeTexto = f => new Promise((ok, mal) => {
   const fr = new FileReader();
@@ -4359,6 +4532,9 @@ function abrePor(texto) {
   pintaListaSendas();
   pintaSendas();
   pintaPaquetesRepo();
+  /* los objetivos publicados desde el otro dispositivo se recogen solos */
+  sincronizaObjetivos().then(n => { if (n) avisa(n === 1 ? 'Un objetivo nuevo del repositorio'
+                                                        : n + ' objetivos nuevos del repositorio'); });
   document.getElementById('rutas-ver').checked = rutasVisibles;
   pintaListaRenombres();
   pintaAnadidas();
