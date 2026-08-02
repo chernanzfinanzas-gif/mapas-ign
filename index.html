@@ -779,6 +779,28 @@ img.leaflet-tile{image-rendering:auto}
   border-radius:9px;font:inherit;font-size:14px;cursor:pointer}
 #barra-dibujo button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
 #barra-dibujo button:disabled{opacity:.45}
+/* la barra del planificador es hermana de la de dibujo: mismo sitio, mismo
+   peso visual. Lo único distinto es que lleva selector de perfil. */
+#barra-ruta{position:absolute;left:8px;right:8px;bottom:calc(100px + var(--safe-b));z-index:640;
+  background:rgba(252,251,247,.97);border:1px solid var(--linea);border-radius:14px;
+  padding:9px 10px;box-shadow:0 6px 22px rgba(0,0,0,.16)}
+#barra-ruta[hidden]{display:none}
+#barra-ruta .ln0{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;
+  color:var(--verde);margin-bottom:3px}
+#barra-ruta .ln1{font-size:12.5px;color:#5d5a53;margin-bottom:8px;min-height:17px}
+#barra-ruta .ln1 b{color:var(--verde)}
+#barra-ruta .ln1 .mal{color:#a8321f;font-weight:600}
+#barra-ruta .ln2{display:flex;gap:6px;align-items:center}
+#barra-ruta .ln3{margin-top:6px}
+#barra-ruta input{flex:1 1 auto;min-width:0;padding:9px 10px;border:1px solid var(--linea);
+  border-radius:10px;font:inherit;font-size:13px;background:#fff}
+#barra-ruta select{flex:1 1 auto;min-width:0;padding:9px 8px;border:1px solid var(--linea);
+  border-radius:10px;font:inherit;font-size:12.5px;background:#fff;color:#2b2823}
+#barra-ruta button{flex:0 0 auto;padding:9px 11px;border:1px solid var(--linea);background:#fff;
+  border-radius:10px;font:inherit;font-size:13px;cursor:pointer;color:#57544e}
+#barra-ruta button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
+#barra-ruta button:disabled{opacity:.45}
+
 #barra-opacidad{position:absolute;left:8px;right:8px;bottom:calc(96px + var(--safe-b));z-index:620;
   display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
   background:rgba(251,250,247,.62);backdrop-filter:blur(3px);
@@ -1163,6 +1185,22 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   </div>
 </div>
 
+<div id="barra-ruta" hidden>
+  <div class="ln0">Planificar una ruta</div>
+  <div class="ln1" id="pl-pista">Toca en el mapa por dónde quieres pasar.</div>
+  <div class="ln2">
+    <select id="pl-perfil" title="Cómo se calcula la ruta"></select>
+    <button id="pl-cerrar-anillo" title="Volver al punto de partida">⟲</button>
+    <button id="pl-deshacer" title="Quitar el último punto">↶</button>
+    <button id="pl-cancelar" title="Salir">✕</button>
+  </div>
+  <div class="ln2 ln3">
+    <input type="text" id="pl-nombre" placeholder="Nombre de la ruta" autocomplete="off">
+    <button id="pl-bajar" title="Descargar el .gpx para el reloj">⤓ GPX</button>
+    <button id="pl-guardar" class="ok">A objetivos</button>
+  </div>
+</div>
+
 <div id="barra-zoom">
   <span class="et">Zoom</span>
   <input type="range" id="zoom-rango" min="6" max="19" step="1" value="6" aria-label="Nivel de zoom del mapa">
@@ -1359,6 +1397,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <h3>Mis objetivos</h3>
       <p class="pista">Las rutas que quieres hacer. Se cargan de un GPX y, si las publicas, las tienes en el ordenador y en el móvil sin volver a cargarlas. Distinto de «Mis rutas», que es lo que ya has hecho.</p>
       <button class="sec" id="btn-gpx">Cargar GPX como objetivo…</button>
+      <button class="sec" id="btn-planificar">Dibujar una ruta nueva en el mapa…</button>
       <input type="file" id="file-gpx" accept=".gpx,application/gpx+xml,text/xml" multiple hidden>
       <input type="file" id="file-hecha" accept=".gpx,application/gpx+xml,text/xml" hidden>
       <ul id="gpx-lista"></ul>
@@ -2237,10 +2276,11 @@ async function leeWptGpx(id) {
 const escXml = t => String(t).replace(/[<>&'"]/g, c =>
   ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', "'":'&apos;', '"':'&quot;' }[c]));
 
-function aGpx(nom, pts, waypts) {
+function aGpx(nom, pts, waypts, desc) {
   const l = ['<?xml version="1.0" encoding="UTF-8"?>',
     '<gpx version="1.1" creator="Mapas IGN offline" xmlns="http://www.topografix.com/GPX/1/1">',
-    '<metadata><name>' + escXml(nom) + '</name></metadata>'];
+    '<metadata><name>' + escXml(nom) + '</name>'
+      + (desc ? '<desc>' + escXml(desc) + '</desc>' : '') + '</metadata>'];
   (waypts || []).forEach(w => {
     l.push('<wpt lat="' + w.lat + '" lon="' + w.lon + '">'
       + (w.ele != null ? '<ele>' + w.ele + '</ele>' : '')
@@ -3807,6 +3847,7 @@ function pintaDib() {
 }
 function abreDibujo(destino) {
   cierraPanel();
+  if (modoPlan) cierraPlanificador();   // los dos escuchan el clic del mapa
   destinoDib = destino || 'sendas';
   modoDib = true; verticesDib = [];
   document.getElementById('barra-dibujo').hidden = false;
@@ -3836,6 +3877,265 @@ function cierraDibujo() {
   document.getElementById('barra-opacidad').hidden = !capaEncima;
 }
 function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
+
+/* ---------- Planificador de rutas (BRouter) ---------------------------
+   Lo único de la app que INVENTA una ruta en vez de leerla. Tocas puntos en el
+   mapa y un motor de enrutamiento sobre los caminos de OpenStreetMap devuelve
+   la traza pegada al terreno, con su altura punto a punto.
+
+   Decisión importante: se le pide a BRouter el resultado en GPX, no en
+   GeoJSON, aunque el GeoJSON sería más cómodo de leer. Así la ruta calculada
+   entra por EL MISMO sitio que un GPX que cargas tú —`leeGpxDoc`— y hereda
+   gratis todo lo de después: el perfil de altura, los waypoints, el reducido,
+   el guardado como objetivo y la subida al repositorio. Un segundo camino de
+   entrada acabaría divergiendo del primero.
+
+   Esto sí necesita cobertura. Es de planificar en casa, como el tiempo. */
+/* El servidor se puede cambiar sin tocar la app: `prueba-brouter.html`, que
+   vive en el mismo sitio y por tanto comparte almacenamiento, escribe aquí
+   el que haya salido bien en las pruebas. */
+const LS_BROUTER = 'ign.brouter.srv';
+const servidorRutas = () => localStorage.getItem(LS_BROUTER) || 'https://brouter.de/brouter';
+const PERFILES = [
+  { id:'hiking-beta', n:'A pie por montaña' },
+  { id:'hiking-mountain', n:'A pie, montaña dura' },
+  { id:'trekking', n:'Bici de montaña' },
+  { id:'gravel', n:'Bici gravel' },
+  { id:'shortest', n:'Lo más corto' }
+];
+const LS_PERFIL = 'ign.brouter.perfil';
+
+let modoPlan = false, puntosPlan = [], capaPlan = null, rutaPlan = null,
+    pidiendoPlan = false, marcasPlan = [], ultimoArrastre = 0;
+
+/* Tu ritmo, sacado de tus propias rutas: unos 16,7 min por km llano más 15,2
+   min por cada 100 m de subida. Es una ESTIMACIÓN con bastante dispersión
+   —la mitad de tus rutas se salen media hora— así que se enseña redondeada y
+   dicho lo que es. */
+const horasEstimadas = (km, subida) => (km * 16.7 + (subida / 100) * 15.2) / 60;
+
+function fmtHoras(h) {
+  const m = Math.round(h * 60);
+  return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
+}
+
+async function pideRuta(pts, perfil) {
+  const lonlats = pts.map(p => p[1].toFixed(6) + ',' + p[0].toFixed(6)).join('|');
+  const u = servidorRutas() + '?lonlats=' + lonlats + '&profile=' + encodeURIComponent(perfil)
+          + '&alternativeidx=0&format=gpx';
+  let r;
+  /* «Failed to fetch» aquí puede ser: sin cobertura, el servidor caído, o que
+     el servidor no permita llamadas desde otra web. Son tres arreglos muy
+     distintos, así que el aviso lo dice. */
+  try { r = await fetch(u); }
+  catch (e) {
+    throw new Error(navigator.onLine
+      ? 'no se ha podido hablar con el servidor de rutas (' + e.message + '). '
+        + 'O está caído, o no admite llamadas desde esta web.'
+      : 'no hay cobertura: el planificador necesita conexión.');
+  }
+  const txt = await r.text();
+  if (!r.ok) throw new Error('el servidor de rutas respondió ' + r.status
+    + (txt ? ': ' + txt.slice(0, 120) : ''));
+  /* cuando no encuentra camino no da error HTTP: devuelve un texto plano */
+  if (!/<gpx/i.test(txt)) throw new Error(txt.slice(0, 160).trim()
+    || 'el servidor no ha devuelto una ruta');
+  return txt;
+}
+
+function pintaPlan() {
+  if (capaPlan) { mapa.removeLayer(capaPlan); capaPlan = null; }
+  const capas = [];
+  if (rutaPlan && rutaPlan.pts.length > 1) {
+    capas.push(L.polyline(rutaPlan.pts.map(p => [p[0], p[1]]),
+      { pane:'rutas', color:'#000', weight:7, opacity:.35 }));
+    capas.push(L.polyline(rutaPlan.pts.map(p => [p[0], p[1]]),
+      { pane:'rutas', color:'#d4a017', weight:4, opacity:1 }));
+  } else if (puntosPlan.length > 1) {
+    capas.push(L.polyline(puntosPlan, { pane:'rutas', color:'#8a857c',
+      weight:2, opacity:.7, dashArray:'5,6' }));
+  }
+  /* los puntos de paso se arrastran: es lo que permite forzar un collado
+     concreto cuando el motor se empeña en llevarte por el otro valle */
+  marcasPlan = puntosPlan.map((p, i) => {
+    const m = L.marker(p, { draggable:true, pane:'rutas', title:'Arrastra para mover, toca para quitar',
+      icon: L.divIcon({ className:'', iconSize:[22,22], iconAnchor:[11,11],
+        html:'<div style="width:22px;height:22px;border-radius:50%;border:2px solid #fff;'
+           + 'background:' + (i === 0 ? '#12306e' : i === puntosPlan.length - 1 ? '#a8321f' : '#3d6b4a')
+           + ';color:#fff;font:700 11px/18px system-ui;text-align:center;'
+           + 'box-shadow:0 1px 4px rgba(0,0,0,.4)">' + (i + 1) + '</div>' }) });
+    /* Tras soltar un arrastre puede llegar también un clic, y el clic borra el
+       punto: sin guarda, moverlo lo borraría. La guarda NO puede vivir en el
+       marcador —al recalcular se repinta y nace uno nuevo, con la guarda a
+       cero— así que es una marca de tiempo de fuera. */
+    m.on('dragend', ev => { const l = ev.target.getLatLng();
+                            puntosPlan[i] = [l.lat, l.lng];
+                            ultimoArrastre = Date.now();
+                            recalculaPlan(); });
+    m.on('click', ev => { L.DomEvent.stop(ev);
+                          if (Date.now() - ultimoArrastre < 600) return;
+                          puntosPlan.splice(i, 1); recalculaPlan(); });
+    capas.push(m);
+    return m;
+  });
+  capaPlan = L.layerGroup(capas).addTo(mapa);
+}
+
+function pistaPlan(txt, mal) {
+  const $p = document.getElementById('pl-pista');
+  if ($p) $p.innerHTML = mal ? '<span class="mal">' + txt + '</span>' : txt;
+}
+
+async function recalculaPlan() {
+  const $g = document.getElementById('pl-guardar');
+  document.getElementById('pl-deshacer').disabled = !puntosPlan.length;
+  document.getElementById('pl-cerrar-anillo').disabled = puntosPlan.length < 3;
+  const $d = document.getElementById('pl-bajar');
+  if (puntosPlan.length < 2) {
+    rutaPlan = null; $g.disabled = true; $d.disabled = true; pintaPlan();
+    pistaPlan(puntosPlan.length ? 'Toca otro punto: hacen falta al menos dos.'
+                                : 'Toca en el mapa por dónde quieres pasar.');
+    return;
+  }
+  $g.disabled = true; $d.disabled = true;
+  pintaPlan();
+  pistaPlan('Calculando por los caminos…');
+  const perfil = document.getElementById('pl-perfil').value;
+  const mios = puntosPlan.slice();          // para descartar respuestas viejas
+  pidiendoPlan = true;
+  try {
+    const gpx = await pideRuta(mios, perfil);
+    if (mios.length !== puntosPlan.length) return;   // ya hay otra petición
+    const r = leeGpxDoc(gpx, 'ruta.gpx');
+    if (!r) throw new Error('la ruta ha vuelto vacía');
+    rutaPlan = r;
+    pintaPlan();
+    const h = horasEstimadas(r.km, r.d);
+    pistaPlan('<b>' + fmtN(+r.km.toFixed(1)) + ' km</b> · ' + fmtN(r.d) + ' m de subida · '
+      + 'unas ' + fmtHoras(h) + ' a tu ritmo');
+    $g.disabled = false; $d.disabled = false;
+  } catch (e) {
+    rutaPlan = null; pintaPlan();
+    pistaPlan('No se ha podido: ' + e.message, true);
+  } finally { pidiendoPlan = false; }
+}
+
+function abrePlanificador() {
+  cierraPanel();
+  if (modoDib) cierraDibujo();
+  modoPlan = true; puntosPlan = []; rutaPlan = null;
+  const $s = document.getElementById('pl-perfil');
+  $s.innerHTML = PERFILES.map(p => '<option value="' + p.id + '">' + p.n + '</option>').join('');
+  const guardado = localStorage.getItem(LS_PERFIL);
+  if (guardado && PERFILES.some(p => p.id === guardado)) $s.value = guardado;
+  document.getElementById('pl-nombre').value = '';
+  document.getElementById('barra-ruta').hidden = false;
+  document.getElementById('barra-opacidad').hidden = true;
+  mapa.on('click', clicPlan);
+  recalculaPlan();
+  avisa('Toca en el mapa: salida, pasos intermedios y llegada');
+}
+
+function cierraPlanificador() {
+  modoPlan = false;
+  mapa.off('click', clicPlan);
+  if (capaPlan) { mapa.removeLayer(capaPlan); capaPlan = null; }
+  puntosPlan = []; rutaPlan = null;
+  document.getElementById('barra-ruta').hidden = true;
+  document.getElementById('barra-opacidad').hidden = !capaEncima;
+}
+
+function clicPlan(e) {
+  const primero = !puntosPlan.length;
+  puntosPlan.push([e.latlng.lat, e.latlng.lng]);
+  recalculaPlan();
+  /* con el primer punto se propone nombre con tu zona más cercana: casi
+     siempre es el que ibas a escribir, y se puede cambiar */
+  if (primero) {
+    const $n = document.getElementById('pl-nombre');
+    if (!$n.value.trim()) nombreDelPunto([e.latlng.lat, e.latlng.lng]).then(z => {
+      if (!$n.value.trim() && !/^[-\d]/.test(z)) $n.value = z.replace(/\s*\(a [^)]*\)$/, '');
+    }).catch(() => {});
+  }
+}
+
+async function guardaPlan() {
+  if (!rutaPlan) return;
+  const $n = document.getElementById('pl-nombre');
+  const nom = ($n.value || '').trim();
+  if (!nom) { $n.focus(); pistaPlan('Ponle nombre antes de guardarla.', true); return; }
+  const r = rutaPlan;
+  const g = leeGpxs();
+  const id = 'g' + Date.now().toString(36) + 'p';
+  /* salvaPuntosGpx no devuelve nada: si la caché está llena, lanza */
+  try { await salvaPuntosGpx(id, r.red); }
+  catch (err) { pistaPlan('No se ha podido guardar: no cabe en el almacenamiento.', true); return; }
+  g.push({ id, nom, km:r.km, d:r.d, fecha:'', n:r.red.length,
+           alt: r.red.some(p => p[2] != null), w:0,
+           color: COLORES_GPX[g.length % COLORES_GPX.length], bbox: r.bbox });
+  salvaGpxs(g);
+  cierraPlanificador();
+  gpxVisible = true;
+  const $t = document.getElementById('tog-gpx'); if ($t) $t.checked = true;
+  pintaListaGpx();
+  await pintaGpxs();
+  avisa('Guardada en «Mis objetivos». Súbela al repositorio para verla en el otro aparato');
+  abrePanel();
+}
+
+document.getElementById('btn-planificar').onclick = abrePlanificador;
+document.getElementById('pl-cancelar').onclick = cierraPlanificador;
+document.getElementById('pl-deshacer').onclick = () => { puntosPlan.pop(); recalculaPlan(); };
+/* cerrar el anillo: la mayoría de tus rutas vuelven al coche */
+document.getElementById('pl-cerrar-anillo').onclick = () => {
+  if (puntosPlan.length < 3) return;
+  puntosPlan.push([puntosPlan[0][0], puntosPlan[0][1]]);
+  recalculaPlan();
+};
+document.getElementById('pl-perfil').onchange = ev => {
+  guarda(LS_PERFIL, ev.target.value); recalculaPlan();
+};
+document.getElementById('pl-guardar').onclick = guardaPlan;
+
+/* Al reloj va la traza COMPLETA que devuelve el motor, no la reducida que se
+   guarda como objetivo. Son dos usos distintos: la reducida existe para no
+   engordar el repositorio y para dibujar, donde cinco metros de error no se
+   ven; el reloj, en cambio, te avisa de que te sales del trazado, y con la
+   traza recortada avisaría en cada revuelta. */
+const TOPE_RELOJ = 9000;      // margen sobre el límite de puntos de un Garmin
+document.getElementById('pl-bajar').onclick = () => {
+  if (!rutaPlan) return;
+  const $n = document.getElementById('pl-nombre');
+  const nom = ($n.value || '').trim() || 'Ruta planificada';
+  let pts = rutaPlan.pts;
+  /* si el motor devuelve una barbaridad de puntos se afina hasta que quepa,
+     empezando por un metro: a esa escala la forma no cambia */
+  let tol = 1;
+  while (pts.length > TOPE_RELOJ && tol <= 16) { pts = simplificaTrack(rutaPlan.pts, tol); tol *= 2; }
+  /* Los puntos que TÚ tocaste van también como waypoints con nombre. Son las
+     decisiones de la ruta —el collado por el que quieres pasar, la fuente— y
+     el reloj los enseña como avisos al llegar. Sin esto el fichero solo lleva
+     geometría: por dónde ir, pero no por qué. */
+  const anillo = puntosPlan.length > 2
+    && puntosPlan[0][0] === puntosPlan[puntosPlan.length-1][0]
+    && puntosPlan[0][1] === puntosPlan[puntosPlan.length-1][1];
+  const wpt = puntosPlan.map((p, i) => ({
+    lat: +p[0].toFixed(6), lon: +p[1].toFixed(6),
+    nom: i === 0 ? 'Salida'
+       : i === puntosPlan.length - 1 ? (anillo ? 'Vuelta a la salida' : 'Llegada')
+       : 'Paso ' + i
+  }));
+  const perfil = document.getElementById('pl-perfil');
+  const desc = fmtN(+rutaPlan.km.toFixed(1)) + ' km · ' + fmtN(rutaPlan.d) + ' m de subida · '
+             + perfil.options[perfil.selectedIndex].text + ' · planificada con Mapas IGN';
+  const fich = nombreFichero(nom) + '.gpx';
+  if (bajaFichero(fich, aGpx(nom, pts, wpt, desc))) {
+    pistaPlan('Descargado <b>' + fich + '</b> · ' + fmtN(pts.length) + ' puntos y '
+      + wpt.length + ' de paso'
+      + (pts.length < rutaPlan.pts.length ? ' (afinada para que quepa en el reloj)' : '')
+      + '. Pásalo a Garmin Connect y mándalo al reloj.');
+  }
+};
 
 document.getElementById('btn-sendas-dibujo').onclick = () => abreDibujo('sendas');
 document.getElementById('btn-zona-dibujo').onclick   = () => abreDibujo('zonas');
