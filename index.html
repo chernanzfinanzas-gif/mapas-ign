@@ -2273,7 +2273,7 @@ function cierraPanel() { $panel.classList.remove('abierto'); mapa.off('moveend z
 
 async function pintaAlmacen() {
   const $a = document.getElementById('almacen');
-  let txt = '';
+  let txt = 'Versión de la app: <b>' + VERSION + '</b>.<br>';
   if (navigator.storage && navigator.storage.estimate) {
     try {
       const e = await navigator.storage.estimate();
@@ -6163,6 +6163,11 @@ function pintaMejores(zonas, dejadas, radio) {
 
    Se piden los de TODA España de una vez, no por comunidad: así valen igual
    para Guadarrama que para Ordesa o Picos, sin tabla de códigos que mantener. */
+/* La versión, a la vista. En esta app la pregunta «¿estoy corriendo lo último
+   o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
+   más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
+   service worker todavía no se ha renovado. */
+const VERSION = 'v68';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
@@ -6280,10 +6285,21 @@ const cuandoAviso = a => {
   return a1 && a2 ? a1 + ' → ' + a2 : (a1 || a2);
 };
 
+let buscandoAvisos = false;
 function pintaAvisosGuardados() {
   const $s = document.getElementById('avisos-sal'); if (!$s) return;
   const g = leeAvisos();
-  if (!g) { $s.innerHTML = '<div class="pista">Todavía no los has traído.</div>'; return; }
+  if (!g) {
+    /* «Todavía no los has traído» decía lo mismo cuando no se había intentado
+       que mientras se estaba intentando, y eso hacía dudar de si la descarga
+       automática existía siquiera */
+    $s.innerHTML = '<div class="pista">' + (buscandoAvisos
+      ? 'Trayéndolos de AEMET…'
+      : (claveAemet() ? 'Sin avisos guardados. Se traen solos al abrir la app con cobertura; '
+                        + 'el botón es para forzarlo.'
+                      : 'Falta la clave de AEMET, más abajo en esta misma sección.')) + '</div>';
+    return;
+  }
   const pt = ultimaPos ? [ultimaPos[0], ultimaPos[1]] : [mapa.getCenter().lat, mapa.getCenter().lng];
   const aqui = avisosDe(pt, 3);
   $s.innerHTML = '<div class="pista">' + fmtN(g.lista.length) + ' avisos vigentes en España · '
@@ -6302,12 +6318,13 @@ async function botonAvisos() {
   const $b = document.getElementById('btn-avisos'), $s = document.getElementById('avisos-sal');
   $b.disabled = true; $s.innerHTML = '<div class="pista">Consultando a AEMET…</div>';
   try {
+    buscandoAvisos = true;
     const r = await traeAvisos();
     pintaAvisosGuardados();
     avisa(r.nuevo ? r.lista.length + ' avisos traídos' : 'No hay nada nuevo desde la última vez');
   } catch (e) {
     $s.innerHTML = '<div class="viejo">No se ha podido: ' + e.message + '</div>';
-  } finally { $b.disabled = false; }
+  } finally { buscandoAvisos = false; $b.disabled = false; }
 }
 
 /* El aviso al arrancar. Solo si hay algo donde estás, y una vez por aviso: si
@@ -6563,7 +6580,9 @@ function abrePor(texto) {
   pintaAvisosGuardados();
   avisaSiHay([mapa.getCenter().lat, mapa.getCenter().lng]);
   if (navigator.onLine && claveAemet()) {
+    buscandoAvisos = true; pintaAvisosGuardados();
     traeAvisos(true).then(() => {
+      buscandoAvisos = false;
       /* se repinta y se vuelve a mirar SIEMPRE, haya paquete nuevo o no: la
          primera vez que abres tras actualizar no hay nada guardado, y con el
          «solo si es nuevo» de antes se quedaba sin avisar */
@@ -6571,6 +6590,7 @@ function abrePor(texto) {
       avisaSiHay(ultimaPos ? [ultimaPos[0], ultimaPos[1]]
                            : [mapa.getCenter().lat, mapa.getCenter().lng]);
     }).catch(e => {
+      buscandoAvisos = false;
       /* callarse un fallo aquí es lo peor que puede hacer la app: te deja
          creyendo que no hay avisos cuando lo que pasa es que no se pudieron
          traer. Se dice, en el panel, sin dar la lata por encima del mapa. */
