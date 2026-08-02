@@ -700,10 +700,43 @@ img.leaflet-tile{image-rendering:auto}
 #barra>*{pointer-events:auto}
 #btn-panel{width:40px;height:40px;flex:0 0 auto;border:1px solid var(--linea);border-radius:10px;
   background:var(--papel);box-shadow:var(--sombra);font-size:18px;line-height:1;cursor:pointer}
-#zona-activa{flex:1 1 auto;min-width:0;font-weight:600;font-size:14px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+/* La barra del título es también el buscador: el sitio que dice DÓNDE ESTÁS
+   es el sitio natural para escribir a dónde quieres ir, y así no hace falta
+   un botón más arriba. */
+#zona-activa{flex:1 1 auto;min-width:0;font-weight:600;font-size:14px;text-align:left;
+  display:flex;align-items:center;gap:8px;color:#2b2823;font-family:inherit;cursor:pointer;
   background:var(--papel);border:1px solid var(--linea);border-radius:10px;
   padding:9px 11px;box-shadow:var(--sombra)}
+#zona-activa svg{flex:0 0 auto;opacity:.6}
+#zona-txt{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* --- el buscador desplegado --- */
+#buscador{position:absolute;top:calc(6px + var(--safe-t));left:8px;right:8px;z-index:660;
+  background:var(--papel);border:1px solid var(--linea);border-radius:14px;
+  box-shadow:0 8px 30px rgba(0,0,0,.22);overflow:hidden}
+#buscador[hidden]{display:none}
+#bus-fila{display:flex;align-items:center;gap:6px;padding:7px 8px}
+#bus-txt{flex:1 1 auto;min-width:0;padding:10px 11px;border:1px solid var(--linea);
+  border-radius:10px;font:inherit;font-size:15px;background:#fff}
+#bus-x{flex:0 0 auto;width:40px;height:40px;border:1px solid var(--linea);border-radius:10px;
+  background:#fff;font-size:19px;line-height:1;color:#57544e;cursor:pointer}
+#bus-res{max-height:min(62vh,420px);overflow-y:auto;border-top:1px solid var(--linea)}
+#bus-res:empty{display:none}
+.bus-it{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 12px;border:0;border-bottom:1px solid var(--linea);background:none;
+  font:inherit;cursor:pointer}
+.bus-it:last-child{border-bottom:0}
+.bus-it:hover{background:#f2efe9}
+.bus-it .tp{flex:0 0 auto;font-size:9.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.03em;padding:3px 7px;border-radius:6px;background:#eae5d9;color:#6b6862}
+.bus-it .tp.zona{background:#e2eee6;color:var(--verde)}
+.bus-it .tp.ruta{background:#ece3f2;color:#5c3d76}
+.bus-it .tp.osm{background:#f3e7db;color:#8a5a2b}
+.bus-it .tp.red{background:#e3ebf5;color:#25577f}
+.bus-it .nm{flex:1 1 auto;min-width:0;font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bus-it .ds{flex:0 0 auto;font-size:11.5px;color:#8a857c;font-variant-numeric:tabular-nums}
+.bus-nada{padding:12px;font-size:12.5px;color:#6b6862}
 #btn-encima{width:40px;height:40px;flex:0 0 auto;border:1px solid var(--linea);border-radius:10px;
   background:var(--papel);box-shadow:var(--sombra);font-size:17px;line-height:1;cursor:pointer;color:#57544e}
 #btn-encima.on{background:var(--verde);border-color:var(--verde);color:#fff}
@@ -1083,6 +1116,38 @@ ul.zonas li.mj-1 .mj-chip.pv-ll-si{background:#e6eef7;border-color:#d3e0ef}
   .mj-cielo{width:38px;height:38px}
   ul.zonas li{padding:9px 10px}
 }
+/* --- avisos de AEMET: el nivel es lo primero que se lee --- */
+.av-lista{list-style:none;margin:8px 0 0;padding:0}
+.av-lista li{display:flex;align-items:flex-start;gap:9px;padding:8px 0;
+  border-top:1px solid var(--linea)}
+.av-lista li:first-child{border-top:0}
+.niv{flex:0 0 auto;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.03em}
+/* el amarillo va apagado a propósito: en la sierra salta muchos días y, si
+   pesara lo mismo que el naranja, acabarías sin mirar ninguno */
+.niv.amarillo{background:#f2efe6;color:#8a7a45;font-weight:600}
+.niv.naranja{background:#f7e0cd;color:#8f3d0b}
+.niv.rojo{background:#f6d2d2;color:#8f1414}
+.av-txt{flex:1 1 auto;min-width:0;font-size:13px;line-height:1.35}
+.av-txt b{display:block;color:#2b2823}
+.av-txt span{font-size:11.5px;color:#8a857c}
+.av-lista li.apagado .av-txt b{color:#6b6862;font-weight:500}
+/* el aviso del arranque, encima del mapa */
+#av-banda{position:absolute;left:8px;right:8px;top:calc(146px + var(--safe-t));z-index:645;
+  border-radius:12px;padding:9px 12px;font-size:13px;line-height:1.35;
+  box-shadow:0 4px 18px rgba(0,0,0,.16);display:flex;align-items:center;gap:9px}
+#av-banda[hidden]{display:none}
+#av-banda.amarillo{background:rgba(247,244,234,.97);border:1px solid #ddd2ae;color:#6b5f38}
+#av-banda.naranja{background:rgba(252,238,227,.97);border:1px solid #e3b48e;color:#8f3d0b}
+#av-banda.rojo{background:rgba(251,228,228,.97);border:1px solid #dc9a9a;color:#8f1414}
+#av-banda b{font-weight:700}
+#av-banda button{flex:0 0 auto;margin-left:auto;border:0;background:none;font-size:19px;
+  line-height:1;color:inherit;opacity:.6;cursor:pointer;padding:0 2px}
+/* la franja de avisos sobre las columnas de la previsión */
+.pv-avisos{display:flex;margin:0 0 -1px}
+.pv-av{flex:1 0 86px;height:5px;background:transparent;border-right:1px solid transparent}
+.pv-av.amarillo{background:#e8d9a8} .pv-av.naranja{background:#e8944e} .pv-av.rojo{background:#cc4141}
+
 .bol-sec{margin:10px 0 0;padding:11px 12px;background:#f2efe9;border-radius:11px}
 .bol-sec h5{margin:0 0 6px;font-size:13px;color:var(--verde)}
 .bol-ap{font-size:13px;margin:0 0 7px;line-height:1.45}
@@ -1185,9 +1250,18 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 
 <div id="barra">
   <button id="btn-panel" title="Zonas y descargas">&#9776;</button>
-  <div id="zona-activa">Mapas IGN offline</div>
+  <button id="zona-activa" title="Buscar un sitio e ir"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg><span id="zona-txt">Mapas IGN offline</span></button>
   <div class="hueco-gps"></div>
 </div>
+<div id="buscador" hidden>
+  <div id="bus-fila">
+    <input type="text" id="bus-txt" placeholder="¿A dónde vamos?" autocomplete="off"
+           autocorrect="off" spellcheck="false" enterkeyhint="search">
+    <button id="bus-x" title="Cerrar">&times;</button>
+  </div>
+  <div id="bus-res"></div>
+</div>
+
 <div id="interruptores">
   <label class="tog" id="tog-gpx-caja"><input type="checkbox" id="tog-gpx" disabled><span>Track</span></label>
   <label class="tog"><input type="checkbox" id="tog-rutas" checked><span>Rutas</span></label>
@@ -1245,6 +1319,8 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <span id="opacidad-val">55%</span>
 </div>
 
+<div id="av-banda" hidden></div>
+
 <div id="lectura"></div>
 <button id="fab-gps" title="Mi posición">&#9678;</button>
 <div id="aviso"></div>
@@ -1299,6 +1375,10 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
         </select>
       </label>
       <div id="tiempo-sal"></div>
+      <h4>Avisos de AEMET</h4>
+      <p class="pista">Los avisos oficiales por fenómenos adversos —viento, tormentas, nieve, calor—. Se descargan los de toda España de una vez y se guardan, así que sin cobertura sigues viendo los últimos, con su fecha.</p>
+      <button class="sec" id="btn-avisos">Traer los avisos</button>
+      <div id="avisos-sal"></div>
       <h4>Boletín de montaña</h4>
       <p class="pista">El parte oficial de AEMET del macizo, escrito por meteorólogos: estado del cielo, cota de nieve, viento y temperaturas. Solo hay para nueve macizos.</p>
       <label class="campo">Macizo
@@ -1908,7 +1988,7 @@ let zonaActiva = null;
 function marcaVacias(zona) { zonaMarcada = zona; marcaChips(); }
 function entraEnZona(zona) {
   zonaActiva = zona.id;
-  document.getElementById('zona-activa').textContent = zona.nom;
+  document.getElementById('zona-txt').textContent = zona.nom;
   /* al pasar del detalle descargado, Leaflet amplía el último tile en vez de
      dejar el hueco gris: en el campo es mucho más útil */
   CAPAS.forEach(cfg => {
@@ -1964,7 +2044,7 @@ async function borraZona(zona, boton) {
     const compartidas = urls.length - aBorrar.length;
     for (let i = 0; i < aBorrar.length; i += 60) await Promise.all(aBorrar.slice(i, i + 60).map(u => cache.delete(u)));
     salvaZonas(leeZonas().filter(z => z.id !== zona.id));
-    if (zonaActiva === zona.id) { zonaActiva = null; document.getElementById('zona-activa').textContent = 'Mapas IGN offline'; }
+    if (zonaActiva === zona.id) { zonaActiva = null; document.getElementById('zona-txt').textContent = 'Mapas IGN offline'; }
     pintaLista(); pintaAlmacen();
     avisa(compartidas
       ? 'Zona «' + zona.nom + '» borrada · ' + fmtN(compartidas) + ' teselas conservadas porque las usa otra zona'
@@ -2251,7 +2331,9 @@ function onPos(p) {
   pintaFab();
   if (modo === 2) mapa.panTo(ll, { animate:true, duration:.5 });
   /* la seguridad se alimenta de cada lectura del GPS */
+  const primeraPos = !ultimaPos;
   ultimaPos = [ll[0], ll[1], p.coords.altitude, pr];
+  if (primeraPos) { try { avisaSiHay([ll[0], ll[1]]); } catch (e) {} }
   if (navigator.onLine) guarda(LS_COBERTURA, [ll[0], ll[1], Date.now()]);
   apuntaPunto(ll);
   pintaSeguridad(); pintaEmergencia();
@@ -3215,6 +3297,186 @@ function avisa(txt) {
 }
 addEventListener('offline', () => avisa('Sin conexión — usando los mapas descargados'));
 addEventListener('online',  () => avisa('Conexión recuperada'));
+
+/* ---------- Ir a un sitio ----------------------------------------------
+   Antes, para ir a un sitio había que saber dónde cae y navegar hasta él.
+
+   El orden de búsqueda no es casual: primero LO TUYO, que está en el aparato
+   y contesta sin cobertura —tus 98 zonas, tus 692 rutas y los puntos de OSM
+   que te has descargado—, y solo si eso no da nada se sale a la red. En el
+   monte, que es donde no hay cobertura, casi siempre buscas un sitio donde ya
+   has estado, así que el camino rápido es también el que más se usa. */
+const LS_GEO = 'ign.geocoder';
+const servidorGeo = () => localStorage.getItem(LS_GEO)
+  || 'https://nominatim.openstreetmap.org/search';
+
+let zonasCache = null;
+async function zonasParaBuscar() {
+  if (zonasCache) return zonasCache;
+  try {
+    const idx = await cargaIndiceRutas();
+    zonasCache = idx && idx.length ? zonasDeLaColeccion(idx) : [];
+  } catch (e) { zonasCache = []; }
+  return zonasCache;
+}
+
+/* los puntos de OSM que ya están descargados, con nombre */
+async function puntosParaBuscar() {
+  const sal = [];
+  for (const f of leeSendas().filter(x => !x.off)) {
+    const d = await datosDePaquete(f.id);
+    if (!d) continue;
+    for (const pt of (d.p || [])) {
+      if (!pt.n) continue;
+      const c = TIPOS_PUNTO[pt.k];
+      sal.push({ nom: pt.n, sub: (c ? c.et : 'Punto') + (pt.a ? ' · ' + pt.a + ' m' : ''),
+                 pt: pt.g, tipo: 'osm' });
+    }
+    if (sal.length > 4000) break;    // tope de cordura
+  }
+  return sal;
+}
+
+/* Se puntúa para que lo que empieza por lo escrito salga antes que lo que solo
+   lo contiene: escribiendo «pena» interesa más «Peñalara» que «Cerro de la
+   Peña del Cuervo». */
+function puntuaCoincidencia(nombre, q) {
+  const n = sinTildes(nombre);
+  const i = n.indexOf(q);
+  if (i < 0) return -1;
+  if (i === 0) return 100 - n.length * 0.01;
+  if (/[\s.,\-—·(]/.test(n[i - 1])) return 60 - n.length * 0.01;   // empieza una palabra
+  return 20 - n.length * 0.01;
+}
+
+async function buscaSitios(txt) {
+  const q = sinTildes(txt.trim());
+  if (q.length < 2) return [];
+  const centro = [mapa.getCenter().lat, mapa.getCenter().lng];
+  const sal = [];
+  const mete = (nom, sub, pt, tipo, bonus, bbox) => {
+    const p = puntuaCoincidencia(nom, q);
+    if (p < 0) return;
+    sal.push({ nom, sub, pt, tipo, bbox, dist: metrosEntre(centro, pt), p: p + (bonus || 0) });
+  };
+
+  (await zonasParaBuscar()).forEach(z =>
+    mete(z.nom, z.n + ' rutas tuyas', z.pt, 'zona', 12));
+
+  try {
+    (await cargaIndiceRutas()).forEach(r => {
+      if (!r.b) return;
+      const c = [(r.b[0] + r.b[2]) / 2, (r.b[1] + r.b[3]) / 2];
+      mete(nombreDe(r), (anioDe(r) ? anioDe(r) + ' · ' : '') + (r.km ? fmtN(+r.km.toFixed(1)) + ' km' : ''),
+           c, 'ruta', 0, [[r.b[0], r.b[1]], [r.b[2], r.b[3]]]);
+    });
+  } catch (e) {}
+
+  try { (await puntosParaBuscar()).forEach(p => mete(p.nom, p.sub, p.pt, 'osm', 6)); } catch (e) {}
+
+  /* mismo sitio repetido (una cima que además da nombre a una zona) se queda
+     con la mejor versión: si no, la lista se llena de duplicados */
+  const vistos = new Map();
+  for (const r of sal.sort((a, b) => b.p - a.p || a.dist - b.dist)) {
+    const k = sinTildes(r.nom);
+    if (!vistos.has(k)) vistos.set(k, r);
+  }
+  return [...vistos.values()].slice(0, 25);
+}
+
+/* La red es el último recurso, no el primero. Nominatim pide que no se le
+   machaque: por eso solo se llama cuando lo tuyo no ha dado nada, y con una
+   espera antes. */
+async function buscaEnLaRed(txt) {
+  const u = servidorGeo() + '?format=jsonv2&limit=8&accept-language=es&q=' + encodeURIComponent(txt);
+  let r;
+  try { r = await fetch(u, { headers: { 'Accept': 'application/json' } }); }
+  catch (e) {
+    throw new Error(navigator.onLine
+      ? 'el buscador de la red no ha contestado (' + e.message + ')'
+      : 'sin cobertura: solo se puede buscar en lo que ya tienes en el aparato');
+  }
+  if (!r.ok) throw new Error('el buscador de la red respondió ' + r.status);
+  const j = await r.json();
+  const centro = [mapa.getCenter().lat, mapa.getCenter().lng];
+  return (Array.isArray(j) ? j : []).map(x => {
+    const pt = [Number(x.lat), Number(x.lon)];
+    const bb = x.boundingbox && x.boundingbox.length === 4
+      ? [[Number(x.boundingbox[0]), Number(x.boundingbox[2])],
+         [Number(x.boundingbox[1]), Number(x.boundingbox[3])]] : null;
+    return { nom: (x.name || x.display_name || '').split(',')[0],
+             sub: (x.display_name || '').split(',').slice(1, 3).join(',').trim(),
+             pt, bbox: bb, tipo: 'red', dist: metrosEntre(centro, pt) };
+  }).filter(x => x.nom && isFinite(x.pt[0]));
+}
+
+const ETIQ = { zona:'Zona', ruta:'Ruta', osm:'OSM', red:'Red' };
+
+function pintaResultados(lista, nota) {
+  const $r = document.getElementById('bus-res');
+  if (!lista.length) { $r.innerHTML = nota ? '<div class="bus-nada">' + nota + '</div>' : ''; return; }
+  $r.innerHTML = lista.map((x, i) =>
+    '<button class="bus-it" data-i="' + i + '">'
+    + '<span class="tp ' + x.tipo + '">' + ETIQ[x.tipo] + '</span>'
+    + '<span class="nm">' + escXml(x.nom) + (x.sub ? ' <span class="ds">· ' + escXml(x.sub) + '</span>' : '') + '</span>'
+    + '<span class="ds">' + fmtDist(x.dist) + '</span></button>').join('')
+    + (nota ? '<div class="bus-nada">' + nota + '</div>' : '');
+  $r.querySelectorAll('.bus-it').forEach(b => {
+    b.onclick = () => vaASitio(lista[Number(b.dataset.i)]);
+  });
+}
+
+function vaASitio(x) {
+  cierraBuscador();
+  if (x.bbox) mapa.fitBounds(L.latLngBounds(x.bbox).pad(.12));
+  else mapa.setView(x.pt, Math.max(mapa.getZoom(), 14));
+  avisa(x.nom);
+}
+
+let relojBusca = null, ultimaBusca = 0;
+function abreBuscador() {
+  document.getElementById('buscador').hidden = false;
+  const $t = document.getElementById('bus-txt');
+  $t.value = ''; document.getElementById('bus-res').innerHTML = '';
+  $t.focus();
+}
+function cierraBuscador() {
+  document.getElementById('buscador').hidden = true;
+  clearTimeout(relojBusca);
+  const $t = document.getElementById('bus-txt');
+  if ($t) $t.blur();
+}
+document.getElementById('zona-activa').onclick = abreBuscador;
+document.getElementById('bus-x').onclick = cierraBuscador;
+document.getElementById('bus-txt').oninput = ev => {
+  const txt = ev.target.value;
+  clearTimeout(relojBusca);
+  if (txt.trim().length < 2) { document.getElementById('bus-res').innerHTML = ''; return; }
+  relojBusca = setTimeout(async () => {
+    const mio = ++ultimaBusca;
+    const local = await buscaSitios(txt);
+    if (mio !== ultimaBusca) return;
+    pintaResultados(local, local.length ? '' : 'Nada en lo tuyo. Buscando en la red…');
+    if (local.length) return;
+    /* solo se sale a la red cuando lo de casa no ha dado nada */
+    try {
+      const red = await buscaEnLaRed(txt);
+      if (mio !== ultimaBusca) return;
+      pintaResultados(red, red.length ? 'Resultados de OpenStreetMap (Nominatim).'
+                                      : 'Tampoco hay nada con ese nombre en la red.');
+    } catch (e) {
+      if (mio !== ultimaBusca) return;
+      pintaResultados([], 'Nada en lo tuyo, y ' + e.message + '.');
+    }
+  }, 320);
+};
+document.getElementById('bus-txt').onkeydown = ev => {
+  if (ev.key === 'Escape') cierraBuscador();
+  if (ev.key === 'Enter') {
+    const p = document.querySelector('#bus-res .bus-it');
+    if (p) p.click();
+  }
+};
 
 document.getElementById('btn-panel').onclick = abrePanel;
 document.getElementById('cerrar').onclick = cierraPanel;
@@ -5386,9 +5648,26 @@ function flechaViento(grados) {
    separadas. Cada columna: el día, el cielo en pictograma sobre una banda, las
    dos temperaturas en pastilla del color que les toca, y debajo viento, lluvia
    y horas de sol. */
-function tablaTiempo(d) {
+function tablaTiempo(d, pt) {
   const n = d.time.length;
   const hoy = 0;
+  /* Los avisos de AEMET duran horas, no días: cubren hoy y como mucho un par
+     de jornadas. Se marcan como una franja fina sobre las columnas que tocan,
+     no como un icono más: lo que hace falta es ver DE UN VISTAZO qué día no
+     conviene salir, y una franja de color lo dice antes que nada. */
+  const avPorDia = new Array(n).fill(null);
+  if (pt) {
+    const l = avisosDe(pt, n);
+    l.forEach(a => {
+      const d1 = Date.parse(a.d1), d2 = Date.parse(a.d2);
+      for (let i = 0; i < n; i++) {
+        const ini = new Date(d.time[i] + 'T00:00:00').getTime(), fin = ini + 86400000;
+        if ((isFinite(d1) ? d1 : ini) < fin && (isFinite(d2) ? d2 : fin) > ini) {
+          if (!avPorDia[i] || NIVELES[a.niv] > NIVELES[avPorDia[i].niv]) avPorDia[i] = a;
+        }
+      }
+    });
+  }
 
   let h = '<div class="pv-hoy">'
     + '<div class="pv-ico">' + iconoCielo(d.weather_code ? d.weather_code[hoy] : 3, 54) + '</div>'
@@ -5398,6 +5677,13 @@ function tablaTiempo(d) {
     + '<span>Lluvia ' + (d.precipitation_probability_max[hoy] || 0) + ' % · viento '
     + Math.round(d.wind_speed_10m_max[hoy]) + ' km/h</span></div></div>';
 
+  if (avPorDia.some(Boolean)) {
+    h += '<div class="pv-tira" style="border-bottom:0;border-bottom-left-radius:0;'
+       + 'border-bottom-right-radius:0;padding-top:3px"><div class="pv-avisos">'
+       + avPorDia.map(a => '<div class="pv-av' + (a ? ' ' + a.niv : '') + '"'
+           + (a ? ' title="Aviso ' + a.niv + ': ' + a.ev + '"' : '') + '></div>').join('')
+       + '</div></div>';
+  }
   h += '<div class="pv-tira"><div class="pv-cols">';
   for (let i = 0; i < n; i++) {
     const f = new Date(d.time[i] + 'T12:00:00');
@@ -5427,7 +5713,9 @@ function tablaTiempo(d) {
   }
   return h + '</div></div>'
     + '<div class="pv-nota">Viento en km/h, la flecha señala hacia dónde sopla. '
-    + 'Desliza la tira para ver el resto de días.</div>';
+    + 'Desliza la tira para ver el resto de días.'
+    + (avPorDia.some(Boolean) ? '<br>La franja de color de arriba son avisos de AEMET para este '
+        + 'punto; tócala para ver de qué.' : '') + '</div>';
 }
 
 /* una sola hoja para las tres cosas: previsión, comparación y boletín */
@@ -5471,7 +5759,7 @@ function pintaTiempoGuardado(abrir) {
   const $v = document.getElementById('tiempo-verla');
   if ($v) $v.onclick = ev => { ev.preventDefault(); pintaTiempoGuardado(true); };
   if (abrir) abreHoja('Previsión', g.nom + ' · ' + cuandoSe(g.t),
-    tablaTiempo(g.d) + '<div class="pista">Datos de Open-Meteo (CC BY 4.0).</div>');
+    tablaTiempo(g.d, g.pt) + '<div class="pista">Datos de Open-Meteo (CC BY 4.0).</div>');
 }
 
 /* Siempre el CENTRO DE LA PANTALLA, aunque haya GPS. Es una herramienta de
@@ -5484,7 +5772,7 @@ async function verTiempoAqui() {
   $b.disabled = true; $s.innerHTML = '<div class="pista">Consultando…</div>';
   try {
     const [r] = await pideTiempo([pt], 7);
-    guarda(LS_TIEMPO, { t: Date.now(), nom: await nombreDelPunto(pt), d: r.daily });
+    guarda(LS_TIEMPO, { t: Date.now(), nom: await nombreDelPunto(pt), pt, d: r.daily });
     pintaTiempoGuardado(true);
   } catch (e) {
     $s.innerHTML = '<div class="viejo">No se ha podido consultar: ' + e.message + '</div>';
@@ -5835,6 +6123,191 @@ function pintaMejores(zonas, dejadas, radio) {
   asomaElegida();
 }
 
+/* ---- avisos de AEMET ----------------------------------------------------
+   Lo que la previsión no dice: que el sábado hace 22 grados no es lo mismo que
+   que el sábado hay aviso naranja por tormentas.
+
+   Dos cosas que aprendimos probándolo contra el servidor de verdad y que
+   mandan en el diseño:
+
+   · El paquete NO viene comprimido, aunque el tipo diga `x-gtar`: es un .tar
+     en claro. No hace falta descomprimir nada, solo desempaquetar.
+   · Son casi cuatro megas para toda España, 315 avisos. Demasiado para
+     bajarlo cada vez... pero la URL de los datos lleva dentro la hora de
+     elaboración. Si esa URL no ha cambiado, el paquete tampoco: se pregunta
+     por ella —que es una llamada de nada— y solo se bajan los cuatro megas
+     cuando de verdad hay algo nuevo.
+
+   Se piden los de TODA España de una vez, no por comunidad: así valen igual
+   para Guadarrama que para Ordesa o Picos, sin tabla de códigos que mantener. */
+const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
+const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
+const NIVELES = { amarillo:1, naranja:2, rojo:3 };
+
+/* Un .tar es una sucesión de cabeceras de 512 bytes: el nombre al principio y
+   el tamaño en octal. Para esto no hace falta librería. */
+function desTar(b) {
+  const fich = [];
+  const txt = (ini, n) => { let t = ''; for (let i = ini; i < ini + n && b[i]; i++) t += String.fromCharCode(b[i]); return t.trim(); };
+  let p = 0;
+  while (p + 512 <= b.length) {
+    const nom = txt(p, 100);
+    if (!nom) { p += 512; continue; }
+    const tam = parseInt(txt(p + 124, 12), 8) || 0;
+    const tipo = String.fromCharCode(b[p + 156] || 48);
+    p += 512;
+    if (tipo === '0' || tipo === ' ' || tipo === '\0') fich.push({ nom, datos: b.slice(p, p + tam) });
+    p += Math.ceil(tam / 512) * 512;
+  }
+  return fich;
+}
+
+/* el propio XML dice en qué juego de caracteres viene; hacerle caso evita los
+   rombos en «Predicción» y en los nombres de zona */
+function textoXml(bytes) {
+  const cabeza = new TextDecoder('latin1').decode(bytes.slice(0, 120));
+  const m = /encoding=["']([^"']+)["']/i.exec(cabeza);
+  try { return new TextDecoder((m ? m[1] : 'utf-8').toLowerCase()).decode(bytes); }
+  catch (e) { return new TextDecoder('utf-8').decode(bytes); }
+}
+
+/* ¿cae el punto dentro del polígono? Cruces de una semirrecta. */
+function dentroDe(pt, poly) {
+  let d = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [ai, oi] = poly[i], [aj, oj] = poly[j];
+    if ((oi > pt[1]) !== (oj > pt[1]) && pt[0] < (aj - ai) * (pt[1] - oi) / (oj - oi) + ai) d = !d;
+  }
+  return d;
+}
+
+function leeAviso(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const infos = [...doc.getElementsByTagName('info')];
+  /* AEMET manda cada aviso en español y en inglés; nos quedamos el nuestro */
+  const info = infos.find(i => { const l = i.getElementsByTagName('language')[0];
+                                 return l && /^es/i.test(l.textContent); }) || infos[0];
+  if (!info) return null;
+  const et = (n, e) => { const x = (e || info).getElementsByTagName(n)[0]; return x ? x.textContent.trim() : ''; };
+  let nivel = '';
+  [...info.getElementsByTagName('parameter')].forEach(p => {
+    if (/nivel/i.test(et('valueName', p))) nivel = et('value', p).toLowerCase();
+  });
+  if (!NIVELES[nivel]) return null;                 // el verde no es aviso
+  const sal = [];
+  [...info.getElementsByTagName('area')].forEach(a => {
+    [...a.getElementsByTagName('polygon')].forEach(pg => {
+      const poly = pg.textContent.trim().split(/\s+/).map(x => x.split(',').map(Number))
+        .filter(c => c.length === 2 && isFinite(c[0]) && isFinite(c[1]));
+      if (poly.length < 3) return;
+      /* se guarda el polígono aligerado: los de AEMET traen hasta cien
+         vértices y para saber si estás dentro sobra con dos kilómetros */
+      sal.push({ ev: et('event'), niv: nivel, zona: et('areaDesc', a),
+                 d1: et('onset') || et('effective'), d2: et('expires'),
+                 pol: simplificaTrack(poly, 2000).map(c => [+c[0].toFixed(3), +c[1].toFixed(3)]) });
+    });
+  });
+  return sal;
+}
+
+const leeAvisos = () => { try { return JSON.parse(localStorage.getItem(LS_AVISOS)) || null; } catch (e) { return null; } };
+
+async function traeAvisos(silencioso) {
+  const clave = claveAemet();
+  if (!clave) throw new Error('falta la clave de AEMET, más abajo en esta misma sección');
+  const p1 = await leeAemet(RUTA_AVISOS + '?api_key=' + encodeURIComponent(clave), 'La petición de avisos');
+  if (!p1.j || !p1.j.datos) throw new Error(p1.estado === 429
+    ? 'AEMET está limitando las peticiones; espera un minuto'
+    : 'AEMET no ha dicho dónde están los avisos (respondió ' + p1.estado + ')');
+  const url = String(p1.j.datos).replace(/^http:\/\//i, 'https://');
+  const guardado = leeAvisos();
+  /* la URL lleva la hora de elaboración: si no ha cambiado, no hay nada nuevo
+     y nos ahorramos cuatro megas */
+  if (guardado && guardado.url === url) return { lista: guardado.lista, t: guardado.t, nuevo: false };
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('el paquete de avisos respondió ' + r.status);
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  const fich = desTar(bytes);
+  if (!fich.length) throw new Error('el paquete de avisos ha venido vacío o en un formato que no conozco');
+  const lista = [];
+  fich.forEach(f => {
+    if (!/\.xml$/i.test(f.nom)) return;
+    try { const a = leeAviso(textoXml(f.datos)); if (a) lista.push(...a); } catch (e) {}
+  });
+  const g = { t: Date.now(), url, lista };
+  guarda(LS_AVISOS, g);
+  return { lista, t: g.t, nuevo: true };
+}
+
+/* los que tocan un punto y siguen vigentes (o lo estarán pronto) */
+function avisosDe(pt, dias) {
+  const g = leeAvisos(); if (!g || !g.lista) return [];
+  const ahora = Date.now(), tope = ahora + (dias || 2) * 86400000;
+  return g.lista.filter(a => {
+    const d2 = Date.parse(a.d2); if (isFinite(d2) && d2 < ahora) return false;
+    const d1 = Date.parse(a.d1); if (isFinite(d1) && d1 > tope) return false;
+    return dentroDe(pt, a.pol);
+  }).sort((a, b) => (NIVELES[b.niv] || 0) - (NIVELES[a.niv] || 0));
+}
+
+const cuandoAviso = a => {
+  const f = t => { const d = new Date(t); return isFinite(d) ? (DIAS[d.getDay()] + ' '
+    + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0')) : ''; };
+  const a1 = f(a.d1), a2 = f(a.d2);
+  return a1 && a2 ? a1 + ' → ' + a2 : (a1 || a2);
+};
+
+function pintaAvisosGuardados() {
+  const $s = document.getElementById('avisos-sal'); if (!$s) return;
+  const g = leeAvisos();
+  if (!g) { $s.innerHTML = '<div class="pista">Todavía no los has traído.</div>'; return; }
+  const pt = ultimaPos ? [ultimaPos[0], ultimaPos[1]] : [mapa.getCenter().lat, mapa.getCenter().lng];
+  const aqui = avisosDe(pt, 3);
+  $s.innerHTML = '<div class="pista">' + fmtN(g.lista.length) + ' avisos vigentes en España · '
+    + cuandoSe(g.t) + '.</div>'
+    + (aqui.length
+       ? '<ul class="av-lista">' + aqui.map(a =>
+           '<li' + (a.niv === 'amarillo' ? ' class="apagado"' : '') + '>'
+           + '<span class="niv ' + a.niv + '">' + a.niv + '</span>'
+           + '<span class="av-txt"><b>' + escXml(a.ev) + '</b>'
+           + '<span>' + escXml(a.zona) + ' · ' + cuandoAviso(a) + '</span></span></li>').join('')
+         + '</ul>'
+       : '<div class="pista">Ninguno donde estás mirando.</div>');
+}
+
+async function botonAvisos() {
+  const $b = document.getElementById('btn-avisos'), $s = document.getElementById('avisos-sal');
+  $b.disabled = true; $s.innerHTML = '<div class="pista">Consultando a AEMET…</div>';
+  try {
+    const r = await traeAvisos();
+    pintaAvisosGuardados();
+    avisa(r.nuevo ? r.lista.length + ' avisos traídos' : 'No hay nada nuevo desde la última vez');
+  } catch (e) {
+    $s.innerHTML = '<div class="viejo">No se ha podido: ' + e.message + '</div>';
+  } finally { $b.disabled = false; }
+}
+
+/* El aviso al arrancar. Solo si hay algo donde estás, y una vez por aviso: si
+   ya lo cerraste, no vuelve a saltar hasta que cambie. */
+const LS_AV_VISTO = 'ign.avisos.visto';
+function avisaSiHay(pt) {
+  /* hoy y mañana: un aviso rojo que empieza mañana también condiciona lo que
+     preparas esta noche */
+  const l = avisosDe(pt, 2);
+  if (!l.length) return;
+  const a = l[0];
+  const sello = a.niv + '|' + a.ev + '|' + a.zona + '|' + a.d1;
+  if (localStorage.getItem(LS_AV_VISTO) === sello) return;
+  const $b = document.getElementById('av-banda');
+  $b.className = a.niv;
+  $b.innerHTML = '<span><b>Aviso ' + escXml(a.niv) + '</b> · ' + escXml(a.ev) + '<br>'
+    + '<span style="font-size:11.5px;opacity:.85">' + escXml(a.zona) + ' · ' + cuandoAviso(a)
+    + (l.length > 1 ? ' · y ' + (l.length - 1) + ' más' : '') + '</span></span>'
+    + '<button title="Cerrar">&times;</button>';
+  $b.hidden = false;
+  $b.querySelector('button').onclick = () => { $b.hidden = true; guarda(LS_AV_VISTO, sello); };
+}
+
 /* ---- boletín de montaña de AEMET ---------------------------------------
    Dos saltos: la primera llamada devuelve una URL donde están los datos. Y el
    texto viene en ISO-8859-15, no en UTF-8: leyéndolo como UTF-8, «Predicción
@@ -5956,6 +6429,7 @@ async function verBoletin() {
 }
 
 document.getElementById('btn-tiempo').onclick  = verTiempoAqui;
+document.getElementById('btn-avisos').onclick  = botonAvisos;
 document.getElementById('btn-mejor').onclick   = dondeMejor;
 document.getElementById('btn-boletin').onclick = verBoletin;
 
@@ -6011,7 +6485,7 @@ function abrePor(texto) {
      al reabrir en el campo Leaflet pide un zoom que no se descargó y sale gris. */
   if (za) {
     zonaActiva = za.id;
-    document.getElementById('zona-activa').textContent = za.nom;
+    document.getElementById('zona-txt').textContent = za.nom;
     CAPAS.forEach(cfg => { capasVivas[cfg.id].options.maxNativeZoom = Math.min(za.zmax, cfg.maxZ); });
     marcaVacias(za);
   }
@@ -6060,6 +6534,18 @@ function abrePor(texto) {
   const $ac = document.getElementById('aemet-clave');
   if ($ac) $ac.value = localStorage.getItem(LS_AEMET) || '';
   montaMacizos(); pintaTiempoGuardado(); pintaBoletinGuardado();
+  /* los avisos: primero lo guardado, que es lo único que hay sin cobertura, y
+     con eso ya se puede avisar; luego, si hay red, se mira si hay algo nuevo */
+  pintaAvisosGuardados();
+  avisaSiHay([mapa.getCenter().lat, mapa.getCenter().lng]);
+  if (navigator.onLine && claveAemet()) {
+    traeAvisos(true).then(r => {
+      if (!r.nuevo) return;
+      pintaAvisosGuardados();
+      avisaSiHay(ultimaPos ? [ultimaPos[0], ultimaPos[1]]
+                           : [mapa.getCenter().lat, mapa.getCenter().lng]);
+    }).catch(() => {});
+  }
   /* los objetivos publicados desde el otro dispositivo se recogen solos */
   sincronizaObjetivos().then(n => { if (n) avisa(n === 1 ? 'Un objetivo nuevo del repositorio'
                                                         : n + ' objetivos nuevos del repositorio'); });
