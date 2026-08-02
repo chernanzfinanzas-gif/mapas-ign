@@ -1134,19 +1134,26 @@ ul.zonas li.mj-1 .mj-chip.pv-ll-si{background:#e6eef7;border-color:#d3e0ef}
 .av-lista li.apagado .av-txt b{color:#6b6862;font-weight:500}
 /* el aviso del arranque, encima del mapa */
 #av-banda{position:absolute;left:8px;right:8px;top:calc(146px + var(--safe-t));z-index:645;
-  border-radius:12px;padding:9px 12px;font-size:13px;line-height:1.35;
-  box-shadow:0 4px 18px rgba(0,0,0,.16);display:flex;align-items:center;gap:9px}
+  border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.35;
+  box-shadow:0 4px 18px rgba(0,0,0,.16);display:flex;align-items:flex-start;gap:9px}
 #av-banda[hidden]{display:none}
 #av-banda.amarillo{background:rgba(247,244,234,.97);border:1px solid #ddd2ae;color:#6b5f38}
 #av-banda.naranja{background:rgba(252,238,227,.97);border:1px solid #e3b48e;color:#8f3d0b}
 #av-banda.rojo{background:rgba(251,228,228,.97);border:1px solid #dc9a9a;color:#8f1414}
-#av-banda b{font-weight:700}
+#av-banda .av-cuerpo{flex:1 1 auto;min-width:0}
+#av-banda .av-cuerpo b{display:block;font-weight:700;font-size:13.5px}
+#av-banda .av-cuerpo span{font-size:11.5px;opacity:.85}
+#av-banda .niv{flex:0 0 auto;margin-top:1px}
 #av-banda button{flex:0 0 auto;margin-left:auto;border:0;background:none;font-size:19px;
   line-height:1;color:inherit;opacity:.6;cursor:pointer;padding:0 2px}
-/* la franja de avisos sobre las columnas de la previsión */
-.pv-avisos{display:flex;margin:0 0 -1px}
-.pv-av{flex:1 0 86px;height:5px;background:transparent;border-right:1px solid transparent}
-.pv-av.amarillo{background:#e8d9a8} .pv-av.naranja{background:#e8944e} .pv-av.rojo{background:#cc4141}
+/* los avisos sobre las columnas de la previsión: escritos, no en clave de color */
+.pv-avlista{display:flex;flex-direction:column;gap:5px;margin:0 0 9px}
+.av-chip{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:11px;
+  background:#fff;border:1px solid var(--linea);font-size:13px}
+.av-chip .av-de{min-width:0;color:#2b2823;font-weight:600}
+.av-chip.apagado .av-de{color:#6b6862;font-weight:500}
+.av-chip:has(.niv.naranja){background:#fdf3ec;border-color:#e8c6ab}
+.av-chip:has(.niv.rojo){background:#fdeeee;border-color:#e5b3b3}
 
 .bol-sec{margin:10px 0 0;padding:11px 12px;background:#f2efe9;border-radius:11px}
 .bol-sec h5{margin:0 0 6px;font-size:13px;color:var(--verde)}
@@ -5655,19 +5662,21 @@ function tablaTiempo(d, pt) {
      de jornadas. Se marcan como una franja fina sobre las columnas que tocan,
      no como un icono más: lo que hace falta es ver DE UN VISTAZO qué día no
      conviene salir, y una franja de color lo dice antes que nada. */
-  const avPorDia = new Array(n).fill(null);
+  /* Todos los avisos de cada día, no solo el más grave: cuando esto era una
+     franja de color solo cabía uno, pero escrito caben todos, y el amarillo
+     que quedaba tapado por el naranja del mismo día es justo el que quieres
+     ver cuando el naranja no te frena. */
+  const avPorDia = new Array(n).fill(null).map(() => []);
   if (pt) {
-    const l = avisosDe(pt, n);
-    l.forEach(a => {
+    avisosDe(pt, n).forEach(a => {
       const d1 = Date.parse(a.d1), d2 = Date.parse(a.d2);
       for (let i = 0; i < n; i++) {
         const ini = new Date(d.time[i] + 'T00:00:00').getTime(), fin = ini + 86400000;
-        if ((isFinite(d1) ? d1 : ini) < fin && (isFinite(d2) ? d2 : fin) > ini) {
-          if (!avPorDia[i] || NIVELES[a.niv] > NIVELES[avPorDia[i].niv]) avPorDia[i] = a;
-        }
+        if ((isFinite(d1) ? d1 : ini) < fin && (isFinite(d2) ? d2 : fin) > ini) avPorDia[i].push(a);
       }
     });
   }
+  const hayAvisos = avPorDia.some(x => x.length);
 
   let h = '<div class="pv-hoy">'
     + '<div class="pv-ico">' + iconoCielo(d.weather_code ? d.weather_code[hoy] : 3, 54) + '</div>'
@@ -5677,12 +5686,26 @@ function tablaTiempo(d, pt) {
     + '<span>Lluvia ' + (d.precipitation_probability_max[hoy] || 0) + ' % · viento '
     + Math.round(d.wind_speed_10m_max[hoy]) + ' km/h</span></div></div>';
 
-  if (avPorDia.some(Boolean)) {
-    h += '<div class="pv-tira" style="border-bottom:0;border-bottom-left-radius:0;'
-       + 'border-bottom-right-radius:0;padding-top:3px"><div class="pv-avisos">'
-       + avPorDia.map(a => '<div class="pv-av' + (a ? ' ' + a.niv : '') + '"'
-           + (a ? ' title="Aviso ' + a.niv + ': ' + a.ev + '"' : '') + '></div>').join('')
-       + '</div></div>';
+  /* Una franja de color de cinco píxeles encima de las columnas no se veía:
+     había que adivinar qué tono era y a qué día correspondía. Va escrito, con
+     el nivel en su pastilla y los días con nombre. */
+  if (hayAvisos) {
+    const porAviso = new Map();
+    avPorDia.forEach((lista, i) => {
+      lista.forEach(a => {
+        const k = a.niv + '|' + a.ev;
+        if (!porAviso.has(k)) porAviso.set(k, { a, dias: [] });
+        porAviso.get(k).dias.push(i === 0 ? 'hoy' : DIAS[new Date(d.time[i] + 'T12:00:00').getDay()]);
+      });
+    });
+    h += '<div class="pv-avlista">' + [...porAviso.values()]
+      .sort((x, y) => (NIVELES[y.a.niv] || 0) - (NIVELES[x.a.niv] || 0))
+      .map(({ a, dias }) => '<div class="av-chip' + (a.niv === 'amarillo' ? ' apagado' : '') + '">'
+        + '<span class="niv ' + a.niv + '">aviso ' + a.niv + '</span>'
+        + '<span class="av-de">' + escXml(a.ev) + ' · '
+        + (dias.length === 1 ? dias[0]
+           : dias.slice(0, -1).join(', ') + ' y ' + dias[dias.length - 1]) + '</span></div>').join('')
+      + '</div>';
   }
   h += '<div class="pv-tira"><div class="pv-cols">';
   for (let i = 0; i < n; i++) {
@@ -5714,8 +5737,8 @@ function tablaTiempo(d, pt) {
   return h + '</div></div>'
     + '<div class="pv-nota">Viento en km/h, la flecha señala hacia dónde sopla. '
     + 'Desliza la tira para ver el resto de días.'
-    + (avPorDia.some(Boolean) ? '<br>La franja de color de arriba son avisos de AEMET para este '
-        + 'punto; tócala para ver de qué.' : '') + '</div>';
+    + (hayAvisos ? '<br>Los avisos de arriba son de AEMET, para este punto.' : '')
+    + '</div>';
 }
 
 /* una sola hoja para las tres cosas: previsión, comparación y boletín */
@@ -6300,8 +6323,9 @@ function avisaSiHay(pt) {
   if (localStorage.getItem(LS_AV_VISTO) === sello) return;
   const $b = document.getElementById('av-banda');
   $b.className = a.niv;
-  $b.innerHTML = '<span><b>Aviso ' + escXml(a.niv) + '</b> · ' + escXml(a.ev) + '<br>'
-    + '<span style="font-size:11.5px;opacity:.85">' + escXml(a.zona) + ' · ' + cuandoAviso(a)
+  $b.innerHTML = '<span class="niv ' + a.niv + '">aviso ' + escXml(a.niv) + '</span>'
+    + '<span class="av-cuerpo"><b>' + escXml(a.ev) + '</b>'
+    + '<span>' + escXml(a.zona) + ' · ' + cuandoAviso(a)
     + (l.length > 1 ? ' · y ' + (l.length - 1) + ' más' : '') + '</span></span>'
     + '<button title="Cerrar">&times;</button>';
   $b.hidden = false;
@@ -6539,12 +6563,21 @@ function abrePor(texto) {
   pintaAvisosGuardados();
   avisaSiHay([mapa.getCenter().lat, mapa.getCenter().lng]);
   if (navigator.onLine && claveAemet()) {
-    traeAvisos(true).then(r => {
-      if (!r.nuevo) return;
+    traeAvisos(true).then(() => {
+      /* se repinta y se vuelve a mirar SIEMPRE, haya paquete nuevo o no: la
+         primera vez que abres tras actualizar no hay nada guardado, y con el
+         «solo si es nuevo» de antes se quedaba sin avisar */
       pintaAvisosGuardados();
       avisaSiHay(ultimaPos ? [ultimaPos[0], ultimaPos[1]]
                            : [mapa.getCenter().lat, mapa.getCenter().lng]);
-    }).catch(() => {});
+    }).catch(e => {
+      /* callarse un fallo aquí es lo peor que puede hacer la app: te deja
+         creyendo que no hay avisos cuando lo que pasa es que no se pudieron
+         traer. Se dice, en el panel, sin dar la lata por encima del mapa. */
+      const $s = document.getElementById('avisos-sal');
+      if ($s) $s.innerHTML = '<div class="viejo">No se han podido traer los avisos: '
+        + e.message + '</div>';
+    });
   }
   /* los objetivos publicados desde el otro dispositivo se recogen solos */
   sincronizaObjetivos().then(n => { if (n) avisa(n === 1 ? 'Un objetivo nuevo del repositorio'
