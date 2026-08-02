@@ -910,6 +910,75 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
   background:rgba(105,28,0,.26);mix-blend-mode:multiply}
 .pin-wpt{width:12px;height:12px;border-radius:3px;border:2px solid #fff;margin:3px;
   box-shadow:0 1px 4px rgba(0,0,0,.45);transform:rotate(45deg)}
+/* --- la previsión dibujada --- */
+/* Hoja a pantalla completa. El tiempo se mira de una sentada y con atención:
+   metido en el panel, entre otras seis secciones, se lee a trompicones. Aquí
+   ocupa la pantalla, se cierra con la equis y devuelve el mapa como estaba. */
+#hoja-llena{position:fixed;inset:0;z-index:1600;background:var(--papel);
+  display:flex;flex-direction:column;overscroll-behavior:contain}
+#hoja-llena .hl-cab{display:flex;align-items:flex-start;gap:10px;padding:14px 14px 10px;
+  border-bottom:1px solid var(--linea);background:var(--papel);flex:0 0 auto}
+#hoja-llena .hl-tit{flex:1 1 auto;min-width:0}
+#hoja-llena .hl-tit h3{margin:0;font-size:17px;color:var(--verde)}
+#hoja-llena .hl-tit p{margin:2px 0 0;font-size:12.5px;color:#6b6862}
+#hoja-llena .hl-x{flex:0 0 auto;width:38px;height:38px;border:1px solid var(--linea);
+  border-radius:50%;background:#fff;font-size:22px;line-height:1;color:#57544e;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;padding:0}
+#hoja-llena .hl-cuerpo{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:4px 14px calc(20px + env(safe-area-inset-bottom))}
+#hoja-llena .hl-cuerpo>*{max-width:520px;margin-left:auto;margin-right:auto}
+.pv-hoy{display:flex;align-items:center;gap:14px;padding:14px;margin:10px 0 4px;
+  background:#fff;border:1px solid var(--linea);border-radius:14px}
+.pv-ico{flex:0 0 auto;line-height:0}
+.pv-hoy-t{flex:0 0 auto;line-height:1}
+.pv-max{font-size:40px;font-weight:600;letter-spacing:-.02em;color:#2b2823}
+.pv-min{font-size:12.5px;color:#8a857c;margin-top:3px}
+.pv-hoy-d{flex:1 1 auto;min-width:0}
+.pv-hoy-d b{display:block;font-size:13.5px;color:#4a4741;line-height:1.3}
+.pv-hoy-d span{font-size:12px;color:#8a857c}
+.pv-lista{margin:2px 0 4px}
+.pv-dia{display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid #f0ede7}
+.pv-dia:last-child{border-bottom:0}
+.pv-nom{flex:0 0 44px;font-size:12.5px;font-weight:600;color:#4a4741}
+.pv-i{flex:0 0 24px;line-height:0}
+.pv-t{font-size:13px;font-variant-numeric:tabular-nums;flex:0 0 30px}
+.pv-tmin{text-align:right;color:#8a857c}
+.pv-tmax{text-align:left;color:#2b2823;font-weight:600}
+.pv-barra{flex:1 1 auto;position:relative;height:7px;background:#f0ede7;border-radius:99px;min-width:50px}
+.pv-barra i{position:absolute;top:0;height:7px;border-radius:99px}
+.pv-ll{flex:0 0 42px;display:flex;align-items:center;justify-content:flex-end;gap:3px;
+  font-size:12px;color:#8a857c;font-variant-numeric:tabular-nums}
+.pv-ll b{font-weight:400}
+.pv-v{flex:0 0 26px;text-align:right;font-size:12px;color:#8a857c;font-variant-numeric:tabular-nums}
+.pv-v-si{color:#a8781f;font-weight:700}
+.pv-cab{text-align:right;font-size:10.5px;color:#8a857c;text-transform:uppercase;
+  letter-spacing:.03em;padding:0 2px 2px}
+.pv-ll-si{color:#2a78d6}
+.pv-ll-si b{font-weight:700}
+table.tiempo{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;margin:8px 0}
+table.tiempo th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#8a857c;font-weight:600;
+  text-align:right;padding:0 0 5px;white-space:nowrap}
+table.tiempo th:first-child{text-align:left}
+table.tiempo td{padding:5px 0;border-top:1px solid var(--linea);text-align:right;white-space:nowrap}
+table.tiempo td:first-child{text-align:left;color:#4a4741;font-weight:600}
+table.tiempo .lluvia-si{color:#1f6fb2;font-weight:700}
+table.tiempo .frio{color:#1f6fb2} table.tiempo .calor{color:#a8321f}
+ul.zonas{list-style:none;margin:8px 0 0;padding:0}
+ul.zonas li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--linea)}
+ul.zonas li:last-child{border-bottom:0}
+ul.zonas .puesto{width:22px;height:22px;border-radius:50%;background:var(--verde);color:#fff;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700}
+ul.zonas .zn{flex:1 1 auto;min-width:0}
+ul.zonas .zn b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul.zonas .zn span{font-size:11.5px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul.zonas button{border:1px solid var(--verde);background:#fff;color:var(--verde);border-radius:9px;
+  padding:7px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto}
+.bol-sec{margin:10px 0 0;padding:11px 12px;background:#f2efe9;border-radius:11px}
+.bol-sec h5{margin:0 0 6px;font-size:13px;color:var(--verde)}
+.bol-ap{font-size:13px;margin:0 0 7px;line-height:1.45}
+.bol-ap:last-child{margin-bottom:0}
+.bol-ap b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:#8a857c}
+.viejo{color:var(--ambar);font-size:12.5px}
 .cmp-caja{width:100%;overflow:hidden;margin-bottom:6px}
 .cmp-caja svg{display:block;width:100%;height:auto;border-radius:10px}
 .cmp-leyenda{display:flex;gap:14px;font-size:12px;color:#6b6862;margin-bottom:8px}
@@ -1085,6 +1154,32 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
     <section>
       <h3>Mis zonas</h3>
       <ul id="lista"></ul>
+    </section>
+
+    <section>
+      <h3>El tiempo</h3>
+      <p class="pista">Para planificar desde casa. Es lo único de la app que necesita cobertura: en el monte verás la última consulta guardada, con su fecha.</p>
+      <button class="sec" id="btn-tiempo">Previsión de esta zona</button>
+      <button class="sec" id="btn-mejor">¿Dónde hace mejor tiempo?</button>
+      <label class="campo">Radio de búsqueda
+        <select id="tiempo-radio">
+          <option value="50">50 km</option>
+          <option value="100" selected>100 km</option>
+          <option value="200">200 km</option>
+        </select>
+      </label>
+      <div id="tiempo-sal"></div>
+      <h4>Boletín de montaña</h4>
+      <p class="pista">El parte oficial de AEMET del macizo, escrito por meteorólogos: estado del cielo, cota de nieve, viento y temperaturas. Solo hay para nueve macizos.</p>
+      <label class="campo">Macizo
+        <select id="aemet-area"></select>
+      </label>
+      <button class="sec" id="btn-boletin">Ver el boletín</button>
+      <label class="campo">Clave de AEMET OpenData
+        <input type="password" id="aemet-clave" placeholder="eyJhbGciOi…" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="pista">Se guarda solo en este navegador. Se pide gratis en el portal de AEMET OpenData.</p>
+      <div id="boletin-sal"></div>
     </section>
 
     <section>
@@ -2148,7 +2243,19 @@ function calculaPerfil(pts) {
            sube: Math.round(sube), baja: Math.round(baja), km: acum / 1000 };
 }
 
-function svgPerfil(p, color) {
+/* lo que falta desde un punto: distancia y subida, con el mismo umbral de 3 m
+   que se usa para el total, para que los dos números sean comparables */
+function restaDelPerfil(p, i) {
+  let sube = 0, acum = 0, prev = p.h[i];
+  for (let k = i + 1; k < p.h.length; k++) {
+    acum += p.h[k] - prev; prev = p.h[k];
+    if (acum >= 3) { sube += acum; acum = 0; }
+    else if (acum < 0) acum = 0;
+  }
+  return { km: (p.d[p.d.length - 1] - p.d[i]) / 1000, sube: Math.round(sube) };
+}
+
+function svgPerfil(p, color, iPos) {
   const W = 330, H = 120, mI = 34, mD = 6, mA = 8, mB = 18;
   const ax = W - mI - mD, ay = H - mA - mB;
   const hmin = Math.floor(p.min / 50) * 50, hmax = Math.ceil(p.max / 50) * 50;
@@ -2170,18 +2277,33 @@ function svgPerfil(p, color) {
       + '<text x="' + (mI - 4) + '" y="' + (+y + 3.5) + '" text-anchor="end" font-size="9" fill="#8a857c">'
       + Math.round(h) + '</text>');
   }
+  /* la unidad va pegada a la última cifra, no suelta en la esquina: ahí se
+     solapaban las dos */
   const kms = [];
   for (let k = 0; k <= 4; k++) {
-    const m = largo * k / 4;
-    kms.push('<text x="' + X(m).toFixed(1) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="9" fill="#8a857c">'
-      + (m / 1000).toFixed(largo > 20000 ? 0 : 1) + '</text>');
+    const m = largo * k / 4, ult = k === 4;
+    kms.push('<text x="' + X(m).toFixed(1) + '" y="' + (H - 4) + '" text-anchor="'
+      + (ult ? 'end' : 'middle') + '" font-size="9" fill="#8a857c">'
+      + (m / 1000).toFixed(largo > 20000 ? 0 : 1) + (ult ? ' km' : '') + '</text>');
+  }
+  /* dónde vas: una banda sombreada sobre lo ya andado, la línea vertical y el
+     punto. Lo hecho se apaga y lo que queda resalta, que es lo que miras. */
+  let marca = '';
+  if (iPos != null && iPos >= 0 && iPos < p.d.length) {
+    const xp = X(p.d[iPos]), yp = Y(p.h[iPos]);
+    marca = '<rect x="' + mI + '" y="' + mA + '" width="' + Math.max(0, xp - mI).toFixed(1)
+          + '" height="' + ay + '" fill="#fbfaf7" opacity=".55"/>'
+          + '<line x1="' + xp.toFixed(1) + '" y1="' + mA + '" x2="' + xp.toFixed(1) + '" y2="' + (mA + ay)
+          + '" stroke="#12306e" stroke-width="1.2" stroke-dasharray="3,2"/>'
+          + '<circle cx="' + xp.toFixed(1) + '" cy="' + yp.toFixed(1)
+          + '" r="4" fill="#12306e" stroke="#fff" stroke-width="1.8"/>';
   }
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img">'
     + rejilla.join('') + kms.join('')
     + '<path d="' + area + '" fill="' + color + '" fill-opacity=".18"/>'
     + '<path d="' + linea + '" fill="none" stroke="' + color + '" stroke-width="1.8" '
     + 'stroke-linejoin="round" stroke-linecap="round"/>'
-    + '<text x="' + (W - mD) + '" y="' + (H - 4) + '" text-anchor="end" font-size="9" fill="#8a857c">km</text>'
+    + marca
     + '</svg>';
 }
 
@@ -2196,10 +2318,36 @@ async function abrePerfil(f) {
   if (!p) {
     cont.querySelector('.perfil-det').textContent = 'Este fichero no trae datos de altitud.';
   } else {
-    cont.querySelector('.perfil-caja').innerHTML = svgPerfil(p, f.nav ? COLOR_NAV : f.color);
-    cont.querySelector('.perfil-det').innerHTML =
-      p.km.toFixed(2) + ' km · sube <b>' + fmtN(p.sube) + ' m</b> · baja <b>' + fmtN(p.baja) + ' m</b>'
+    /* si hay GPS, se busca el punto del trazado más cercano a donde estás: es
+       lo que convierte el perfil en «lo que me queda» en vez de «lo que era» */
+    let iPos = null, aparte = 0;
+    if (ultimaPos) {
+      let dmin = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const d = metrosEntre(ultimaPos, pts[i]);
+        if (d < dmin) { dmin = d; iPos = i; }
+      }
+      aparte = dmin;
+      /* medio kilómetro fuera del trazado ya no es «voy por aquí»: es otra
+         ruta, o aún no has llegado. Mejor no marcar nada que mentir. */
+      if (dmin > 500) iPos = null;
+    }
+    cont.querySelector('.perfil-caja').innerHTML = svgPerfil(p, f.nav ? COLOR_NAV : f.color, iPos);
+    let txt = p.km.toFixed(2) + ' km · sube <b>' + fmtN(p.sube) + ' m</b> · baja <b>' + fmtN(p.baja) + ' m</b>'
       + '<br>Entre ' + fmtN(Math.round(p.min)) + ' y ' + fmtN(Math.round(p.max)) + ' m de altitud.';
+    if (iPos != null) {
+      const q = restaDelPerfil(p, iPos);
+      txt += '<br><b>Vas por el km ' + (p.d[iPos] / 1000).toFixed(1) + '</b>'
+           + ' (' + Math.round(100 * p.d[iPos] / (p.d[p.d.length-1] || 1)) + ' %), a '
+           + fmtN(Math.round(p.h[iPos])) + ' m.'
+           + '<br>Te quedan <b>' + q.km.toFixed(1) + ' km</b> y <b>' + fmtN(q.sube) + ' m</b> de subida.'
+           + (aparte > 60 ? '<br>Estás a ' + fmtDist(aparte) + ' del trazado.' : '');
+    } else if (ultimaPos) {
+      txt += '<br>Estás a ' + fmtDist(aparte) + ' del trazado: demasiado lejos para situarte en el perfil.';
+    } else {
+      txt += '<br><span style="color:#8a857c">Sin posición GPS todavía: cuando la haya, aquí saldrá por dónde vas.</span>';
+    }
+    cont.querySelector('.perfil-det').innerHTML = txt;
   }
   const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
   document.body.appendChild(capa);
@@ -4635,6 +4783,513 @@ document.getElementById('tog-sendas').onchange = ev => {
   pintaSendas();
 };
 
+
+/* ==================== 12. El tiempo ====================================
+   Es la única parte de la app que necesita cobertura, y por eso vive donde
+   vive: se consulta en casa, planificando, no en el monte. Lo consultado se
+   guarda para poder mirarlo sin red, siempre diciendo de cuándo es — una
+   previsión vieja mirada como si fuera de hoy es peor que no tener ninguna.
+
+   Dos fuentes, cada una en lo suyo:
+   · Open-Meteo para la previsión y la comparación de zonas. Sin clave y, lo
+     decisivo aquí, admite varias coordenadas en UNA llamada: comparar quince
+     sitios cuesta lo mismo que consultar uno.
+   · AEMET para el boletín de montaña del macizo, que lo escribe un
+     meteorólogo y ningún modelo global iguala. Va con clave, corta a las
+     pocas decenas de peticiones por minuto, y sirve el texto en ISO-8859-15.
+   ===================================================================== */
+const LS_AEMET   = 'ign.aemet';
+const LS_TIEMPO  = 'ign.tiempo';        // última previsión, para verla sin red
+const LS_BOLETIN = 'ign.boletin';
+const OM = 'https://api.open-meteo.com/v1/forecast';
+
+/* Los nueve macizos con boletín. Los recuadros son aproximados y solo sirven
+   para preseleccionar el más probable: el macizo lo eliges tú en la lista. */
+const MACIZOS = [
+  { c:'peu1', n:'Picos de Europa',                b:[43.00,-5.10,43.35,-4.50] },
+  { c:'nav1', n:'Pirineo Navarro',                b:[42.70,-1.80,43.20,-0.80] },
+  { c:'arn1', n:'Pirineo Aragonés',               b:[42.40,-0.90,42.90, 0.80] },
+  { c:'cat1', n:'Pirineo Catalán',                b:[42.20, 0.60,42.80, 2.20] },
+  { c:'rio1', n:'Ibérica Riojana',                b:[41.90,-3.20,42.30,-2.00] },
+  { c:'arn2', n:'Ibérica Aragonesa',              b:[40.20,-2.00,41.50,-0.50] },
+  { c:'mad2', n:'Sierras de Guadarrama y Somosierra', b:[40.60,-4.30,41.30,-3.30] },
+  { c:'gre1', n:'Sierra de Gredos',               b:[40.10,-5.70,40.50,-4.70] },
+  { c:'nev1', n:'Sierra Nevada',                  b:[36.90,-3.60,37.30,-2.80] }
+];
+const centroMacizo = m => [ (m.b[0]+m.b[2])/2, (m.b[1]+m.b[3])/2 ];
+function macizoDe(pt) {
+  const dentro = MACIZOS.find(m => pt[0] >= m.b[0] && pt[0] <= m.b[2] && pt[1] >= m.b[1] && pt[1] <= m.b[3]);
+  if (dentro) return { m: dentro, dentro: true };
+  let mej = MACIZOS[0], dmin = Infinity;
+  MACIZOS.forEach(m => { const d = metrosEntre(pt, centroMacizo(m)); if (d < dmin) { dmin = d; mej = m; } });
+  return { m: mej, dentro: false, lejos: dmin };
+}
+
+/* El código del tiempo de la OMM, que es lo que devuelve Open-Meteo. Se
+   traduce a algo legible en vez de enseñarte un número. */
+const CIELO = {
+  0:'Despejado', 1:'Casi despejado', 2:'Parcialmente nuboso', 3:'Nuboso',
+  45:'Niebla', 48:'Niebla helada', 51:'Llovizna débil', 53:'Llovizna', 55:'Llovizna fuerte',
+  56:'Llovizna helada', 57:'Llovizna helada fuerte',
+  61:'Lluvia débil', 63:'Lluvia', 65:'Lluvia fuerte', 66:'Lluvia helada', 67:'Lluvia helada fuerte',
+  71:'Nieve débil', 73:'Nieve', 75:'Nieve fuerte', 77:'Cinarra',
+  80:'Chubascos débiles', 81:'Chubascos', 82:'Chubascos fuertes',
+  85:'Chubascos de nieve', 86:'Chubascos de nieve fuertes',
+  95:'Tormenta', 96:'Tormenta con granizo', 99:'Tormenta con granizo fuerte'
+};
+const DIAS = ['dom','lun','mar','mié','jue','vie','sáb'];
+const fechaCorta = iso => {
+  const d = new Date(iso + 'T12:00:00');
+  return DIAS[d.getDay()] + ' ' + d.getDate();
+};
+
+const DIARIAS = 'weather_code,temperature_2m_max,temperature_2m_min,'
+              + 'precipitation_sum,precipitation_probability_max,wind_speed_10m_max';
+
+async function pideTiempo(puntos, dias) {
+  const lat = puntos.map(p => p[0].toFixed(4)).join(',');
+  const lon = puntos.map(p => p[1].toFixed(4)).join(',');
+  const u = OM + '?latitude=' + lat + '&longitude=' + lon + '&daily=' + DIARIAS
+          + '&timezone=auto&forecast_days=' + (dias || 7);
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('Open-Meteo respondió ' + r.status);
+  const j = await r.json();
+  /* con un punto devuelve un objeto; con varios, una lista. Se normaliza. */
+  return Array.isArray(j) ? j : [j];
+}
+
+/* ---- previsión de la zona que estás viendo ---- */
+/* ---- la previsión, dibujada -------------------------------------------
+   Una tabla de números se lee dígito a dígito. Lo que quieres saber de un
+   vistazo es «qué días llueve» y «qué frío hace», y eso se ve mejor con una
+   forma que con una cifra. Tres decisiones:
+
+   · El cielo va en PICTOGRAMA, no en color: la forma distingue sol de lluvia
+     para todo el mundo, también quien no distinga los colores.
+   · La temperatura va en una BARRA sobre un eje común a los siete días, así
+     que la posición y el largo se pueden comparar entre filas. El color va de
+     azul a rojo pasando por gris —dos tonos y un neutro en medio, nunca un
+     arcoíris— y nunca lleva el dato solo: las cifras están siempre al lado.
+   · Los números en tinta normal, nunca del color de la barra: un azul claro
+     como texto no se lee. */
+
+const T_FRIO = [24, 79, 149], T_MEDIO = [225, 224, 217], T_CALOR = [208, 59, 59];
+function colorTemp(t) {
+  const mez = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+  let c;
+  if (t <= 15) c = mez(T_FRIO, T_MEDIO, Math.max(0, Math.min(1, (t + 8) / 23)));
+  else         c = mez(T_MEDIO, T_CALOR, Math.max(0, Math.min(1, (t - 15) / 18)));
+  return 'rgb(' + c.join(',') + ')';
+}
+
+/* Pictogramas del tiempo. Trazo de 2 px y geometría sencilla: a 26 px en un
+   móvil, cualquier filigrana se convierte en una mancha. */
+function iconoCielo(cod, tam) {
+  const t = tam || 26;
+  const ini = '<svg viewBox="0 0 32 32" width="' + t + '" height="' + t
+    + '" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img">'
+    + '<title>' + (CIELO[cod] || 'Tiempo') + '</title>';
+  const SOL = '#e8a33d', NUBE = '#8a857c', AGUA = '#2a78d6', RAYO = '#e8a33d';
+  const sol = (cx, cy, r) => '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + SOL
+    + '" stroke="none"/>';
+  const rayos = (cx, cy, r) => [0,45,90,135,180,225,270,315].map(a => {
+    const g = a * Math.PI / 180;
+    return '<line x1="' + (cx + Math.cos(g) * (r + 2.5)).toFixed(1) + '" y1="' + (cy + Math.sin(g) * (r + 2.5)).toFixed(1)
+         + '" x2="' + (cx + Math.cos(g) * (r + 5)).toFixed(1) + '" y2="' + (cy + Math.sin(g) * (r + 5)).toFixed(1)
+         + '" stroke="' + SOL + '"/>';
+  }).join('');
+  const nube = (y, col) => '<path d="M10 ' + y + ' a5 5 0 0 1 .6-9.9 7 7 0 0 1 13.2 2A4.6 4.6 0 0 1 23 ' + y
+    + ' Z" stroke="' + (col || NUBE) + '" fill="#fff"/>';
+  /* las gotas, pegadas a la nube y con recorrido: sueltas y cortas parecían
+     motas de suciedad en la pantalla */
+  const gotas = n => Array.from({length:n}, (_, k) => {
+    const x = 11 + k * (n === 3 ? 5 : 6.5);
+    return '<line x1="' + (x + 1.4) + '" y1="21.5" x2="' + (x - 1.4) + '" y2="29" stroke="' + AGUA + '"/>';
+  }).join('');
+  const nieve = n => Array.from({length:n}, (_, k) => {
+    const x = 11 + k * 5, y = 25.5;
+    return '<g stroke="' + AGUA + '"><line x1="' + x + '" y1="' + (y-3) + '" x2="' + x + '" y2="' + (y+3) + '"/>'
+      + '<line x1="' + (x-2.6) + '" y1="' + (y-1.5) + '" x2="' + (x+2.6) + '" y2="' + (y+1.5) + '"/>'
+      + '<line x1="' + (x+2.6) + '" y1="' + (y-1.5) + '" x2="' + (x-2.6) + '" y2="' + (y+1.5) + '"/></g>';
+  }).join('');
+
+  if (cod === 0)  return ini + rayos(16,16,6) + sol(16,16,6) + '</svg>';
+  if (cod <= 2)   return ini + rayos(11,11,4.5) + sol(11,11,4.5) + nube(20) + '</svg>';
+  if (cod === 3)  return ini + nube(20) + '</svg>';
+  if (cod <= 48)  return ini + nube(17)
+    + '<line x1="7" y1="22.5" x2="25" y2="22.5" stroke="' + NUBE + '"/>'
+    + '<line x1="10" y1="27" x2="22" y2="27" stroke="' + NUBE + '"/></svg>';
+  if (cod >= 95)  return ini + nube(18)
+    + '<path d="M18 21 L12.5 27.5 H16 L14.5 32 L21 25 H17.2 Z" fill="' + RAYO + '" stroke="none"/></svg>';
+  if ((cod >= 71 && cod <= 77) || cod === 85 || cod === 86 || cod === 66 || cod === 67)
+    return ini + nube(18) + nieve(3) + '</svg>';
+  const fuerte = cod === 65 || cod === 55 || cod === 82;
+  return ini + nube(18) + gotas(fuerte ? 3 : 2) + '</svg>';
+}
+
+/* la gota de lluvia se llena según la probabilidad: la forma dice «agua» y el
+   relleno dice «cuánta», sin depender de distinguir tonos de azul */
+function gotaLluvia(pc) {
+  const h = 14, lleno = Math.max(0, Math.min(1, (pc || 0) / 100));
+  return '<svg viewBox="0 0 12 16" width="11" height="' + h + '">'
+    + '<defs><clipPath id="g' + Math.round(pc) + '"><rect x="0" y="' + (16 - 16 * lleno).toFixed(1)
+    + '" width="12" height="16"/></clipPath></defs>'
+    + '<path d="M6 1 C6 1 11 8 11 11 A5 5 0 0 1 1 11 C1 8 6 1 6 1Z" fill="#e1e0d9"/>'
+    + '<path d="M6 1 C6 1 11 8 11 11 A5 5 0 0 1 1 11 C1 8 6 1 6 1Z" fill="#2a78d6" clip-path="url(#g'
+    + Math.round(pc) + ')"/></svg>';
+}
+
+function tablaTiempo(d) {
+  const n = d.time.length;
+  let tmin = Infinity, tmax = -Infinity;
+  for (let i = 0; i < n; i++) {
+    tmin = Math.min(tmin, d.temperature_2m_min[i]);
+    tmax = Math.max(tmax, d.temperature_2m_max[i]);
+  }
+  const rango = Math.max(6, tmax - tmin);
+  const pos = t => ((t - tmin) / rango) * 100;
+  /* El viento solo se muestra si alguno de los días sopla: una columna de
+     doces y catorces roba sitio y no dice nada. Etiquetar poco es lo que hace
+     que la etiqueta se lea. */
+  const vMax = Math.max.apply(null, d.wind_speed_10m_max || [0]);
+  const hayViento = vMax >= 30;
+
+  /* la tarjeta de hoy: una sola cifra grande por vista, que es la de hoy */
+  const hoy = 0;
+  let h = '<div class="pv-hoy">'
+    + '<div class="pv-ico">' + iconoCielo(d.weather_code ? d.weather_code[hoy] : 3, 54) + '</div>'
+    + '<div class="pv-hoy-t"><div class="pv-max">' + Math.round(d.temperature_2m_max[hoy]) + '°</div>'
+    + '<div class="pv-min">mín ' + Math.round(d.temperature_2m_min[hoy]) + '°</div></div>'
+    + '<div class="pv-hoy-d"><b>' + (CIELO[d.weather_code ? d.weather_code[hoy] : -1] || '') + '</b>'
+    + '<span>Lluvia ' + (d.precipitation_probability_max[hoy] || 0) + ' % · viento '
+    + Math.round(d.wind_speed_10m_max[hoy]) + ' km/h</span></div></div>';
+
+  h += '<div class="pv-lista">';
+  if (hayViento) h += '<div class="pv-cab"><span>Viento, km/h</span></div>';
+  for (let i = 0; i < n; i++) {
+    const a = pos(d.temperature_2m_min[i]), b = pos(d.temperature_2m_max[i]);
+    const pr = d.precipitation_probability_max ? (d.precipitation_probability_max[i] || 0) : 0;
+    const cielo = CIELO[d.weather_code ? d.weather_code[i] : -1] || '';
+    const v = d.wind_speed_10m_max ? (d.wind_speed_10m_max[i] || 0) : 0;
+    h += '<div class="pv-dia" title="' + cielo + ' · viento ' + Math.round(v) + ' km/h">'
+      + '<span class="pv-nom">' + (i === 0 ? 'Hoy' : fechaCorta(d.time[i])) + '</span>'
+      + '<span class="pv-i">' + iconoCielo(d.weather_code ? d.weather_code[i] : 3, 24) + '</span>'
+      + '<span class="pv-t pv-tmin">' + Math.round(d.temperature_2m_min[i]) + '°</span>'
+      + '<span class="pv-barra"><i style="left:' + a.toFixed(1) + '%;width:' + Math.max(4, b - a).toFixed(1)
+      + '%;background:linear-gradient(90deg,' + colorTemp(d.temperature_2m_min[i]) + ','
+      + colorTemp(d.temperature_2m_max[i]) + ')"></i></span>'
+      + '<span class="pv-t pv-tmax">' + Math.round(d.temperature_2m_max[i]) + '°</span>'
+      + '<span class="pv-ll' + (pr >= 40 ? ' pv-ll-si' : '') + '">' + gotaLluvia(pr)
+      + '<b>' + pr + '</b></span>'
+      + (hayViento ? '<span class="pv-v' + (v >= 30 ? ' pv-v-si' : '') + '">' + Math.round(v) + '</span>' : '')
+      + '</div>';
+  }
+  return h + '</div>';
+}
+
+/* una sola hoja para las tres cosas: previsión, comparación y boletín */
+function abreHoja(titulo, subtitulo, html) {
+  cierraHoja();
+  const c = document.createElement('div');
+  c.id = 'hoja-llena';
+  c.innerHTML = '<div class="hl-cab"><div class="hl-tit"><h3></h3><p></p></div>'
+    + '<button class="hl-x" title="Cerrar">&times;</button></div>'
+    + '<div class="hl-cuerpo"></div>';
+  c.querySelector('h3').textContent = titulo;
+  c.querySelector('p').textContent = subtitulo || '';
+  if (!subtitulo) c.querySelector('p').hidden = true;
+  c.querySelector('.hl-cuerpo').innerHTML = html;
+  c.querySelector('.hl-x').onclick = cierraHoja;
+  document.body.appendChild(c);
+  return c;
+}
+function cierraHoja() {
+  const v = document.getElementById('hoja-llena');
+  if (v) v.remove();
+}
+/* la equis del teclado, para el ordenador */
+addEventListener('keydown', ev => { if (ev.key === 'Escape') cierraHoja(); });
+
+const cuandoSe = t => {
+  const h = (Date.now() - t) / 3600000;
+  return h > 12 ? 'consultada hace ' + Math.round(h) + ' horas — está vieja'
+       : h < 1  ? 'consultada hace unos minutos'
+       : 'consultada hace ' + Math.round(h) + ' h';
+};
+
+function pintaTiempoGuardado(abrir) {
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem(LS_TIEMPO)); } catch (e) {}
+  const $s = document.getElementById('tiempo-sal');
+  if (!g || !g.d) { if ($s) $s.innerHTML = ''; return; }
+  /* en el panel solo queda el rastro; lo que se lee va a la hoja */
+  if ($s) $s.innerHTML = '<div class="pista">Última previsión: ' + g.nom + ', ' + cuandoSe(g.t)
+    + '. <a href="#" id="tiempo-verla">Verla</a></div>';
+  const $v = document.getElementById('tiempo-verla');
+  if ($v) $v.onclick = ev => { ev.preventDefault(); pintaTiempoGuardado(true); };
+  if (abrir) abreHoja('Previsión', g.nom + ' · ' + cuandoSe(g.t),
+    tablaTiempo(g.d) + '<div class="pista">Datos de Open-Meteo (CC BY 4.0).</div>');
+}
+
+async function verTiempoAqui() {
+  const $b = document.getElementById('btn-tiempo'), $s = document.getElementById('tiempo-sal');
+  const gps = !!ultimaPos;
+  const pt = gps ? [ultimaPos[0], ultimaPos[1]] : [mapa.getCenter().lat, mapa.getCenter().lng];
+  $b.disabled = true; $s.innerHTML = '<div class="pista">Consultando…</div>';
+  try {
+    const [r] = await pideTiempo([pt], 7);
+    const nom = (gps ? 'Donde estás' : 'Centro del mapa') + ' · '
+              + pt[0].toFixed(3) + ', ' + pt[1].toFixed(3);
+    guarda(LS_TIEMPO, { t: Date.now(), nom, d: r.daily });
+    pintaTiempoGuardado(true);
+  } catch (e) {
+    $s.innerHTML = '<div class="viejo">No se ha podido consultar: ' + e.message + '</div>';
+    pintaTiempoGuardado();
+  } finally { $b.disabled = false; }
+}
+
+/* ---- ¿dónde hace mejor tiempo? ------------------------------------------
+   Los sitios que se comparan no son una rejilla ciega: son TUS zonas, sacadas
+   de agrupar los centros de las rutas de tu colección. Así la respuesta es
+   «Rascafría» o «La Pedriza», sitios con nombre y que ya conoces, en vez de
+   un punto en mitad de un secano. */
+const VACIAS = new Set(['de','del','la','las','el','los','y','a','al','en','por','desde','hasta',
+  'ruta','circular','subida','vuelta','senderismo','ciclismo','paseo','integral','travesia','travesía']);
+
+function zonasDeLaColeccion(idx) {
+  const CELDA = 0.12;                       // ~13 km
+  const palabras = n => sinTildes(n).split(/[^a-záéíóúñ0-9]+/i)
+    .filter(p => p.length >= 4 && !VACIAS.has(p));
+  const celdas = new Map();
+  for (const r of idx) {
+    if (!r.b) continue;
+    const la = (r.b[0] + r.b[2]) / 2, lo = (r.b[1] + r.b[3]) / 2;
+    const k = Math.round(la / CELDA) + ',' + Math.round(lo / CELDA);
+    if (!celdas.has(k)) celdas.set(k, { la:0, lo:0, n:0, nombres:[] });
+    const c = celdas.get(k);
+    c.la += la; c.lo += lo; c.n++;
+    if (c.nombres.length < 40) c.nombres.push(nombreDe(r));
+  }
+  const grupos = [...celdas.values()].filter(c => c.n >= 2);   // una ruta suelta no es zona
+
+  /* En cuántas zonas distintas aparece cada palabra. Esto es lo que separa un
+     nombre útil de uno inútil: «Guadarrama» sale en media colección y no
+     distingue nada; «Peñalara» sale en una zona y la nombra sola. Sin esto
+     salían siete zonas llamadas «Guadarrama» y tres «Madrid». */
+  const enZonas = new Map();
+  grupos.forEach(c => {
+    new Set(c.nombres.flatMap(palabras)).forEach(p => enZonas.set(p, (enZonas.get(p) || 0) + 1));
+  });
+
+  const zonas = [];
+  for (const c of grupos) {
+    const cuenta = new Map();
+    c.nombres.forEach(n => palabras(n).forEach(p => cuenta.set(p, (cuenta.get(p) || 0) + 1)));
+    if (!cuenta.size) continue;
+    /* se puntúa cuánto se repite aquí frente a en cuántas zonas más aparece */
+    const orden = [...cuenta.keys()].sort((a, b) =>
+      cuenta.get(b) / Math.pow(enZonas.get(b) || 1, 1.6) -
+      cuenta.get(a) / Math.pow(enZonas.get(a) || 1, 1.6));
+    /* se recupera la grafía buena, con tildes y mayúscula, de los nombres */
+    const bonito = clave => {
+      for (const n of c.nombres) {
+        const p = n.split(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+/).find(x => sinTildes(x) === clave);
+        if (p) return p[0].toUpperCase() + p.slice(1);
+      }
+      return clave ? clave[0].toUpperCase() + clave.slice(1) : '';
+    };
+    zonas.push({ pt: [c.la / c.n, c.lo / c.n], n: c.n,
+                 nom: bonito(orden[0]), alt: orden[1] ? bonito(orden[1]) : '' });
+  }
+
+  /* si dos zonas acaban llamándose igual, se les añade su segunda palabra */
+  const veces = new Map();
+  zonas.forEach(z => veces.set(z.nom, (veces.get(z.nom) || 0) + 1));
+  zonas.forEach(z => { if (veces.get(z.nom) > 1 && z.alt) z.nom += ' — ' + z.alt; });
+
+  return zonas.sort((a, b) => b.n - a.n);
+}
+
+/* Puntuación para andar: manda la lluvia, luego el viento, luego el frío o el
+   calor extremos. Cuanto más bajo, mejor. Está a la vista a propósito: los
+   números que la producen se enseñan al lado. */
+function puntuaDia(d, i) {
+  const pr = d.precipitation_probability_max ? (d.precipitation_probability_max[i] || 0) : 0;
+  const mm = d.precipitation_sum ? (d.precipitation_sum[i] || 0) : 0;
+  const v  = d.wind_speed_10m_max ? (d.wind_speed_10m_max[i] || 0) : 0;
+  const tx = d.temperature_2m_max[i], tn = d.temperature_2m_min[i];
+  let p = pr * 1.0 + mm * 6 + Math.max(0, v - 25) * 1.2;
+  if (tx > 30) p += (tx - 30) * 3;
+  if (tn < 0)  p += (0 - tn) * 2.5;
+  return p;
+}
+
+async function dondeMejor() {
+  const $b = document.getElementById('btn-mejor'), $s = document.getElementById('tiempo-sal');
+  const radio = Number(document.getElementById('tiempo-radio').value) * 1000;
+  const desde = ultimaPos ? [ultimaPos[0], ultimaPos[1]] : [mapa.getCenter().lat, mapa.getCenter().lng];
+  $b.disabled = true; $s.innerHTML = '<div class="pista">Buscando tus zonas…</div>';
+  try {
+    const idx = await cargaIndiceRutas();
+    if (!idx.length) throw new Error('no hay colección de rutas cargada');
+    let zonas = zonasDeLaColeccion(idx)
+      .map(z => ({ ...z, dist: metrosEntre(desde, z.pt) }))
+      .filter(z => z.dist <= radio)
+      .sort((a, b) => a.dist - b.dist);
+    if (!zonas.length) throw new Error('ninguna zona tuya cae en ' + (radio/1000) + ' km');
+    /* tope para no pedir una URL kilométrica; se avisa de lo que se deja fuera */
+    const TOPE = 15, dejadas = Math.max(0, zonas.length - TOPE);
+    zonas = zonas.slice(0, TOPE);
+    $s.innerHTML = '<div class="pista">Consultando ' + zonas.length + ' zonas…</div>';
+    const res = await pideTiempo(zonas.map(z => z.pt), 7);
+    zonas.forEach((z, i) => {
+      z.d = res[i] && res[i].daily;
+      z.p = z.d ? puntuaDia(z.d, 0) : Infinity;
+    });
+    pintaMejores(zonas, dejadas, radio);
+  } catch (e) {
+    $s.innerHTML = '<div class="viejo">No se ha podido: ' + e.message + '</div>';
+  } finally { $b.disabled = false; }
+}
+
+function pintaMejores(zonas, dejadas, radio) {
+  const hoja = abreHoja('¿Dónde hace mejor tiempo?',
+    zonas.length + ' zonas tuyas a menos de ' + (radio / 1000) + ' km', '');
+  const $s = hoja.querySelector('.hl-cuerpo');
+  const $sel = document.createElement('div');
+  const orden = zonas.slice().filter(z => z.d);
+  let dia = 0;
+  const pinta = () => {
+    orden.forEach(z => { z.p = puntuaDia(z.d, dia); });
+    orden.sort((a, b) => a.p - b.p);
+    let h = '<label class="campo">Día<select id="mj-dia">';
+    for (let i = 0; i < zonas[0].d.time.length; i++)
+      h += '<option value="' + i + '"' + (i === dia ? ' selected' : '') + '>'
+         + fechaCorta(zonas[0].d.time[i]) + '</option>';
+    h += '</select></label><ul class="zonas">';
+    orden.forEach((z, i) => {
+      const d = z.d, pr = d.precipitation_probability_max[dia];
+      h += '<li><span class="puesto">' + (i + 1) + '</span><div class="zn"><b>' + z.nom + '</b>'
+         + '<span>' + (CIELO[d.weather_code[dia]] || '') + ' · '
+         + Math.round(d.temperature_2m_min[dia]) + '° a ' + Math.round(d.temperature_2m_max[dia]) + '°'
+         + ' · lluvia ' + pr + ' %'
+         + ' · viento ' + Math.round(d.wind_speed_10m_max[dia]) + ' km/h'
+         + ' · a ' + fmtDist(z.dist) + ' · ' + z.n + ' rutas tuyas</span></div>'
+         + '<button data-la="' + z.pt[0] + '" data-lo="' + z.pt[1] + '">Ir</button></li>';
+    });
+    h += '</ul><div class="pista">Ordenado por lo que peor sienta para andar: primero la lluvia, '
+       + 'luego el viento, luego el frío o el calor extremos.'
+       + (dejadas ? '<br><b>Aviso:</b> hay ' + dejadas + ' zonas tuyas más dentro de los '
+                    + (radio/1000) + ' km que no se han consultado.' : '')
+       + '<br>Datos de Open-Meteo (CC BY 4.0).</div>';
+    $sel.innerHTML = h;
+    $sel.querySelector('#mj-dia').onchange = ev => { dia = Number(ev.target.value); pinta(); };
+    $sel.querySelectorAll('ul.zonas button').forEach(b => {
+      b.onclick = () => { mapa.setView([Number(b.dataset.la), Number(b.dataset.lo)], 12);
+                          cierraHoja(); cierraPanel(); };
+    });
+  };
+  pinta();
+  $s.innerHTML = '';
+  $s.appendChild($sel);
+}
+
+/* ---- boletín de montaña de AEMET ---------------------------------------
+   Dos saltos: la primera llamada devuelve una URL donde están los datos. Y el
+   texto viene en ISO-8859-15, no en UTF-8: leyéndolo como UTF-8, «Predicción
+   de montaña» sale con rombos en vez de tildes. */
+const claveAemet = () => {
+  const c = document.getElementById('aemet-clave');
+  return (c && c.value.trim()) || localStorage.getItem(LS_AEMET) || '';
+};
+
+async function leeAemet(url) {
+  const r = await fetch(url);
+  const buf = await r.arrayBuffer();
+  const m = /charset=([\w-]+)/i.exec(r.headers.get('content-type') || '');
+  let juego = m ? m[1].toLowerCase() : 'iso-8859-15';
+  if (juego === 'utf8') juego = 'utf-8';
+  let txt;
+  try { txt = new TextDecoder(juego).decode(buf); }
+  catch (e) { txt = new TextDecoder('iso-8859-15').decode(buf); }
+  let j = null;
+  try { j = JSON.parse(txt); } catch (e) {}
+  return { estado: r.status, j };
+}
+
+function montaMacizos() {
+  const $s = document.getElementById('aemet-area'); if (!$s) return;
+  const cerca = macizoDe([mapa.getCenter().lat, mapa.getCenter().lng]);
+  $s.innerHTML = MACIZOS.map(m => '<option value="' + m.c + '"'
+    + (m.c === cerca.m.c ? ' selected' : '') + '>' + m.n + '</option>').join('');
+  const $p = document.getElementById('boletin-sal');
+  if ($p && !cerca.dentro) $p.innerHTML = '<div class="viejo">Lo que estás mirando no cae en ningún '
+    + 'macizo con boletín — el más cercano está a ' + fmtDist(cerca.lejos) + '. '
+    + 'Para esa zona tienes la previsión de arriba, que cubre cualquier sitio.</div>';
+}
+
+function pintaBoletinGuardado(abrir) {
+  const $s = document.getElementById('boletin-sal');
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem(LS_BOLETIN)); } catch (e) {}
+  if (!g || !g.b) return;
+  const m = MACIZOS.find(x => x.c === g.area);
+  if ($s) {
+    $s.innerHTML = '<div class="pista">Último boletín: ' + (m ? m.n : g.area) + ', '
+      + cuandoSe(g.t).replace('consultada', 'consultado') + '. <a href="#" id="bol-verlo">Verlo</a></div>';
+    const $v = document.getElementById('bol-verlo');
+    if ($v) $v.onclick = ev => { ev.preventDefault(); pintaBoletinGuardado(true); };
+  }
+  if (!abrir) return;
+  let h = '';
+  /* se recorre la estructura sin dar por hecho su detalle: cada sección con
+     sus apartados, y de cada apartado su nombre y su texto */
+  const secs = (g.b.seccion || []);
+  for (const sec of secs) {
+    const titulo = sec.nombre || sec.lugar || '';
+    let cuerpo = '';
+    for (const ap of (sec.apartado || [])) {
+      const t = Array.isArray(ap.texto) ? ap.texto.join(' ') : (ap.texto || '');
+      if (!t.trim()) continue;
+      cuerpo += '<p class="bol-ap">' + (ap.nombre ? '<b>' + ap.nombre + '</b>' : '') + t + '</p>';
+    }
+    if (sec.texto && !cuerpo) cuerpo = '<p class="bol-ap">' + sec.texto + '</p>';
+    if (cuerpo) h += '<div class="bol-sec"><h5>' + titulo + '</h5>' + cuerpo + '</div>';
+  }
+  h += '<div class="pista">© AEMET. Autorizado el uso de la información y su reproducción '
+     + 'citando a AEMET como autora.</div>';
+  abreHoja('Boletín de montaña', (m ? m.n : g.area) + ' · '
+    + cuandoSe(g.t).replace('consultada', 'consultado'), h);
+}
+
+async function verBoletin() {
+  const $b = document.getElementById('btn-boletin'), $s = document.getElementById('boletin-sal');
+  const area = document.getElementById('aemet-area').value;
+  const clave = claveAemet();
+  if (!clave) { $s.innerHTML = '<div class="viejo">Falta la clave de AEMET.</div>'; return; }
+  guarda(LS_AEMET, clave);
+  $b.disabled = true; $s.innerHTML = '<div class="pista">Pidiendo el boletín…</div>';
+  const base = 'https://opendata.aemet.es/opendata/api/prediccion/especifica/montaña/pasada/area/';
+  try {
+    const p1 = await leeAemet(base + area + '/dia/0?api_key=' + encodeURIComponent(clave));
+    if (p1.estado === 429) throw new Error('AEMET está limitando las peticiones. Espera un minuto.');
+    if (p1.estado === 401) throw new Error('la clave no vale');
+    if (!p1.j || !p1.j.datos) throw new Error('AEMET respondió ' + p1.estado);
+    const p2 = await leeAemet(p1.j.datos);
+    if (!p2.j) throw new Error('no se han podido leer los datos');
+    const b = Array.isArray(p2.j) ? p2.j[0] : p2.j;
+    guarda(LS_BOLETIN, { t: Date.now(), area, b });
+    pintaBoletinGuardado(true);
+  } catch (e) {
+    $s.innerHTML = '<div class="viejo">No se ha podido: ' + e.message + '</div>';
+    pintaBoletinGuardado();
+  } finally { $b.disabled = false; }
+}
+
+document.getElementById('btn-tiempo').onclick  = verTiempoAqui;
+document.getElementById('btn-mejor').onclick   = dondeMejor;
+document.getElementById('btn-boletin').onclick = verBoletin;
+
 /* ---------- 11. Panel plegable ----------------------------------------
    Seis secciones abiertas a la vez eran un muro de texto. Ahora cada una se
    pliega y solo queda abierta la que estás usando; la elección se recuerda. */
@@ -4732,6 +5387,10 @@ function abrePor(texto) {
   pintaListaSendas();
   pintaSendas();
   pintaPaquetesRepo();
+  /* el tiempo: se enseña lo último consultado, que sin red es lo único que hay */
+  const $ac = document.getElementById('aemet-clave');
+  if ($ac) $ac.value = localStorage.getItem(LS_AEMET) || '';
+  montaMacizos(); pintaTiempoGuardado(); pintaBoletinGuardado();
   /* los objetivos publicados desde el otro dispositivo se recogen solos */
   sincronizaObjetivos().then(n => { if (n) avisa(n === 1 ? 'Un objetivo nuevo del repositorio'
                                                         : n + ' objetivos nuevos del repositorio'); });
