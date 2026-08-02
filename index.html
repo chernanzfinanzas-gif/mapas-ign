@@ -971,8 +971,27 @@ ul.zonas .puesto{width:22px;height:22px;border-radius:50%;background:var(--verde
 ul.zonas .zn{flex:1 1 auto;min-width:0}
 ul.zonas .zn b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 ul.zonas .zn span{font-size:11.5px;color:#6b6862;font-variant-numeric:tabular-nums}
+.z-cab{display:flex;justify-content:flex-end;gap:9px;font-size:10.5px;color:#8a857c;
+  text-transform:uppercase;letter-spacing:.03em;padding:0 46px 3px 0}
+.z-cab span:first-child{margin-right:auto;padding-left:34px}
+@media (max-width:430px){ .z-cab{padding-right:0} .z-cab span:first-child{margin-right:0} }
+ul.zonas .zi{flex:0 0 26px;line-height:0}
+ul.zonas .zd{flex:0 0 auto;display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}
+ul.zonas .zt{font-size:13px;white-space:nowrap}
+ul.zonas .zt i{font-style:normal;color:#8a857c}
+ul.zonas .zt b{color:#2b2823;margin-left:3px}
+ul.zonas .zl{display:flex;align-items:center;gap:3px;font-size:12px;color:#8a857c;min-width:30px;
+  justify-content:flex-end}
+ul.zonas .zl b{font-weight:400}
+ul.zonas .zv{font-size:12px;color:#8a857c;min-width:20px;text-align:right}
 ul.zonas button{border:1px solid var(--verde);background:#fff;color:var(--verde);border-radius:9px;
   padding:7px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto}
+@media (max-width:430px){
+  ul.zonas li{flex-wrap:wrap;row-gap:6px}
+  ul.zonas .zn{flex:1 1 60%}
+  ul.zonas .zd{margin-left:34px}
+  ul.zonas button{margin-left:auto}
+}
 .bol-sec{margin:10px 0 0;padding:11px 12px;background:#f2efe9;border-radius:11px}
 .bol-sec h5{margin:0 0 6px;font-size:13px;color:var(--verde)}
 .bol-ap{font-size:13px;margin:0 0 7px;line-height:1.45}
@@ -5166,15 +5185,28 @@ function pintaMejores(zonas, dejadas, radio) {
     for (let i = 0; i < zonas[0].d.time.length; i++)
       h += '<option value="' + i + '"' + (i === dia ? ' selected' : '') + '>'
          + fechaCorta(zonas[0].d.time[i]) + '</option>';
-    h += '</select></label><ul class="zonas">';
+    h += '</select></label>'
+       + '<div class="z-cab"><span>mín / máx</span><span>lluvia %</span><span>viento km/h</span></div>'
+       + '<ul class="zonas">';
+    /* mismo lenguaje que la previsión: el cielo en pictograma, la lluvia en
+       gota y las temperaturas con la mínima apagada y la máxima en negrita.
+       Una lista de frases al lado de una previsión con iconos se lee peor por
+       comparación, aunque diga lo mismo. */
     orden.forEach((z, i) => {
       const d = z.d, pr = d.precipitation_probability_max[dia];
-      h += '<li><span class="puesto">' + (i + 1) + '</span><div class="zn"><b>' + z.nom + '</b>'
-         + '<span>' + (CIELO[d.weather_code[dia]] || '') + ' · '
-         + Math.round(d.temperature_2m_min[dia]) + '° a ' + Math.round(d.temperature_2m_max[dia]) + '°'
-         + ' · lluvia ' + pr + ' %'
-         + ' · viento ' + Math.round(d.wind_speed_10m_max[dia]) + ' km/h'
-         + ' · a ' + fmtDist(z.dist) + ' · ' + z.n + ' rutas tuyas</span></div>'
+      const v = Math.round(d.wind_speed_10m_max[dia]);
+      h += '<li><span class="puesto">' + (i + 1) + '</span>'
+         + '<span class="zi">' + iconoCielo(d.weather_code[dia], 26) + '</span>'
+         + '<div class="zn"><b>' + z.nom + '</b>'
+         + '<span>' + (CIELO[d.weather_code[dia]] || '') + ' · a ' + fmtDist(z.dist)
+         + ' · ' + z.n + ' rutas tuyas</span></div>'
+         + '<span class="zd">'
+         +   '<span class="zt"><i>' + Math.round(d.temperature_2m_min[dia]) + '°</i>'
+         +   '<b>' + Math.round(d.temperature_2m_max[dia]) + '°</b></span>'
+         +   '<span class="zl' + (pr >= 40 ? ' pv-ll-si' : '') + '">' + gotaLluvia(pr)
+         +   '<b>' + pr + '</b></span>'
+         +   '<span class="zv' + (v >= 30 ? ' pv-v-si' : '') + '">' + v + '</span>'
+         + '</span>'
          + '<button data-la="' + z.pt[0] + '" data-lo="' + z.pt[1] + '">Ir</button></li>';
     });
     h += '</ul><div class="pista">Ordenado por lo que peor sienta para andar: primero la lluvia, '
