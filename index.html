@@ -761,7 +761,7 @@ img.leaflet-tile{image-rendering:auto}
 #menu-capas .avisoc{font-size:11.5px;color:var(--ambar);font-weight:600}
 
 /* barra de transparencia de la capa de encima */
-#barra-dibujo{position:absolute;left:8px;right:8px;bottom:calc(100px + var(--safe-b));z-index:640;
+#barra-dibujo{position:absolute;left:8px;right:8px;bottom:calc(104px + var(--safe-b));z-index:640;
   background:rgba(253,252,250,.97);border:1px solid var(--linea);border-radius:14px;padding:10px 12px;
   box-shadow:0 6px 22px rgba(0,0,0,.18)}
 #barra-dibujo[hidden]{display:none}
@@ -781,7 +781,7 @@ img.leaflet-tile{image-rendering:auto}
 #barra-dibujo button:disabled{opacity:.45}
 /* la barra del planificador es hermana de la de dibujo: mismo sitio, mismo
    peso visual. Lo único distinto es que lleva selector de perfil. */
-#barra-ruta{position:absolute;left:8px;right:8px;bottom:calc(100px + var(--safe-b));z-index:640;
+#barra-ruta{position:absolute;left:8px;right:8px;bottom:calc(104px + var(--safe-b));z-index:640;
   background:rgba(252,251,247,.97);border:1px solid var(--linea);border-radius:14px;
   padding:9px 10px;box-shadow:0 6px 22px rgba(0,0,0,.16)}
 #barra-ruta[hidden]{display:none}
@@ -801,18 +801,37 @@ img.leaflet-tile{image-rendering:auto}
 #barra-ruta button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
 #barra-ruta button:disabled{opacity:.45}
 
-#barra-opacidad{position:absolute;left:8px;right:8px;bottom:calc(96px + var(--safe-b));z-index:620;
+/* Zoom y transparencia estaban los dos tumbados en la franja de abajo, uno
+   encima del otro, y la barra de dibujar o planificar aterrizaba justo ahí:
+   había que esconder la transparencia para poder dibujar. Ahora el zoom se
+   pone DE PIE en el lateral derecho —que es espacio muerto y además queda a
+   mano del pulgar— y la franja de abajo se la queda entera la transparencia.
+   Así se pueden usar las dos mientras dibujas una ruta. */
+#barra-opacidad{position:absolute;left:8px;right:8px;bottom:calc(52px + var(--safe-b));z-index:620;
   display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
   background:rgba(251,250,247,.62);backdrop-filter:blur(3px);
   border:1px solid rgba(22,33,28,.12);box-shadow:var(--sombra);touch-action:none}
-#barra-zoom{position:absolute;left:8px;right:8px;bottom:calc(52px + var(--safe-b));z-index:620;
-  display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
+#barra-zoom{position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:620;
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 7px;border-radius:14px;
   background:rgba(251,250,247,.62);backdrop-filter:blur(3px);
   border:1px solid rgba(22,33,28,.12);box-shadow:var(--sombra);touch-action:none}
-#barra-zoom .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
-#barra-zoom input{flex:1 1 auto;min-width:0;accent-color:var(--verde)}
-#zoom-val{font-size:12px;font-weight:700;color:#5d5a53;flex:0 0 auto;min-width:22px;text-align:right;
+#barra-zoom .et{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:#6b6862;flex:0 0 auto}
+/* deslizador vertical: `writing-mode` es la forma actual y `slider-vertical` el
+   respaldo para navegadores viejos. `direction:rtl` pone el mínimo ABAJO, que
+   es lo que espera la mano: subir el dedo = acercarse. */
+#barra-zoom input{writing-mode:vertical-rl;direction:rtl;-webkit-appearance:slider-vertical;
+  appearance:slider-vertical;width:26px;height:168px;margin:0;accent-color:var(--verde)}
+#zoom-val{font-size:12.5px;font-weight:700;color:#5d5a53;flex:0 0 auto;
   font-variant-numeric:tabular-nums}
+/* En pantallas bajas la columna centrada acaba metiéndose en la barra de
+   dibujar o planificar, que crece cuando el aviso ocupa varias líneas. Ahí se
+   deja de centrar y se cuelga del botón del GPS: siempre por encima de todo
+   lo que pasa abajo, pase lo que pase. */
+@media (max-height:700px){
+  #barra-zoom{top:calc(56px + var(--safe-t));transform:none}
+  #barra-zoom input{height:118px}
+}
 #barra-opacidad[hidden]{display:none}
 #barra-opacidad .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
 #opacidad-val{font-size:12px;font-variant-numeric:tabular-nums;color:#5d5a53;flex:0 0 auto;min-width:34px;text-align:right}
@@ -820,7 +839,7 @@ img.leaflet-tile{image-rendering:auto}
 
 
 /* lectura inferior */
-#lectura{position:absolute;left:8px;bottom:calc(96px + var(--safe-b));z-index:600;
+#lectura{position:absolute;left:8px;bottom:calc(104px + var(--safe-b));z-index:600;
   background:rgba(251,250,247,.94);border:1px solid var(--linea);border-radius:10px;
   padding:7px 10px;font-size:12px;font-variant-numeric:tabular-nums;box-shadow:var(--sombra);
   max-width:62vw;display:none}
@@ -3859,7 +3878,6 @@ function abreDibujo(destino) {
   $q.textContent = destinoDib === 'zonas' ? 'Zona de mapas del IGN' : 'Zona de senderos de OSM';
   $q.className = destinoDib === 'zonas' ? 'mapas' : 'sendas';
   pintaCubierto();
-  document.getElementById('barra-opacidad').hidden = true;
   mapa.on('click', clicDib);
   pintaDib();
   const yaHay = destinoDib === 'zonas' ? leeZonas().length : leeSendas().length;
@@ -3874,7 +3892,6 @@ function cierraDibujo() {
   if (capaCubierto) { mapa.removeLayer(capaCubierto); capaCubierto = null; }
   verticesDib = [];
   document.getElementById('barra-dibujo').hidden = true;
-  document.getElementById('barra-opacidad').hidden = !capaEncima;
 }
 function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
 
@@ -4030,7 +4047,6 @@ function abrePlanificador() {
   if (guardado && PERFILES.some(p => p.id === guardado)) $s.value = guardado;
   document.getElementById('pl-nombre').value = '';
   document.getElementById('barra-ruta').hidden = false;
-  document.getElementById('barra-opacidad').hidden = true;
   mapa.on('click', clicPlan);
   recalculaPlan();
   avisa('Toca en el mapa: salida, pasos intermedios y llegada');
@@ -4042,7 +4058,6 @@ function cierraPlanificador() {
   if (capaPlan) { mapa.removeLayer(capaPlan); capaPlan = null; }
   puntosPlan = []; rutaPlan = null;
   document.getElementById('barra-ruta').hidden = true;
-  document.getElementById('barra-opacidad').hidden = !capaEncima;
 }
 
 function clicPlan(e) {
@@ -4068,10 +4083,14 @@ async function guardaPlan() {
   const g = leeGpxs();
   const id = 'g' + Date.now().toString(36) + 'p';
   /* salvaPuntosGpx no devuelve nada: si la caché está llena, lanza */
-  try { await salvaPuntosGpx(id, r.red); }
+  const wpt = pasosComoWpt();
+  try {
+    await salvaPuntosGpx(id, r.red);
+    if (wpt.length) await salvaWptGpx(id, wpt);
+  }
   catch (err) { pistaPlan('No se ha podido guardar: no cabe en el almacenamiento.', true); return; }
   g.push({ id, nom, km:r.km, d:r.d, fecha:'', n:r.red.length,
-           alt: r.red.some(p => p[2] != null), w:0,
+           alt: r.red.some(p => p[2] != null), w:wpt.length,
            color: COLORES_GPX[g.length % COLORES_GPX.length], bbox: r.bbox });
   salvaGpxs(g);
   cierraPlanificador();
@@ -4103,6 +4122,23 @@ document.getElementById('pl-guardar').onclick = guardaPlan;
    ven; el reloj, en cambio, te avisa de que te sales del trazado, y con la
    traza recortada avisaría en cada revuelta. */
 const TOPE_RELOJ = 9000;      // margen sobre el límite de puntos de un Garmin
+
+/* Los puntos que TÚ tocaste, como waypoints con nombre. Son las decisiones de
+   la ruta —el collado por el que quieres pasar, la fuente donde paras— y el
+   reloj los enseña como avisos al llegar. Se usan en los DOS caminos: al bajar
+   el .gpx en el momento y al guardar el objetivo, para que el fichero que te
+   bajes tres semanas después desde «Mis objetivos» sea el mismo. */
+function pasosComoWpt() {
+  const n = puntosPlan.length;
+  const anillo = n > 2 && puntosPlan[0][0] === puntosPlan[n-1][0]
+                       && puntosPlan[0][1] === puntosPlan[n-1][1];
+  return puntosPlan.map((p, i) => ({
+    lat: +p[0].toFixed(6), lon: +p[1].toFixed(6),
+    nom: i === 0 ? 'Salida'
+       : i === n - 1 ? (anillo ? 'Vuelta a la salida' : 'Llegada')
+       : 'Paso ' + i
+  }));
+}
 document.getElementById('pl-bajar').onclick = () => {
   if (!rutaPlan) return;
   const $n = document.getElementById('pl-nombre');
@@ -4112,19 +4148,7 @@ document.getElementById('pl-bajar').onclick = () => {
      empezando por un metro: a esa escala la forma no cambia */
   let tol = 1;
   while (pts.length > TOPE_RELOJ && tol <= 16) { pts = simplificaTrack(rutaPlan.pts, tol); tol *= 2; }
-  /* Los puntos que TÚ tocaste van también como waypoints con nombre. Son las
-     decisiones de la ruta —el collado por el que quieres pasar, la fuente— y
-     el reloj los enseña como avisos al llegar. Sin esto el fichero solo lleva
-     geometría: por dónde ir, pero no por qué. */
-  const anillo = puntosPlan.length > 2
-    && puntosPlan[0][0] === puntosPlan[puntosPlan.length-1][0]
-    && puntosPlan[0][1] === puntosPlan[puntosPlan.length-1][1];
-  const wpt = puntosPlan.map((p, i) => ({
-    lat: +p[0].toFixed(6), lon: +p[1].toFixed(6),
-    nom: i === 0 ? 'Salida'
-       : i === puntosPlan.length - 1 ? (anillo ? 'Vuelta a la salida' : 'Llegada')
-       : 'Paso ' + i
-  }));
+  const wpt = pasosComoWpt();
   const perfil = document.getElementById('pl-perfil');
   const desc = fmtN(+rutaPlan.km.toFixed(1)) + ' km · ' + fmtN(rutaPlan.d) + ' m de subida · '
              + perfil.options[perfil.selectedIndex].text + ' · planificada con Mapas IGN';
