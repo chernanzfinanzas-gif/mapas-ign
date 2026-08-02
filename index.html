@@ -709,9 +709,9 @@ img.leaflet-tile{image-rendering:auto}
 #btn-encima.on{background:var(--verde);border-color:var(--verde);color:#fff}
 /* las dos filas se apilan solas: con 6 capas la primera ya envuelve y una
    posición fija haría que se pisaran */
-/* el hueco de la derecha es la columna del zoom: 48 px de mando, 8 de margen
-   y 8 de aire entre medias */
-#selectores{position:absolute;top:calc(92px + var(--safe-t));left:8px;right:64px;z-index:600;
+/* el hueco de la derecha es el botón del zoom: 44 px, 8 de margen y 8 de aire.
+   El deslizador se despliega por debajo, así que no hay que reservarle nada. */
+#selectores{position:absolute;top:calc(92px + var(--safe-t));left:8px;right:60px;z-index:600;
   display:flex;gap:6px}
 .sel{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;
   padding:7px 12px;border:1px solid var(--linea);border-radius:12px;
@@ -813,29 +813,34 @@ img.leaflet-tile{image-rendering:auto}
   display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;
   background:rgba(251,250,247,.62);backdrop-filter:blur(3px);
   border:1px solid rgba(22,33,28,.12);box-shadow:var(--sombra);touch-action:none}
-/* Arriba del todo, en línea con los selectores de capa: es donde menos tapa
-   mapa y donde el pulgar no lo roza sin querer al arrastrar. Los dos
-   selectores se estrechan lo justo para dejarle su columna.
-   Va más transparente que las demás barras —es un mando, no información— y
-   el desenfoque de detrás compensa la pérdida de contraste. */
+/* El zoom en reposo es solo un BOTÓN con el nivel actual: una regla de casi
+   doscientos píxeles a la derecha tapaba mapa todo el rato para algo que se
+   toca de tarde en tarde. Al pulsarlo se despliega el deslizador HACIA ABAJO,
+   colgando del botón, así que no se come nunca los selectores de capa que
+   tiene al lado, ni en pantallas bajas. Se recoge solo si lo dejas quieto.
+   Va más transparente que las demás barras —es un mando, no información— y el
+   desenfoque de detrás compensa la pérdida de contraste. */
 #barra-zoom{position:absolute;right:8px;top:calc(92px + var(--safe-t));z-index:620;
-  display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;border-radius:13px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;touch-action:none}
+#zoom-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:44px;height:44px;padding:0;border-radius:50%;cursor:pointer;color:#57544e;font:inherit;
   background:rgba(251,250,247,.34);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  border:1px solid rgba(22,33,28,.10);box-shadow:0 2px 10px rgba(0,0,0,.10);touch-action:none}
-#barra-zoom .et{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-  color:#57544e;flex:0 0 auto}
+  border:1px solid rgba(22,33,28,.10);box-shadow:0 2px 10px rgba(0,0,0,.10)}
+#zoom-btn svg{opacity:.75;margin-bottom:-1px}
+#zoom-val{font-size:12.5px;font-weight:700;color:#3f3d38;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+#barra-zoom.abierto #zoom-btn{background:rgba(251,250,247,.72);border-color:var(--verde);color:var(--verde)}
+#barra-zoom.abierto #zoom-val{color:var(--verde)}
 /* deslizador vertical: `writing-mode` es la forma actual y `slider-vertical` el
    respaldo para navegadores viejos. `direction:rtl` pone el mínimo ABAJO, que
    es lo que espera la mano: subir el dedo = acercarse. */
 #barra-zoom input{writing-mode:vertical-rl;direction:rtl;-webkit-appearance:slider-vertical;
-  appearance:slider-vertical;width:24px;height:172px;margin:0;accent-color:var(--verde)}
-#zoom-val{font-size:12.5px;font-weight:700;color:#3f3d38;flex:0 0 auto;
-  font-variant-numeric:tabular-nums}
-/* En pantallas bajas la columna centrada acaba metiéndose en la barra de
-   dibujar o planificar, que crece cuando el aviso ocupa varias líneas. Ahí se
-   deja de centrar y se cuelga del botón del GPS: siempre por encima de todo
-   lo que pasa abajo, pase lo que pase. */
-@media (max-height:640px){ #barra-zoom input{height:120px} }
+  appearance:slider-vertical;width:26px;height:176px;margin:0;accent-color:var(--verde);
+  padding:8px 4px;border-radius:13px;
+  background:rgba(251,250,247,.34);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1px solid rgba(22,33,28,.10);box-shadow:0 2px 10px rgba(0,0,0,.10)}
+#barra-zoom:not(.abierto) input{display:none}
+@media (max-height:640px){ #barra-zoom input{height:124px} }
 #barra-opacidad[hidden]{display:none}
 #barra-opacidad .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
 #opacidad-val{font-size:12px;font-variant-numeric:tabular-nums;color:#5d5a53;flex:0 0 auto;min-width:34px;text-align:right}
@@ -1225,9 +1230,13 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 </div>
 
 <div id="barra-zoom">
-  <span class="et">Zoom</span>
+  <button id="zoom-btn" aria-expanded="false" title="Zoom del mapa">
+    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor"
+         stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg>
+    <span id="zoom-val">6</span>
+  </button>
   <input type="range" id="zoom-rango" min="6" max="19" step="1" value="6" aria-label="Nivel de zoom del mapa">
-  <span id="zoom-val">6</span>
 </div>
 
 <div id="barra-opacidad" hidden>
@@ -1834,8 +1843,27 @@ function sincronizaZoom() {
   $zr.min = mapa.getMinZoom(); $zr.max = mapa.getMaxZoom();
   $zr.value = z; $zv.textContent = z;
 }
-$zr.oninput = () => { $zv.textContent = $zr.value; };
-$zr.onchange = () => { mapa.setZoom(Number($zr.value)); };
+/* Abrir y cerrar. Se recoge solo a los cinco segundos sin tocarlo: si te
+   olvidas de cerrarlo no se queda tapando mapa, y cinco segundos dan de sobra
+   para encadenar dos pasos de zoom. */
+const $zb = document.getElementById('zoom-btn'), $zbarra = document.getElementById('barra-zoom');
+let relojZoom = null;
+function cierraZoom() {
+  $zbarra.classList.remove('abierto');
+  $zb.setAttribute('aria-expanded', 'false');
+  clearTimeout(relojZoom); relojZoom = null;
+}
+function esperaZoom() { clearTimeout(relojZoom); relojZoom = setTimeout(cierraZoom, 5000); }
+$zb.onclick = () => {
+  const abre = !$zbarra.classList.contains('abierto');
+  if (abre) {
+    $zbarra.classList.add('abierto');
+    $zb.setAttribute('aria-expanded', 'true');
+    esperaZoom();
+  } else cierraZoom();
+};
+$zr.oninput = () => { $zv.textContent = $zr.value; esperaZoom(); };
+$zr.onchange = () => { mapa.setZoom(Number($zr.value)); esperaZoom(); };
 mapa.on('zoomend', sincronizaZoom);
 
 /* interruptores rápidos: el track cargado y la colección de rutas */
