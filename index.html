@@ -5366,28 +5366,62 @@ function pintaMejores(zonas, dejadas, radio) {
   const $sel = document.createElement('div');
   const orden = zonas.slice().filter(z => z.d);
   let dia = 0;
+
+  /* La tira de días se construye UNA vez y no se vuelve a tocar: al elegir un
+     día solo cambia qué pastilla va marcada y se repinta la lista. Antes se
+     reconstruía entera con el resto, y como nacía con el desplazamiento a cero,
+     al pulsar el último día la tira saltaba al principio y el día elegido se
+     iba de la pantalla. El contenido de las pastillas tampoco depende del día
+     elegido, así que rehacerlas no aportaba nada.
+     Cada pastilla lleva el cielo del MEJOR sitio de ese día, así que la tira ya
+     responde a «¿qué día salgo?» antes de elegir ninguno. */
+  const mejorDe = i => orden.reduce((a, z) =>
+    (!a || puntuaDia(z.d, i) < puntuaDia(a.d, i)) ? z : a, null);
+  const $tira = document.createElement('div');
+  $tira.className = 'mj-dias'; $tira.setAttribute('role', 'tablist');
+  $tira.setAttribute('aria-label', 'Día');
+  let ht = '';
+  for (let i = 0; i < zonas[0].d.time.length; i++) {
+    const f = new Date(zonas[0].d.time[i] + 'T12:00:00'), mb = mejorDe(i);
+    ht += '<button class="mj-dia" data-d="' + i + '" role="tab"'
+       + ' title="' + (mb ? 'Mejor ese día: ' + mb.nom + ' · '
+                            + (CIELO[mb.d.weather_code[i]] || '') : '') + '">'
+       + '<b>' + DIAS[f.getDay()].toUpperCase() + '</b>'
+       + '<span>' + (i === 0 ? 'Hoy' : f.getDate() + '/' + (f.getMonth() + 1)) + '</span>'
+       + '<i>' + (mb ? iconoCielo(mb.d.weather_code[i], 26) : '') + '</i></button>';
+  }
+  $tira.innerHTML = ht;
+  const $pista = document.createElement('div');
+  $pista.className = 'mj-pista';
+  $pista.textContent = 'El dibujo de cada día es el del sitio que mejor sale ese día.';
+  const $lista = document.createElement('div');
+
+  /* que la pastilla elegida quede a la vista sin arrastrar la hoja entera:
+     scrollIntoView movería también el desplazamiento vertical */
+  const asomaElegida = () => {
+    const b = $tira.querySelector('.mj-dia.sel');
+    if (!b) return;
+    /* con rectángulos, no con offsetLeft: offsetLeft se mide contra el ancestro
+       posicionado —aquí la hoja a pantalla completa—, así que arrastraba su
+       relleno y sobraban catorce píxeles */
+    const rt = $tira.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    if (rb.left < rt.left) $tira.scrollLeft += rb.left - rt.left - 8;
+    else if (rb.right > rt.right) $tira.scrollLeft += rb.right - rt.right + 8;
+  };
+
+  const marcaDia = () => {
+    $tira.querySelectorAll('.mj-dia').forEach(b => {
+      const es = Number(b.dataset.d) === dia;
+      b.classList.toggle('sel', es);
+      b.setAttribute('aria-selected', es);
+    });
+    asomaElegida();
+  };
+
   const pinta = () => {
     orden.forEach(z => { z.p = puntuaDia(z.d, dia); });
     orden.sort((a, b) => a.p - b.p);
-    /* El día se elige en una tira, no en un desplegable: un desplegable esconde
-       las opciones y aquí la gracia es ver los siete días a la vez. Cada
-       pastilla lleva el cielo del MEJOR sitio de ese día, así que la tira ya
-       responde a «¿qué día salgo?» antes de elegir ninguno. */
-    const mejorDe = i => orden.reduce((a, z) =>
-      (!a || puntuaDia(z.d, i) < puntuaDia(a.d, i)) ? z : a, null);
-    let h = '<div class="mj-dias" role="tablist" aria-label="Día">';
-    for (let i = 0; i < zonas[0].d.time.length; i++) {
-      const f = new Date(zonas[0].d.time[i] + 'T12:00:00'), mb = mejorDe(i);
-      h += '<button class="mj-dia' + (i === dia ? ' sel' : '') + '" data-d="' + i + '"'
-         + ' role="tab" aria-selected="' + (i === dia) + '"'
-         + ' title="' + (mb ? 'Mejor ese día: ' + mb.nom + ' · '
-                              + (CIELO[mb.d.weather_code[i]] || '') : '') + '">'
-         + '<b>' + DIAS[f.getDay()].toUpperCase() + '</b>'
-         + '<span>' + (i === 0 ? 'Hoy' : f.getDate() + '/' + (f.getMonth() + 1)) + '</span>'
-         + '<i>' + (mb ? iconoCielo(mb.d.weather_code[i], 26) : '') + '</i></button>';
-    }
-    h += '</div><div class="mj-pista">El dibujo de cada día es el del sitio que mejor sale ese día.</div>'
-       + '<ul class="zonas">';
+    let h = '<ul class="zonas">';
     /* mismo lenguaje que la previsión en columnas: el cielo en pictograma sobre
        la banda azulada, las dos temperaturas en pastilla del color que les
        toca, y viento, lluvia y sol en chips con su icono. Una lista de cifras
@@ -5427,18 +5461,22 @@ function pintaMejores(zonas, dejadas, radio) {
        + (dejadas ? '<br><b>Aviso:</b> hay ' + dejadas + ' zonas tuyas más dentro de los '
                     + (radio/1000) + ' km que no se han consultado.' : '')
        + '<br>Datos de Open-Meteo (CC BY 4.0).</div>';
-    $sel.innerHTML = h;
-    $sel.querySelectorAll('.mj-dia').forEach(b => {
-      b.onclick = () => { dia = Number(b.dataset.d); pinta(); };
-    });
-    $sel.querySelectorAll('ul.zonas button').forEach(b => {
+    $lista.innerHTML = h;
+    $lista.querySelectorAll('ul.zonas button').forEach(b => {
       b.onclick = () => { mapa.setView([Number(b.dataset.la), Number(b.dataset.lo)], 12);
                           cierraHoja(); cierraPanel(); };
     });
   };
-  pinta();
+
+  $tira.querySelectorAll('.mj-dia').forEach(b => {
+    b.onclick = () => { dia = Number(b.dataset.d); marcaDia(); pinta(); };
+  });
+  $sel.appendChild($tira); $sel.appendChild($pista); $sel.appendChild($lista);
+  marcaDia(); pinta();
   $s.innerHTML = '';
   $s.appendChild($sel);
+  /* ya montada en el documento es cuando las medidas valen algo */
+  asomaElegida();
 }
 
 /* ---- boletín de montaña de AEMET ---------------------------------------
