@@ -6363,8 +6363,13 @@ function puntuaDia(d, i) {
   const v  = d.wind_speed_10m_max ? (d.wind_speed_10m_max[i] || 0) : 0;
   const tx = d.temperature_2m_max[i], tn = d.temperature_2m_min[i];
   let p = pr * 1.0 + mm * 6 + Math.max(0, v - 25) * 1.2;
-  if (tx > 30) p += (tx - 30) * 3;
-  if (tn < 0)  p += (0 - tn) * 2.5;
+  /* El calor pesaba ridículamente poco: a 31 grados sumaba 3 puntos, menos que
+     un 5 % de probabilidad de lluvia. Y andar a 31 es peor que andar a 25 con
+     un chaparrón posible, porque el calor es SEGURO y la lluvia es un quizá.
+     Ahora empieza a doler a partir de 24 y crece al cuadrado: 25 grados suman
+     medio punto, 28 suman diez, 31 suman treinta. */
+  if (tx > 24) p += Math.pow(tx - 24, 2) * 0.6;
+  if (tn < 0)  p += Math.pow(0 - tn, 2) * 0.8 + (0 - tn) * 2;
   return p;
 }
 
@@ -6382,7 +6387,10 @@ async function dondeMejor() {
       .sort((a, b) => a.dist - b.dist);
     if (!zonas.length) throw new Error('ninguna zona tuya cae en ' + (radio/1000) + ' km');
     /* tope para no pedir una URL kilométrica; se avisa de lo que se deja fuera */
-    const TOPE = 15, dejadas = Math.max(0, zonas.length - TOPE);
+    /* 15 era pasarse de prudente: desde Vicálvaro, Peñalara es la zona número
+       16 y se quedaba fuera por seiscientos metros. Cuarenta coordenadas son
+       unos 700 caracteres de URL —nada— y Open-Meteo las sirve de una vez. */
+    const TOPE = 40, dejadas = Math.max(0, zonas.length - TOPE);
     zonas = zonas.slice(0, TOPE);
     $s.innerHTML = '<div class="pista">Consultando ' + zonas.length + ' zonas…</div>';
     const res = await pideTiempo(zonas.map(z => z.pt), 7);
@@ -6430,7 +6438,11 @@ function pintaMejores(zonas, dejadas, radio) {
   $tira.innerHTML = ht;
   const $pista = document.createElement('div');
   $pista.className = 'mj-pista';
-  $pista.textContent = 'El dibujo de cada día es el del sitio que mejor sale ese día.';
+  /* si se deja alguna zona fuera hay que decirlo ARRIBA: enterrado al pie se
+     lee cuando ya has decidido, que es tarde */
+  $pista.innerHTML = 'El dibujo de cada día es el del sitio que mejor sale ese día.'
+    + (dejadas ? ' <b style="color:#a8321f">Ojo: ' + dejadas + ' zonas tuyas dentro de los '
+        + (radio / 1000) + ' km no se han consultado.</b>' : '');
   const $lista = document.createElement('div');
 
   /* que la pastilla elegida quede a la vista sin arrastrar la hoja entera:
@@ -6494,9 +6506,7 @@ function pintaMejores(zonas, dejadas, radio) {
     });
     h += '</ul><div class="pv-nota">Máxima y mínima en pastilla; el viento en km/h con la flecha '
        + 'hacia dónde sopla. Ordenado por lo que peor sienta para andar: primero la lluvia, '
-       + 'luego el viento, luego el frío o el calor extremos.'
-       + (dejadas ? '<br><b>Aviso:</b> hay ' + dejadas + ' zonas tuyas más dentro de los '
-                    + (radio/1000) + ' km que no se han consultado.' : '')
+       + 'luego el calor o el frío, luego el viento.'
        + '<br>Datos de Open-Meteo (CC BY 4.0).</div>';
     $lista.innerHTML = h;
     $lista.querySelectorAll('ul.zonas button').forEach(b => {
@@ -6537,7 +6547,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v69';
+const VERSION = 'v70';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
