@@ -836,6 +836,28 @@ img.leaflet-tile{image-rendering:auto}
 #barra-ruta button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
 #barra-ruta button:disabled{opacity:.45}
 
+/* la barra del editor es la misma que la del planificador, con una fila más
+   para las opciones de cada operación */
+#barra-edita{position:absolute;left:8px;right:8px;bottom:calc(104px + var(--safe-b));z-index:640;
+  background:rgba(252,251,247,.97);border:1px solid var(--linea);border-radius:14px;
+  padding:9px 10px;box-shadow:0 6px 22px rgba(0,0,0,.16)}
+#barra-edita[hidden]{display:none}
+#barra-edita .ln0{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;
+  color:var(--verde);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#barra-edita .ln1{font-size:12.5px;color:#5d5a53;margin-bottom:8px;min-height:17px}
+#barra-edita .ln1 b{color:var(--verde)}
+#barra-edita .ln1 .mal{color:#a8321f;font-weight:600}
+#barra-edita .ln2{display:flex;gap:6px;align-items:center}
+#barra-edita .ln3{margin-top:6px}
+#barra-edita .ln3:empty{display:none}
+#barra-edita select,#barra-edita input{flex:1 1 auto;min-width:0;padding:9px 8px;
+  border:1px solid var(--linea);border-radius:10px;font:inherit;font-size:12.5px;background:#fff;color:#2b2823}
+#barra-edita button{flex:0 0 auto;padding:9px 11px;border:1px solid var(--linea);background:#fff;
+  border-radius:10px;font:inherit;font-size:13px;cursor:pointer;color:#57544e}
+#barra-edita button.ok{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
+#barra-edita button.sel{border-color:var(--verde);color:var(--verde);font-weight:600}
+#barra-edita button:disabled{opacity:.45}
+
 /* Zoom y transparencia estaban los dos tumbados en la franja de abajo, uno
    encima del otro, y la barra de dibujar o planificar aterrizaba justo ahí:
    había que esconder la transparencia para poder dibujar. Ahora el zoom se
@@ -1324,6 +1346,28 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <span class="et">Encima</span>
   <input type="range" id="opacidad" min="0" max="100" value="55" aria-label="Transparencia de la capa de encima">
   <span id="opacidad-val">55%</span>
+</div>
+
+<div id="barra-edita" hidden>
+  <div class="ln0"><span id="ed-titulo">Editar ruta</span></div>
+  <div class="ln1" id="ed-pista">…</div>
+  <div class="ln2">
+    <select id="ed-op" title="Qué quieres hacer">
+      <option value="tramo">Sustituir un tramo</option>
+      <option value="recorta">Recortar: quedarme con un trozo</option>
+      <option value="alarga">Alargar por un extremo</option>
+      <option value="invierte">Invertir el sentido</option>
+      <option value="une">Unir con otro objetivo</option>
+    </select>
+    <button id="ed-deshacer" title="Deshacer el último cambio">↶</button>
+    <button id="ed-cancelar" title="Salir sin guardar">✕</button>
+  </div>
+  <div class="ln2 ln3" id="ed-fila-op"></div>
+  <div class="ln2 ln3">
+    <input type="text" id="ed-nombre" placeholder="Nombre de la ruta nueva" autocomplete="off">
+    <button id="ed-bajar" title="Descargar el .gpx">⤓ GPX</button>
+    <button id="ed-guardar" class="ok">Guardar</button>
+  </div>
 </div>
 
 <div id="av-banda" hidden></div>
@@ -2648,7 +2692,9 @@ async function pintaGpxs() {
   const $t = document.getElementById('tog-gpx');
   if ($t) $t.disabled = !fichas.length;
   const $g = document.getElementById('btn-sendas-gpx');
-  const visibles = fichas.filter(f => !f.off);
+  /* la que se está editando no se pinta aquí: la dibuja el editor, con su
+     tramo resaltado, y si se pintaran las dos la de arriba taparía a la otra */
+  const visibles = fichas.filter(f => !f.off && f.id !== idEditando);
   if ($g) $g.disabled = !visibles.length;
   if (!gpxVisible || !visibles.length) return;
   const capas = [], encima = [];
@@ -2739,6 +2785,9 @@ function pintaListaGpx() {
       document.getElementById('sendas-nombre').value = f.nom;
       descargaSendas(b, nombrePaquete('Alrededor de'));
     };
+    const ed = document.createElement('button'); ed.textContent = 'Editar';
+    ed.title = 'Cambiar el trazado: sustituir un tramo, recortar, alargar, invertir…';
+    ed.onclick = () => abreEditor(f);
     const pf = document.createElement('button'); pf.textContent = 'Perfil';
     pf.title = 'Ver el perfil de altura';
     pf.onclick = () => abrePerfil(f);
@@ -2765,7 +2814,7 @@ function pintaListaGpx() {
       pintaListaGpx(); pintaGpxs(); pintaEstadoObjetivos();
     };
     li.prepend(punto); li.prepend(ver);
-    li.append(ir, nv, col, sd, pf, bg, rp, qu); ul.appendChild(li);
+    li.append(ir, nv, col, ed, sd, pf, bg, rp, qu); ul.appendChild(li);
   });
   pintaEstadoObjetivos();
 }
@@ -4195,6 +4244,327 @@ function cierraDibujo() {
   document.getElementById('barra-dibujo').hidden = true;
 }
 function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
+
+/* ---------- Editor de rutas -------------------------------------------
+   El planificador dibuja de cero; el editor cambia lo que ya hay. La regla que
+   lo gobierna todo: LO QUE NO TOCAS NO SE TOCA. Sustituir un tramo devuelve
+   «lo de antes de A» + «lo nuevo» + «lo de después de B», con los puntos
+   originales intactos fuera de esa ventana; nada de recalcular la ruta entera,
+   que es lo que hacen casi todos los editores y por eso te destrozan el track.
+
+   Trabaja sobre OBJETIVOS, nunca sobre la colección: la colección es el
+   registro de por dónde pasaste tú, y meterle un tramo propuesto por un
+   ordenador la convierte en mentira.
+
+   Se guarda siempre como ruta NUEVA: editar es barato, perder un track no. */
+let idEditando = null;
+let edFicha = null, edPts = [], edPila = [], edOp = 'tramo',
+    edSel = [], edExtra = [], edCapa = null, edExtremo = null, edModo = 'caminos';
+
+const EDITOR_OPS = {
+  tramo:    'Toca dos puntos de la ruta: el tramo entre ellos se sustituye.',
+  recorta:  'Toca dos puntos: te quedas solo con lo de en medio.',
+  alarga:   'Toca cerca de la salida o de la llegada para elegir extremo.',
+  invierte: 'Le da la vuelta a la ruta: la salida pasa a ser la llegada.',
+  une:      'Elige otro objetivo y se pega al final de este.'
+};
+
+/* el punto de la traza más cercano a donde has tocado */
+function masCercanoEnTraza(pts, ll) {
+  let mejor = -1, dm = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const d = metrosEntre([ll.lat, ll.lng], pts[i]);
+    if (d < dm) { dm = d; mejor = i; }
+  }
+  return { i: mejor, d: dm };
+}
+
+function metricasDe(pts) {
+  let subida = 0, prev = null, acum = 0;
+  pts.forEach(p => {
+    const e = p[2];
+    if (e == null || !isFinite(e)) return;
+    if (prev != null) { acum += e - prev; if (acum >= 3) { subida += acum; acum = 0; } else if (acum < 0) acum = 0; }
+    prev = e;
+  });
+  let la1 = 90, lo1 = 180, la2 = -90, lo2 = -180;
+  pts.forEach(([a, o]) => { la1 = Math.min(la1, a); la2 = Math.max(la2, a);
+                            lo1 = Math.min(lo1, o); lo2 = Math.max(lo2, o); });
+  return { km: largoKm(pts), d: Math.round(subida), bbox: [la1, lo1, la2, lo2] };
+}
+
+function apuntaEnPila() { edPila.push(edPts.map(p => p.slice())); if (edPila.length > 20) edPila.shift(); }
+
+function pistaEd(txt, mal) {
+  const $p = document.getElementById('ed-pista');
+  if ($p) $p.innerHTML = mal ? '<span class="mal">' + txt + '</span>' : txt;
+}
+
+function estadoEd() {
+  const m = metricasDe(edPts);
+  pistaEd('<b>' + fmtN(+m.km.toFixed(1)) + ' km</b> · ' + fmtN(m.d) + ' m de subida · '
+    + fmtN(edPts.length) + ' puntos · unas ' + fmtHoras(horasEstimadas(m.km, m.d)) + ' a tu ritmo');
+}
+
+function pintaEd() {
+  if (edCapa) { mapa.removeLayer(edCapa); edCapa = null; }
+  const capas = [];
+  capas.push(L.polyline(edPts.map(p => [p[0], p[1]]), { pane:'rutas', color:'#000', weight:7, opacity:.3 }));
+  capas.push(L.polyline(edPts.map(p => [p[0], p[1]]), { pane:'rutas', color:'#d4a017', weight:4 }));
+  /* el tramo elegido, resaltado: hay que VER qué va a desaparecer antes de
+     que desaparezca */
+  if (edSel.length === 2) {
+    const [a, b] = edSel.slice().sort((x, y) => x - y);
+    capas.push(L.polyline(edPts.slice(a, b + 1).map(p => [p[0], p[1]]),
+      { pane:'rutas', color: edOp === 'recorta' ? '#12306e' : '#a8321f', weight:6, opacity:.9,
+        dashArray: edOp === 'recorta' ? null : '7,6' }));
+  }
+  const marca = (i, col, tit) => L.marker([edPts[i][0], edPts[i][1]], { pane:'rutas', title:tit,
+    icon: L.divIcon({ className:'', iconSize:[20,20], iconAnchor:[10,10],
+      html:'<div style="width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:'
+         + col + ';box-shadow:0 1px 4px rgba(0,0,0,.45)"></div>' }) });
+  edSel.forEach((i, k) => capas.push(marca(i, k === 0 ? '#12306e' : '#a8321f', k === 0 ? 'A' : 'B')));
+  edExtra.forEach((p, k) => capas.push(L.marker(p, { pane:'rutas', title:'Paso ' + (k + 1),
+    icon: L.divIcon({ className:'', iconSize:[18,18], iconAnchor:[9,9],
+      html:'<div style="width:18px;height:18px;border-radius:50%;border:2px solid #fff;'
+         + 'background:#3d6b4a;color:#fff;font:700 10px/14px system-ui;text-align:center">'
+         + (k + 1) + '</div>' }) })));
+  edCapa = L.layerGroup(capas).addTo(mapa);
+}
+
+/* la fila de opciones cambia con la operación: cada una necesita cosas
+   distintas y una fila fija llena de botones apagados se lee fatal */
+function pintaFilaEd() {
+  const $f = document.getElementById('ed-fila-op');
+  if (edOp === 'tramo') {
+    $f.innerHTML = '<button data-m="caminos">Por caminos</button>'
+      + '<button data-m="recto">Recto</button><button data-m="quita">Quitarlo</button>'
+      + '<button id="ed-hazlo" class="ok">Aplicar</button>';
+    $f.querySelectorAll('[data-m]').forEach(b => {
+      b.classList.toggle('sel', b.dataset.m === edModo);
+      b.onclick = () => { edModo = b.dataset.m; pintaFilaEd(); };
+    });
+    $f.querySelector('#ed-hazlo').disabled = edSel.length !== 2;
+    $f.querySelector('#ed-hazlo').onclick = aplicaTramo;
+  } else if (edOp === 'recorta') {
+    $f.innerHTML = '<button id="ed-hazlo" class="ok">Recortar</button>';
+    $f.querySelector('#ed-hazlo').disabled = edSel.length !== 2;
+    $f.querySelector('#ed-hazlo').onclick = aplicaRecorte;
+  } else if (edOp === 'alarga') {
+    $f.innerHTML = '<button data-e="0">Por la salida</button><button data-e="1">Por la llegada</button>'
+      + '<button id="ed-hazlo" class="ok">Aplicar</button>';
+    $f.querySelectorAll('[data-e]').forEach(b => {
+      b.classList.toggle('sel', edExtremo === Number(b.dataset.e));
+      b.onclick = () => { edExtremo = Number(b.dataset.e); edExtra = []; pintaFilaEd(); pintaEd();
+                          pistaEd('Toca en el mapa por dónde sigue.'); };
+    });
+    $f.querySelector('#ed-hazlo').disabled = edExtremo == null || !edExtra.length;
+    $f.querySelector('#ed-hazlo').onclick = aplicaAlargue;
+  } else if (edOp === 'invierte') {
+    $f.innerHTML = '<button id="ed-hazlo" class="ok">Invertir ahora</button>';
+    $f.querySelector('#ed-hazlo').onclick = () => {
+      apuntaEnPila(); edPts.reverse(); edSel = []; pintaEd(); estadoEd();
+      avisa('Ruta invertida');
+    };
+  } else if (edOp === 'une') {
+    const otros = leeGpxs().filter(x => x.id !== (edFicha && edFicha.id));
+    $f.innerHTML = otros.length
+      ? '<select id="ed-otra">' + otros.map(o => '<option value="' + o.id + '">'
+          + escXml(o.nom) + '</option>').join('') + '</select>'
+        + '<button data-u="pega">Pegar</button><button data-u="ruta">Enrutar hueco</button>'
+        + '<button id="ed-hazlo" class="ok">Unir</button>'
+      : '<span style="font-size:12.5px;color:#8a857c">No hay otro objetivo con el que unir.</span>';
+    if (otros.length) {
+      $f.querySelectorAll('[data-u]').forEach(b => {
+        b.classList.toggle('sel', b.dataset.u === edModo);
+        b.onclick = () => { edModo = b.dataset.u; pintaFilaEd(); };
+      });
+      if (edModo !== 'pega' && edModo !== 'ruta') edModo = 'pega';
+      $f.querySelector('#ed-hazlo').onclick = aplicaUnion;
+    }
+  }
+}
+
+async function aplicaTramo() {
+  if (edSel.length !== 2) return;
+  const [a, b] = edSel.slice().sort((x, y) => x - y);
+  const $h = document.getElementById('ed-hazlo');
+  let medio = [];
+  if (edModo === 'recto') medio = [];
+  else if (edModo === 'caminos') {
+    $h.disabled = true; pistaEd('Calculando el camino nuevo…');
+    try {
+      const puntos = [[edPts[a][0], edPts[a][1]], ...edExtra, [edPts[b][0], edPts[b][1]]];
+      const r = leeGpxDoc(await pideRuta(puntos, document.getElementById('pl-perfil').value
+                                                 || 'hiking-beta'), 'tramo.gpx');
+      if (!r) throw new Error('el tramo ha vuelto vacío');
+      medio = r.pts.slice(1, -1);
+    } catch (e) { pistaEd('No se ha podido: ' + e.message, true); $h.disabled = false; return; }
+  }
+  apuntaEnPila();
+  edPts = edPts.slice(0, a + 1).concat(medio, edPts.slice(b));
+  edSel = []; edExtra = [];
+  pintaEd(); estadoEd(); pintaFilaEd();
+}
+
+function aplicaRecorte() {
+  if (edSel.length !== 2) return;
+  const [a, b] = edSel.slice().sort((x, y) => x - y);
+  if (b - a < 1) { pistaEd('Los dos puntos son casi el mismo.', true); return; }
+  apuntaEnPila();
+  edPts = edPts.slice(a, b + 1);
+  edSel = []; pintaEd(); estadoEd(); pintaFilaEd();
+}
+
+async function aplicaAlargue() {
+  if (edExtremo == null || !edExtra.length) return;
+  const desde = edExtremo === 0 ? edPts[0] : edPts[edPts.length - 1];
+  const $h = document.getElementById('ed-hazlo'); $h.disabled = true;
+  pistaEd('Calculando la prolongación…');
+  let nuevo;
+  try {
+    const puntos = [[desde[0], desde[1]], ...edExtra];
+    const r = leeGpxDoc(await pideRuta(puntos, document.getElementById('pl-perfil').value
+                                               || 'hiking-beta'), 'alargue.gpx');
+    if (!r) throw new Error('la prolongación ha vuelto vacía');
+    nuevo = r.pts;
+  } catch (e) { pistaEd('No se ha podido: ' + e.message, true); $h.disabled = false; return; }
+  apuntaEnPila();
+  /* por la salida se pega del revés: el trozo nuevo va HACIA la ruta */
+  edPts = edExtremo === 0 ? nuevo.slice().reverse().concat(edPts.slice(1))
+                          : edPts.slice(0, -1).concat(nuevo);
+  edExtra = []; pintaEd(); estadoEd(); pintaFilaEd();
+}
+
+async function aplicaUnion() {
+  const sel = document.getElementById('ed-otra'); if (!sel) return;
+  const otra = leeGpxs().find(x => x.id === sel.value); if (!otra) return;
+  const $h = document.getElementById('ed-hazlo'); $h.disabled = true;
+  pistaEd('Uniendo…');
+  try {
+    const pts = await leePuntosGpx(otra.id);
+    if (!pts || pts.length < 2) throw new Error('esa ruta no tiene puntos');
+    let puente = [];
+    if (edModo === 'ruta') {
+      const fin = edPts[edPts.length - 1], ini = pts[0];
+      const r = leeGpxDoc(await pideRuta([[fin[0], fin[1]], [ini[0], ini[1]]],
+        document.getElementById('pl-perfil').value || 'hiking-beta'), 'puente.gpx');
+      if (r) puente = r.pts.slice(1, -1);
+    }
+    apuntaEnPila();
+    edPts = edPts.concat(puente, pts.map(p => p.slice()));
+    pintaEd(); estadoEd(); pintaFilaEd();
+    avisa('Unida con «' + otra.nom + '»');
+  } catch (e) { pistaEd('No se ha podido: ' + e.message, true); }
+  finally { $h.disabled = false; }
+}
+
+function clicEd(e) {
+  if (edOp === 'invierte' || edOp === 'une') return;
+  if (edOp === 'alarga') {
+    if (edExtremo == null) {
+      /* el toque más cerca de un extremo elige ese extremo */
+      const d0 = metrosEntre([e.latlng.lat, e.latlng.lng], edPts[0]);
+      const d1 = metrosEntre([e.latlng.lat, e.latlng.lng], edPts[edPts.length - 1]);
+      edExtremo = d0 <= d1 ? 0 : 1;
+      pistaEd('Alargando por ' + (edExtremo === 0 ? 'la salida' : 'la llegada')
+        + '. Toca por dónde sigue.');
+    } else edExtra.push([e.latlng.lat, e.latlng.lng]);
+    pintaEd(); pintaFilaEd();
+    return;
+  }
+  /* con A y B ya puestos, los toques siguientes son puntos de paso del tramo */
+  if (edSel.length === 2) {
+    if (edOp === 'tramo' && edModo === 'caminos') { edExtra.push([e.latlng.lat, e.latlng.lng]); pintaEd(); }
+    return;
+  }
+  const c = masCercanoEnTraza(edPts, e.latlng);
+  if (c.d > 2000) { pistaEd('Ese punto está a ' + fmtDist(c.d) + ' de la ruta; toca sobre ella.', true); return; }
+  edSel.push(c.i);
+  if (edSel.length === 2) {
+    const [a, b] = edSel.slice().sort((x, y) => x - y);
+    pistaEd(edOp === 'recorta'
+      ? 'Te quedarás con el trozo azul: ' + fmtN(+largoKm(edPts.slice(a, b + 1)).toFixed(1)) + ' km.'
+      : 'Se sustituye el tramo rojo. Toca por dónde quieres que pase el nuevo, o dale a Aplicar.');
+  } else pistaEd('Ahora el segundo punto.');
+  pintaEd(); pintaFilaEd();
+}
+
+function abreEditor(f) {
+  cierraPanel();
+  if (modoPlan) cierraPlanificador();
+  if (modoDib) cierraDibujo();
+  leePuntosGpx(f.id).then(pts => {
+    if (!pts || pts.length < 2) { avisa('Esa ruta no tiene puntos que editar'); return; }
+    edFicha = f; idEditando = f.id; edPts = pts.map(p => p.slice()); edPila = [];
+    pintaGpxs();
+    edSel = []; edExtra = []; edExtremo = null; edOp = 'tramo'; edModo = 'caminos';
+    document.getElementById('ed-titulo').textContent = 'Editando: ' + f.nom;
+    document.getElementById('ed-op').value = 'tramo';
+    document.getElementById('ed-nombre').value = f.nom + ' (editada)';
+    document.getElementById('barra-edita').hidden = false;
+    mapa.on('click', clicEd);
+    mapa.fitBounds([[f.bbox[0], f.bbox[1]], [f.bbox[2], f.bbox[3]]], { padding:[30, 30] });
+    pintaEd(); estadoEd(); pintaFilaEd();
+    avisa(EDITOR_OPS[edOp]);
+  }).catch(() => avisa('No se ha podido abrir esa ruta'));
+}
+
+function cierraEditor() {
+  idEditando = null; pintaGpxs();
+  mapa.off('click', clicEd);
+  if (edCapa) { mapa.removeLayer(edCapa); edCapa = null; }
+  edFicha = null; edPts = []; edPila = []; edSel = []; edExtra = [];
+  document.getElementById('barra-edita').hidden = true;
+}
+
+async function guardaEdicion() {
+  if (!edPts.length) return;
+  const $n = document.getElementById('ed-nombre');
+  const nom = ($n.value || '').trim();
+  if (!nom) { $n.focus(); pistaEd('Ponle nombre antes de guardarla.', true); return; }
+  const m = metricasDe(edPts);
+  const red = simplificaTrack(edPts, 5).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5), p[2] ]);
+  const g = leeGpxs();
+  const id = 'g' + Date.now().toString(36) + 'e';
+  try {
+    await salvaPuntosGpx(id, red);
+    /* los puntos marcados del original viajan con la copia */
+    if (edFicha && edFicha.w) { const w = await leeWptGpx(edFicha.id); if (w && w.length) await salvaWptGpx(id, w); }
+  } catch (e) { pistaEd('No se ha podido guardar: no cabe en el almacenamiento.', true); return; }
+  g.push({ id, nom, km:m.km, d:m.d, fecha:'', n:red.length,
+           alt: red.some(p => p[2] != null), w: (edFicha && edFicha.w) || 0,
+           color: COLORES_GPX[g.length % COLORES_GPX.length], bbox: m.bbox });
+  salvaGpxs(g);
+  cierraEditor();
+  gpxVisible = true;
+  const $t = document.getElementById('tog-gpx'); if ($t) $t.checked = true;
+  pintaListaGpx(); await pintaGpxs();
+  avisa('Guardada como «' + nom + '». La original sigue donde estaba');
+  abrePanel();
+}
+
+document.getElementById('ed-op').onchange = ev => {
+  edOp = ev.target.value; edSel = []; edExtra = []; edExtremo = null;
+  if (edOp === 'tramo') edModo = 'caminos'; else if (edOp === 'une') edModo = 'pega';
+  pintaEd(); pintaFilaEd(); pistaEd(EDITOR_OPS[edOp]);
+};
+document.getElementById('ed-deshacer').onclick = () => {
+  if (!edPila.length) { pistaEd('No hay nada que deshacer.'); return; }
+  edPts = edPila.pop(); edSel = []; edExtra = [];
+  pintaEd(); estadoEd(); pintaFilaEd();
+};
+document.getElementById('ed-cancelar').onclick = () => { cierraEditor(); abrePanel(); };
+document.getElementById('ed-guardar').onclick = guardaEdicion;
+document.getElementById('ed-bajar').onclick = () => {
+  if (!edPts.length) return;
+  const nom = (document.getElementById('ed-nombre').value || '').trim() || 'Ruta editada';
+  let pts = edPts, tol = 1;
+  while (pts.length > TOPE_RELOJ && tol <= 16) { pts = simplificaTrack(edPts, tol); tol *= 2; }
+  const fich = nombreFichero(nom) + '.gpx';
+  if (bajaFichero(fich, aGpx(nom, pts))) pistaEd('Descargado <b>' + fich + '</b> · '
+    + fmtN(pts.length) + ' puntos.');
+};
 
 /* ---------- Planificador de rutas (BRouter) ---------------------------
    Lo único de la app que INVENTA una ruta en vez de leerla. Tocas puntos en el
@@ -6167,7 +6537,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v68';
+const VERSION = 'v69';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
