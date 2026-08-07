@@ -1246,18 +1246,20 @@ button.sec{width:100%;padding:11px;border:1px solid var(--linea);border-radius:1
 #prog-err{color:var(--rojo)}
 #prog-nota{color:var(--ambar);font-size:12.5px;margin-top:4px}
 ul#lista,ul#sendas-lista,ul#repo-lista,ul#gpx-lista,ul#rutas-resultados,ul#puntos-lista{list-style:none;margin:0;padding:0}
-ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li,ul#rutas-resultados li,ul#puntos-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
+ul#lista li,ul#sendas-lista li,ul#repo-lista li,ul#gpx-lista li,ul#rutas-resultados li,ul#puntos-lista li,ul#anadidas-lista li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--linea)}
 ul#lista li:last-child,ul#sendas-lista li:last-child{border-bottom:0}
-ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info,ul#rutas-resultados .info,ul#puntos-lista .info{flex:1 1 auto;min-width:0}
-ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom,ul#rutas-resultados .nom,ul#puntos-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det,ul#rutas-resultados .det,ul#puntos-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
-ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button,ul#rutas-resultados button,ul#puntos-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
+ul#lista .info,ul#sendas-lista .info,ul#repo-lista .info,ul#gpx-lista .info,ul#rutas-resultados .info,ul#puntos-lista .info,ul#anadidas-lista .info{flex:1 1 auto;min-width:0}
+ul#lista .nom,ul#sendas-lista .nom,ul#repo-lista .nom,ul#gpx-lista .nom,ul#rutas-resultados .nom,ul#puntos-lista .nom,ul#anadidas-lista .nom{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ul#lista .det,ul#sendas-lista .det,ul#repo-lista .det,ul#gpx-lista .det,ul#rutas-resultados .det,ul#puntos-lista .det,ul#anadidas-lista .det{font-size:12px;color:#6b6862;font-variant-numeric:tabular-nums}
+ul#lista button,ul#sendas-lista button,ul#repo-lista button,ul#gpx-lista button,ul#rutas-resultados button,ul#puntos-lista button,ul#anadidas-lista button{border:1px solid var(--linea);background:#fff;border-radius:9px;
   padding:8px 11px;font:inherit;font-size:13px;cursor:pointer;flex:0 0 auto}
-ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir,ul#rutas-resultados button.ir,ul#puntos-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
+ul#lista button.ir,ul#sendas-lista button.ir,ul#repo-lista button.ir,ul#gpx-lista button.ir,ul#rutas-resultados button.ir,ul#puntos-lista button.ir,ul#anadidas-lista button.ir{border-color:var(--verde);color:var(--verde);font-weight:600}
 /* Los objetivos llevan ocho botones por fila. En el ordenador caben; en el
    móvil aplastaban el nombre hasta dejarlo en dos letras y se salían por la
    derecha. Aquí la fila se parte: arriba el interruptor, el color y los datos;
    debajo los botones, que envuelven solos las líneas que hagan falta. */
+ul#anadidas-lista .pub{color:var(--verde);font-weight:600}
+ul#anadidas-lista button.quita{border-color:#a8321f;color:#a8321f}
 ul#gpx-lista li{flex-wrap:wrap;row-gap:9px;column-gap:8px;align-items:flex-start;padding:13px 0}
 ul#gpx-lista .ver1,ul#gpx-lista .color{margin-top:3px}
 ul#gpx-lista .info{flex:1 1 calc(100% - 64px)}
@@ -1516,6 +1518,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <div id="rutas-leyenda"></div>
       <div id="rutas-estado"></div>
       <div id="anadidas-estado" class="pista"></div>
+      <ul id="anadidas-lista"></ul>
       <button class="sec" id="btn-pub-rutas" hidden>Publicar las rutas añadidas</button>
       <div id="renom-cuenta" class="pista"></div>
       <button class="sec solo-pc" id="btn-renom" disabled>Exportar los nombres corregidos</button>
@@ -3039,17 +3042,62 @@ async function retiraObjetivo(f) {
 }
 
 /* estado y publicación de las añadidas */
+/* Quitar una añadida antes de publicarla. Solo vale para las que aún no han
+   salido de aquí: una vez publicada, la sirve el repositorio y borrarla de
+   este navegador no la quitaría de ningún sitio. */
+function quitaAnadida(id) {
+  const r = leeAnadidas().find(x => x.id === id);
+  if (!r) return;
+  if (r.pub) { avisa('Esa ya está publicada: no se puede quitar desde aquí'); return; }
+  if (!confirm('¿Quitar «' + r.n + '» de la colección?\n\nNo se ha publicado, así que '
+             + 'desaparece del todo. El GPX que descargaste sigue en tu carpeta.')) return;
+  salvaAnadidas(leeAnadidas().filter(x => x.id !== id));
+  olvidaIndiceRutas();
+  pintaRutas();
+  pintaAnadidas();
+  avisa('Quitada: ' + r.n);
+}
+
+/* La lista de las añadidas. Antes esto era una sola frase —«4 rutas añadidas
+   sin publicar»— y con eso no hay forma de saber CUÁLES son: si una se coló en
+   una prueba, no la puedes distinguir ni quitar. Ahora se ven una a una, se
+   puede saltar a cada una en el mapa y quitar la que sobre. */
 function pintaAnadidas() {
   const $e = document.getElementById('anadidas-estado');
   const $b = document.getElementById('btn-pub-rutas');
+  const $u = document.getElementById('anadidas-lista');
   if (!$e) return;
+  const todas = leeAnadidas();
   const n = sinPublicar().length;
-  const esperando = leeAnadidas().length - n;
+  const esperando = todas.length - n;
   $e.textContent = n ? n + (n === 1 ? ' ruta añadida sin publicar.' : ' rutas añadidas sin publicar.')
                 : esperando ? esperando + (esperando === 1 ? ' ruta publicada' : ' rutas publicadas')
                               + ', esperando a que GitHub las sirva (un minuto).'
                 : '';
   if ($b) $b.hidden = !n;
+  if (!$u) return;
+  $u.innerHTML = '';
+  /* la más reciente arriba: la que acabas de meter es la que quieres mirar */
+  todas.slice().sort((a, b2) => (b2.f || '').localeCompare(a.f || '')).forEach(r => {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>'
+      + '<button class="ir">Ver</button><button class="quita">Quitar</button>';
+    li.querySelector('.nom').textContent = r.n;
+    const f = r.f && r.f.length === 8
+      ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : 'sin fecha';
+    li.querySelector('.det').innerHTML =
+      [f, ETIQ_ACT[r.a] || r.a, (r.km != null ? r.km + ' km' : ''), r.d ? r.d + ' m+' : '']
+        .filter(Boolean).join(' · ')
+      + (r.pub ? ' · <span class="pub">publicada</span>' : '');
+    li.querySelector('.ir').onclick = () => {
+      if (r.b) mapa.fitBounds([[r.b[0], r.b[1]], [r.b[2], r.b[3]]], { padding:[40,40] });
+      cierraPanel();
+    };
+    const $q = li.querySelector('.quita');
+    if (r.pub) { $q.disabled = true; $q.title = 'Ya publicada'; }
+    else $q.onclick = () => quitaAnadida(r.id);
+    $u.appendChild(li);
+  });
 }
 
 async function publicaRutas() {
@@ -6689,7 +6737,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v75';
+const VERSION = 'v76';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
