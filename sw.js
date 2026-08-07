@@ -4,9 +4,14 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v78';
+const APP   = 'ign-app-v80';
 const TILES = 'ign-tiles-v1';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+/* El manual entra en el SHELL a propósito: es autocontenido —un solo fichero,
+   sin imágenes ni tipografías fuera— y lo que se consulta en el monte es justo
+   lo que no te sabes de memoria. Un manual que necesita cobertura para abrirse
+   no sirve para nada en el sitio donde hace falta. */
+const SHELL = ['./', './index.html', './manual.html', './manifest.webmanifest',
+               './icon-192.png', './icon-512.png'];
 
 /* tile de relleno cuando no hay dato ni red: gris del color del fondo */
 const VACIO = '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">'

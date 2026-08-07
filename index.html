@@ -1586,6 +1586,12 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
     </section>
 
     <section>
+      <h3>Manual</h3>
+      <p class="pista">Cómo funciona todo: la app entera y los programas del ordenador. Está guardado con la app, así que <b>se abre sin cobertura</b> — que es donde no te acuerdas de cómo iba la pantalla de emergencia. Lleva buscador.</p>
+      <button class="accion" id="btn-manual">Abrir el manual</button>
+    </section>
+
+    <section>
       <h3>Ruta y almacenamiento</h3>
       <div id="almacen"></div>
     </section>
@@ -5585,6 +5591,12 @@ function pideRenombres() {
   };
   ent.click();
 }
+/* El manual, en otra pestaña: así no pierdes lo que tuvieras a medias en el
+   mapa —una ruta dibujándose, el editor abierto— por ir a mirar cómo era algo. */
+document.getElementById('btn-manual').onclick = () => {
+  const v = window.open('manual.html', '_blank', 'noopener');
+  if (!v) avisa('El navegador ha bloqueado la ventana. Abre manual.html a mano.');
+};
 document.getElementById('btn-renom-imp').onclick = pideRenombres;
 document.getElementById('btn-renom').onclick = exportaRenombres;
 document.getElementById('btn-pub-rutas').onclick = publicaRutas;
@@ -6402,25 +6414,69 @@ function cierraHoja() {
 /* la equis del teclado, para el ordenador */
 addEventListener('keydown', ev => { if (ev.key === 'Escape') cierraHoja(); });
 
+/* Cuánto hace que se consultó. En horas mientras las horas signifiquen algo;
+   a partir de dos días, en días — «consultada hace 127 horas» hay que dividirlo
+   mentalmente para enterarse de que son cinco días. */
+const horasDesde = t => (Date.now() - t) / 3600000;
 const cuandoSe = t => {
-  const h = (Date.now() - t) / 3600000;
-  return h > 12 ? 'consultada hace ' + Math.round(h) + ' horas — está vieja'
-       : h < 1  ? 'consultada hace unos minutos'
-       : 'consultada hace ' + Math.round(h) + ' h';
+  const h = horasDesde(t), d = Math.round(h / 24);
+  if (h < 1)  return 'consultada hace unos minutos';
+  if (h < 12) return 'consultada hace ' + Math.round(h) + ' h';
+  if (h < 48) return 'consultada hace ' + Math.round(h) + ' h — está vieja';
+  return 'consultada hace ' + d + (d === 1 ? ' día' : ' días');
 };
+
+/* Una previsión de siete días consultada hace más de siete ya no contiene ni
+   un solo día futuro: son siete fechas pasadas. Enseñarla como «previsión» es
+   mentir, así que a partir de ahí se deja de ofrecer y solo cabe rehacerla. */
+const CADUCA_H = 7 * 24;
+
+/* Rehacer la previsión del MISMO punto que se guardó, no del centro del mapa.
+   Es la diferencia entre un toque y tener que volver a encuadrar la sierra. */
+async function actualizaTiempoGuardado() {
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem(LS_TIEMPO)); } catch (e) {}
+  const $s = document.getElementById('tiempo-sal');
+  if (!g || !g.pt) return;
+  if ($s) $s.innerHTML = '<div class="pista">Consultando ' + g.nom + '…</div>';
+  try {
+    const [r] = await pideTiempo([g.pt], 7);
+    guarda(LS_TIEMPO, { t: Date.now(), nom: g.nom, pt: g.pt, d: r.daily });
+    pintaTiempoGuardado(true);
+  } catch (e) {
+    if ($s) $s.innerHTML = '<div class="viejo">No se ha podido consultar: ' + e.message + '</div>';
+    pintaTiempoGuardado();
+  }
+}
 
 function pintaTiempoGuardado(abrir) {
   let g = null;
   try { g = JSON.parse(localStorage.getItem(LS_TIEMPO)); } catch (e) {}
   const $s = document.getElementById('tiempo-sal');
   if (!g || !g.d) { if ($s) $s.innerHTML = ''; return; }
+  const h = horasDesde(g.t), caducada = h > CADUCA_H;
+  /* Pasados dos días se pinta de viejo aunque todavía quede algún día por
+     venir: decir «hace 5 días» en el mismo gris que «hace 2 horas» hace que se
+     lea igual, y era justo lo que pasaba desapercibido. */
+  const vieja = h > 48;
   /* en el panel solo queda el rastro; lo que se lee va a la hoja */
-  if ($s) $s.innerHTML = '<div class="pista">Última previsión: ' + g.nom + ', ' + cuandoSe(g.t)
-    + '. <a href="#" id="tiempo-verla">Verla</a></div>';
+  if ($s) $s.innerHTML = '<div class="pista' + (vieja || caducada ? ' viejo' : '') + '">'
+    + (caducada ? 'Previsión caducada: ' : 'Última previsión: ')
+    + g.nom + ', ' + cuandoSe(g.t) + '.'
+    + (caducada ? ' Ya no queda ningún día por venir.' : '')
+    + ' <a href="#" id="tiempo-actu">Actualizarla</a>'
+    + (caducada ? '' : ' · <a href="#" id="tiempo-verla">Verla</a>')
+    + '</div>';
   const $v = document.getElementById('tiempo-verla');
   if ($v) $v.onclick = ev => { ev.preventDefault(); pintaTiempoGuardado(true); };
+  const $a = document.getElementById('tiempo-actu');
+  if ($a) $a.onclick = ev => { ev.preventDefault(); actualizaTiempoGuardado(); };
   if (abrir) abreHoja('Previsión', g.nom + ' · ' + cuandoSe(g.t),
-    tablaTiempo(g.d, g.pt) + '<div class="pista">Datos de Open-Meteo (CC BY 4.0).</div>');
+    (h > 12 ? '<div class="viejo" style="margin-bottom:10px">Esto se consultó hace '
+        + (h < 48 ? Math.round(h) + ' horas' : Math.round(h / 24) + ' días')
+        + '. Los días que ya han pasado siguen aquí porque es lo que se guardó, '
+        + 'no lo que va a hacer.</div>' : '')
+    + tablaTiempo(g.d, g.pt) + '<div class="pista">Datos de Open-Meteo (CC BY 4.0).</div>');
 }
 
 /* Siempre el CENTRO DE LA PANTALLA, aunque haya GPS. Es una herramienta de
@@ -6815,7 +6871,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v78';
+const VERSION = 'v80';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };

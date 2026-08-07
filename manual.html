@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual · Mapas IGN offline</title>
+<style>
+  :root{
+    --papel:#faf8f3; --tinta:#2b2823; --suave:#6b6862; --linea:#e3ded2;
+    --verde:#1f5c3d; --verde-claro:#e8f0ea;
+    --morado:#6b3fa0; --rojo:#8f2d20; --ambar:#8a6d10; --azul:#1f3a6b;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--papel);color:var(--tinta);
+    font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    -webkit-text-size-adjust:100%}
+
+  /* ---- estructura ---- */
+  .env{display:flex;align-items:flex-start;max-width:1180px;margin:0 auto}
+  nav{position:sticky;top:0;flex:0 0 264px;height:100vh;overflow-y:auto;
+    padding:22px 14px 60px;border-right:1px solid var(--linea);background:#fff}
+  main{flex:1 1 auto;min-width:0;padding:28px 34px 90px}
+
+  /* ---- navegación ---- */
+  .marca{font-weight:700;color:var(--verde);font-size:15px;letter-spacing:-.01em;margin:0 0 2px}
+  .marca span{display:block;font-weight:400;font-size:11.5px;color:var(--suave);letter-spacing:.02em}
+  #buscar{width:100%;padding:8px 10px;margin:14px 0 6px;border:1px solid var(--linea);
+    border-radius:9px;font:inherit;font-size:13px;background:var(--papel)}
+  #buscar:focus{outline:none;border-color:var(--verde);background:#fff}
+  #cuenta{font-size:11.5px;color:var(--suave);min-height:16px;margin:0 0 8px}
+  nav ol{list-style:none;margin:0;padding:0;counter-reset:cap}
+  nav li{margin:0}
+  nav a{display:block;padding:5px 8px;border-radius:7px;color:var(--tinta);
+    text-decoration:none;font-size:13.5px;line-height:1.35}
+  nav a:hover{background:var(--verde-claro)}
+  nav a.act{background:var(--verde);color:#fff;font-weight:600}
+  nav .n2{padding-left:22px;font-size:12.5px;color:var(--suave)}
+  nav a.oculto,section.oculto,h3.oculto{display:none}
+
+  /* ---- texto ---- */
+  h1{font-size:27px;line-height:1.2;margin:0 0 6px;color:var(--verde);letter-spacing:-.02em}
+  .sub{color:var(--suave);font-size:14.5px;margin:0 0 30px}
+  h2{font-size:20px;margin:44px 0 4px;color:var(--verde);letter-spacing:-.01em;
+    padding-top:14px;border-top:2px solid var(--linea)}
+  h2:first-of-type{border-top:none;padding-top:0;margin-top:24px}
+  h3{font-size:16px;margin:26px 0 4px;color:var(--tinta)}
+  h4{font-size:13.5px;margin:18px 0 2px;color:var(--suave);
+    text-transform:uppercase;letter-spacing:.06em}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0;padding-left:22px}
+  li{margin:4px 0}
+  a{color:var(--verde)}
+  b,strong{font-weight:650}
+
+  /* ---- piezas ---- */
+  .btn{display:inline-block;background:#fff;border:1px solid var(--linea);
+    border-radius:7px;padding:1px 7px;font-size:13.5px;white-space:nowrap;
+    box-shadow:0 1px 0 rgba(0,0,0,.04)}
+  .ruta{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:13px;background:#f0ece2;padding:1px 5px;border-radius:4px;
+    word-break:break-all}
+  code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:13px;background:#f0ece2;padding:1px 5px;border-radius:4px}
+  pre{background:#2b2823;color:#e8e4da;padding:12px 14px;border-radius:10px;
+    overflow-x:auto;font-size:12.5px;line-height:1.5;margin:12px 0}
+  pre code{background:none;color:inherit;padding:0;font-size:inherit}
+
+  .caja{border:1px solid var(--linea);border-left:3px solid var(--verde);
+    background:#fff;border-radius:0 10px 10px 0;padding:11px 15px;margin:16px 0}
+  .caja p:first-child{margin-top:0} .caja p:last-child{margin-bottom:0}
+  .caja.ojo{border-left-color:var(--rojo)}
+  .caja.truco{border-left-color:var(--ambar)}
+  .caja .et{display:block;font-size:11px;text-transform:uppercase;
+    letter-spacing:.07em;font-weight:700;color:var(--verde);margin-bottom:3px}
+  .caja.ojo .et{color:var(--rojo)}
+  .caja.truco .et{color:var(--ambar)}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--suave);padding:0 10px 6px 0;font-weight:700;border-bottom:1px solid var(--linea)}
+  td{padding:8px 10px 8px 0;border-bottom:1px solid var(--linea);vertical-align:top}
+  td:first-child{white-space:nowrap}
+
+  .pasos{counter-reset:paso;list-style:none;padding-left:0}
+  .pasos>li{counter-increment:paso;position:relative;padding-left:34px;margin:11px 0}
+  .pasos>li::before{content:counter(paso);position:absolute;left:0;top:1px;
+    width:23px;height:23px;border-radius:50%;background:var(--verde);color:#fff;
+    font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+  .pt{display:inline-block;width:11px;height:11px;border-radius:50%;
+    vertical-align:-1px;margin-right:5px;border:1px solid rgba(0,0,0,.2)}
+
+  .nada{display:none;padding:26px 0;color:var(--suave);font-size:14.5px}
+  mark{background:#ffe9a8;color:inherit;border-radius:2px;padding:0 1px}
+
+  /* ---- móvil ---- */
+  @media (max-width:860px){
+    .env{display:block}
+    nav{position:static;height:auto;width:auto;flex:none;border-right:none;
+      border-bottom:1px solid var(--linea);padding:16px 18px}
+    nav ol{column-count:2;column-gap:14px}
+    main{padding:20px 18px 70px}
+    h1{font-size:23px} h2{font-size:18.5px}
+    body{font-size:16.5px}
+  }
+
+  /* ---- papel ---- */
+  @media print{
+    nav,#buscar,#cuenta,.noimp{display:none!important}
+    .env{display:block;max-width:none}
+    main{padding:0}
+    body{background:#fff;font-size:10.5pt;line-height:1.45}
+    h1{font-size:22pt} h2{font-size:15pt;page-break-after:avoid;margin-top:16pt}
+    h3{font-size:12pt;page-break-after:avoid}
+    /* Las tablas SÍ se pueden partir: prohibirlo arrastraba el titulo a la
+       pagina siguiente y dejaba medio folio en blanco cada vez. Lo que no se
+       parte es cada FILA, que es lo que de verdad molesta leer a caballo. */
+    pre,.caja{page-break-inside:avoid}
+    tr,li{page-break-inside:avoid}
+    thead{display:table-header-group}
+    pre{background:#f4f2ec;color:#2b2823;border:1px solid #ddd}
+    a{color:inherit;text-decoration:none}
+    section{page-break-inside:auto}
+  }
+</style>
+</head>
+<body>
+<div class="env">
+
+<nav>
+  <p class="marca">Mapas IGN offline<span>Manual de uso · v80</span></p>
+  <input type="search" id="buscar" placeholder="Buscar en el manual…" autocomplete="off">
+  <div id="cuenta"></div>
+  <ol id="indice"></ol>
+</nav>
+
+<main>
+<h1>Mapas IGN offline</h1>
+<p class="sub">Manual completo · agosto de 2026 · versión 80 de la app</p>
+
+<div class="caja noimp">
+  <span class="et">Cómo usar esto</span>
+  <p>El buscador de la izquierda filtra el manual entero: escribe «emergencia», «token» o «renombrar»
+  y se queda solo lo que hable de eso. En el móvil el índice está arriba.</p>
+  <p>Este manual va dentro de la app, así que <b>se abre sin cobertura</b>. Que es justo donde no
+  te acuerdas de cómo iba la pantalla de emergencia.</p>
+</div>
+
+<!-- ============================================================ -->
+<section id="s-que">
+<h2>1 · Qué es esto</h2>
+
+<p>Una aplicación web tuya, publicada en
+<span class="ruta">chernanzfinanzas-gif.github.io/mapas-ign/</span>, que hace cuatro cosas:</p>
+
+<ul>
+  <li><b>Mapas del IGN sin cobertura.</b> Te descargas la zona antes de salir y en el monte
+  funciona con el móvil en modo avión.</li>
+  <li><b>Tu colección de rutas.</b> Catorce años de GPX, 694, dibujados sobre el mapa.</li>
+  <li><b>Objetivos.</b> Las rutas que quieres hacer: las cargas, las dibujas, las editas y te
+  las llevas al reloj.</li>
+  <li><b>El tiempo y los avisos.</b> Previsión del sitio que estás mirando, comparación entre tus
+  zonas y los avisos de AEMET.</li>
+</ul>
+
+<p>No es una app de la tienda: es una web instalable. Se abre en el navegador y, si le dices
+«Añadir a la pantalla de inicio», se comporta como una app normal.</p>
+
+<h3>Instalarla en el móvil</h3>
+<ol class="pasos">
+  <li>Abre la dirección en Chrome.</li>
+  <li>Menú de los tres puntos → <b>Añadir a la pantalla de inicio</b>.</li>
+  <li>Ábrela desde el icono, no desde el navegador.</li>
+</ol>
+<p>Merece la pena hacerlo: instalada, el navegador te concede <b>almacenamiento permanente</b> y
+no borra los mapas descargados aunque el móvil se quede sin espacio.</p>
+
+<h3>Actualizar a una versión nueva</h3>
+<p>Cuando se publica una versión nueva hay que <b>recargar dos veces</b>. La primera trae el
+service worker nuevo; la segunda ya sirve con él. Para comprobar qué versión tienes:
+<span class="btn">☰</span> → <b>Ruta y almacenamiento</b>, primera línea.</p>
+<p>Si después de dos recargas sigue la vieja, cierra la pestaña del todo y vuelve a abrir.
+Android se agarra al service worker viejo hasta que se cierra.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-mapa">
+<h2>2 · La pantalla del mapa</h2>
+
+<h3>La barra de arriba</h3>
+<table>
+<tr><th>Control</th><th>Qué hace</th></tr>
+<tr><td><span class="btn">☰</span></td><td>Abre el panel con todo lo demás. Recuerda por qué sección ibas.</td></tr>
+<tr><td><b>Nombre de zona</b></td><td>Es un botón. Lo pulsas y se convierte en buscador: escribes un sitio y el mapa va allí.</td></tr>
+<tr><td><span class="btn">Mapa</span> / <span class="btn">Encima</span></td><td>Las dos capas superpuestas. Debajo, el deslizador de transparencia.</td></tr>
+<tr><td><span class="btn">Zoom</span></td><td>Botón que se despliega en un deslizador vertical a la derecha.</td></tr>
+<tr><td><span class="btn">◉</span></td><td>El GPS. Pulsando repetidamente: apagado → seguirte → seguirte y orientar el mapa.</td></tr>
+</table>
+
+<h3>El buscador</h3>
+<p>Busca en este orden, y por eso encuentra cosas que Google no:</p>
+<ol>
+  <li><b>Tus zonas</b> — los sitios donde has andado, sacados de los nombres de tu colección.</li>
+  <li><b>Tus rutas</b> — por nombre, sin tildes ni mayúsculas: «penalara» encuentra «Peñalara».</li>
+  <li><b>Puntos de OSM descargados</b> — fuentes, cimas, refugios que tengas guardados.</li>
+  <li><b>Nominatim</b> — el buscador de OpenStreetMap, solo si hay cobertura.</li>
+</ol>
+<p>Los tres primeros funcionan <b>sin conexión</b>.</p>
+
+<h3>Las capas</h3>
+<p>Se eligen en los dos selectores. Las que se pueden descargar para el monte llevan
+un distintivo; las demás son solo online.</p>
+<table>
+<tr><th>Capa</th><th>Para qué</th><th>Offline</th></tr>
+<tr><td><b>Topográfico MTN</b></td><td>El mapa de papel del IGN: curvas de nivel, sendas, toponimia.</td><td>Sí</td></tr>
+<tr><td><b>Ortofoto PNOA</b></td><td>Foto aérea. Confirma si la senda sigue existiendo sobre el terreno.</td><td>Sí</td></tr>
+<tr><td><b>IGN Base</b></td><td>Cartografía limpia: carreteras y pueblos.</td><td>Sí</td></tr>
+<tr><td><b>MTN 1ª edición</b></td><td>Hojas de 1915–1960. Caminos, molinos y topónimos desaparecidos.</td><td>Sí</td></tr>
+<tr><td><b>OpenStreetMap</b></td><td>Sendas GR/PR, fuentes, refugios. Actualizado a diario.</td><td>No</td></tr>
+<tr><td><b>CyclOSM</b></td><td>Los mismos datos con los caminos <b>mucho más gruesos</b>. El más legible al sol.</td><td>No</td></tr>
+<tr><td><b>Tracestrack Topo</b></td><td>El más nítido sobre datos de OSM, rótulos en español. Lleva clave con cuota.</td><td>No</td></tr>
+<tr><td><b>OpenHikingMap</b></td><td>Estilo de senderismo sobre fondo claro.</td><td>No</td></tr>
+</table>
+
+<div class="caja ojo">
+  <span class="et">Por qué OSM no se descarga</span>
+  <p>No es un olvido. La política de teselas de OpenStreetMap prohíbe expresamente descargarse
+  zonas por adelantado. Se respeta: esas capas se ven con datos y el service worker tampoco las guarda.</p>
+</div>
+
+<h3>Legibilidad al sol</h3>
+<p><span class="btn">☰</span> → <b>Legibilidad al sol</b>. Cuatro modos: Normal, Realzado, Máximo
+y <b>Noche</b>. Este último apaga y entibia toda la pantalla: de madrugada o volviendo con frontal
+evita que te deslumbres y pierdas la visión nocturna durante un par de minutos.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-descargar">
+<h2>3 · Descargar mapas para el monte</h2>
+
+<p>Es lo primero que hay que hacer antes de una salida, y hay que hacerlo <b>con wifi</b>.</p>
+
+<ol class="pasos">
+  <li>Sitúa el mapa sobre la zona, o pulsa <span class="btn">Dibujar en el mapa la zona a descargar…</span>
+  y marca un polígono a mano.</li>
+  <li>Marca las capas que quieras y elige el <b>zoom máximo</b>. Cada nivel más multiplica por cuatro.</li>
+  <li>Mira la estimación: kilómetros de ancho, número de teselas y megas.</li>
+  <li><span class="btn">Descargar esta zona</span>.</li>
+</ol>
+
+<div class="caja truco">
+  <span class="et">Cuánto zoom hace falta</span>
+  <p>Para andar por una senda basta el <b>16</b>. El 17 solo si quieres leer topónimos pequeños.
+  Si la estimación pasa de 4.000 teselas te lo avisa: al IGN no le gustan las descargas masivas
+  y va a tardar bastante.</p>
+</div>
+
+<p>Lo descargado se ve en <b>Mis zonas</b>, con su tamaño, y se puede borrar de una en una.</p>
+
+<h4>Almacenamiento permanente</h4>
+<p>En <b>Ruta y almacenamiento</b> se ve si el navegador ha concedido almacenamiento permanente.
+Si no lo ha hecho, Chrome podría borrar lo guardado cuando el móvil se quede sin espacio.
+Se pide al descargar, y se concede antes si tienes la app instalada en la pantalla de inicio.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-sendas">
+<h2>4 · Senderos de OpenStreetMap</h2>
+
+<p>Aparte de las teselas, se pueden descargar los <b>senderos como datos</b>: la geometría de los
+caminos, que pesa una fracción y se dibuja siempre nítida a cualquier zoom.</p>
+
+<p>Tres formas de elegir la zona: dibujándola, la vista actual, o <b>alrededor del GPX cargado</b>
+— esta última es la buena cuando ya tienes el objetivo puesto.</p>
+
+<h3>Llevarlos al otro dispositivo</h3>
+<p>Descargar senderos tira de un servidor público, así que hacerlo dos veces (ordenador y móvil)
+es gastar el doble. Por eso se pueden publicar:</p>
+<ul>
+  <li><span class="btn">Publicar en GitHub</span> — sube el paquete al repositorio. Necesita el token.</li>
+  <li><span class="btn">Descargar el fichero para subirlo a mano</span> — si prefieres no usar token.</li>
+</ul>
+<p>En el otro dispositivo aparecen en <b>Paquetes preparados</b> y se traen de un toque.</p>
+
+<h4>El token de GitHub en la app</h4>
+<p>Está en esta misma sección. Se guarda solo en el navegador donde lo escribes.
+<b>Usa un token distinto en cada dispositivo</b>: así puedes revocar el del móvil si lo pierdes
+sin quedarte sin el del ordenador.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-rutas">
+<h2>5 · Mis rutas — la colección</h2>
+
+<p>Son las que <b>ya has hecho</b>: 694 rutas desde 2013. No se confunden con los objetivos, que
+son las que quieres hacer.</p>
+
+<h3>Verlas y filtrarlas</h3>
+<table>
+<tr><th>Control</th><th>Qué hace</th></tr>
+<tr><td><b>Actividad</b></td><td>Todas, senderismo o bici.</td></tr>
+<tr><td><b>Año</b></td><td>Un año concreto.</td></tr>
+<tr><td><b>Solo las que faltan por revisar</b></td><td>Deja en el mapa las que aún tienen nombre genérico.</td></tr>
+<tr><td><b>Colorear por</b></td><td>Actividad o <b>año</b>. Coloreado por año el mapa es una biografía.</td></tr>
+</table>
+
+<p>Colores por actividad:
+<span class="pt" style="background:#6b3fa0"></span>senderismo ·
+<span class="pt" style="background:#8f2d20"></span>bici ·
+<span class="pt" style="background:#1f3a6b"></span>ya revisada de nombre.</p>
+
+<h3>¿Qué he hecho por aquí?</h3>
+<p>Botón que lista las rutas de tu colección cercanas al centro del mapa. Es la forma de contestar
+«¿esto ya lo he andado?» sin buscar por nombre.</p>
+
+<h3>La ficha de una ruta</h3>
+<p>Tocas la línea en el mapa y sale con la fecha, actividad, distancia y desnivel, más:</p>
+<ul>
+  <li><b>El nombre, editable ahí mismo.</b> Lo cambias y <span class="btn">Guardar nombre</span>.</li>
+  <li><b>Nombre revisado</b> — casilla que se aplica al instante, sin guardar. Muchas rutas se
+  revisan sin tocarles el nombre, y por eso la marca viaja aparte.</li>
+  <li><span class="btn">Seguir esta ruta</span> — la carga como ruta a seguir, con su perfil de altura.</li>
+</ul>
+
+<h3>Revisar los nombres</h3>
+<p>De las 694, muchas se llaman «Senderismo en Colmenar Viejo» porque así las bautizó el reloj.
+Corregirlas es trabajo de varias sentadas, y el sistema está pensado para eso:</p>
+<ol class="pasos">
+  <li>Activa <b>Solo las que faltan por revisar</b>. El mapa se queda con las pendientes.</li>
+  <li>Tocas una, corriges el nombre, y desaparece del mapa.</li>
+  <li>Al terminar la sesión, <span class="btn">Exportar los nombres corregidos</span>.
+  Descarga <span class="ruta">renombres.json</span>.</li>
+  <li>En el otro dispositivo, <span class="btn">Traer nombres de otro dispositivo…</span> y eliges ese fichero.</li>
+</ol>
+
+<div class="caja ojo">
+  <span class="et">Exporta al terminar cada sesión</span>
+  <p>Las marcas de revisado viven <b>solo</b> en el navegador donde las hiciste. No están en el
+  índice, ni en el catálogo, ni en el Excel. Hasta que exportas, un borrado de datos del navegador
+  se las lleva por delante.</p>
+</div>
+
+<p><b>Traer nombres funde, no sustituye.</b> Los dos dispositivos pueden haber avanzado por sitios
+distintos y no se pierde nada de ninguno. Si el mismo id trae nombres distintos gana el que traes,
+y te dice cuántos han cambiado.</p>
+
+<p>Para que el nombre corregido llegue a los ficheros, al Excel y al otro móvil hace falta pasar
+por el ordenador: ver <a href="#s-renombrar">Renombrar Rutas</a>.</p>
+
+<h3>Añadir una ruta ya hecha</h3>
+<p>Está en <b>Mis objetivos</b> aunque sea de la colección, porque comparte el mecanismo.
+<span class="btn">Añadir una ruta ya hecha…</span> → eliges el GPX.</p>
+<p>La app propone el nombre así: si el fichero sigue tu convención <code>AAAAMMDD Algo.gpx</code>
+manda el nombre del fichero; si no, la etiqueta interna del GPX. Puedes cambiarlo ahí.</p>
+<p>Al confirmar pasan tres cosas: la ruta entra en la colección, se descarga el GPX renombrado, y
+se descarga un <span class="ruta">archivar-*.json</span> para el script del ordenador.</p>
+
+<h3>Publicar las rutas añadidas</h3>
+<p>Mientras no las publiques viven solo en ese navegador. Debajo del contador salen listadas una a
+una, con <span class="btn">Ver</span> para saltar a ella en el mapa y <span class="btn">Quitar</span>
+para la que sobre. <b>Quitar solo vale antes de publicar</b>: una vez en el repositorio la sirve él.</p>
+<p><span class="btn">Publicar las rutas añadidas</span> las sube a
+<span class="ruta">rutas/anadidas.json</span>. Acumula, no sustituye: publicar desde el móvil no
+borra lo del ordenador.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-objetivos">
+<h2>6 · Mis objetivos — las que quieres hacer</h2>
+
+<p>Todo GPX que cargas es un objetivo. Se sincronizan por el repositorio, así que preparas la
+salida en el ordenador y la tienes en el móvil sin volver a cargar nada.</p>
+
+<h3>Las tres formas de crear uno</h3>
+<ul>
+  <li><span class="btn">Cargar GPX como objetivo…</span> — uno bajado de internet o del reloj.</li>
+  <li><span class="btn">Dibujar una ruta nueva en el mapa…</span> — el planificador.</li>
+  <li>Desde una ruta de tu colección, <span class="btn">Seguir esta ruta</span>.</li>
+</ul>
+
+<h3>El planificador</h3>
+<p>Vas tocando puntos y <b>BRouter</b> los une por caminos reales, no en línea recta.</p>
+<table>
+<tr><th>Perfil</th><th>Para qué</th></tr>
+<tr><td>A pie por montaña</td><td>El normal para senderismo.</td></tr>
+<tr><td>A pie, montaña dura</td><td>Acepta terreno más exigente.</td></tr>
+<tr><td>Bici de montaña</td><td>Pistas y sendas ciclables.</td></tr>
+<tr><td>Bici gravel</td><td>Firme rodador.</td></tr>
+<tr><td>Lo más corto</td><td>Sin criterio de comodidad. Para casos raros.</td></tr>
+</table>
+<ul>
+  <li><b>Arrastra un punto</b> y la ruta se recalcula pasando por ahí.</li>
+  <li><span class="btn">Volver al punto de partida</span> cierra el anillo.</li>
+  <li><span class="btn">Quitar el último punto</span> deshace.</li>
+  <li>Abajo salen los kilómetros, el desnivel y las <b>horas estimadas</b>.</li>
+</ul>
+
+<h3>Bajarla al Garmin</h3>
+<p><span class="btn">Descargar el .gpx para el reloj</span>. El fichero lleva la traza y además
+<b>waypoints</b> — Salida, Paso 1, Paso 2… Llegada — para que el reloj te avise en cada uno.</p>
+<div class="caja truco">
+  <span class="et">Bájalo al dibujarla</span>
+  <p>Si la guardas como objetivo y luego quieres el GPX, tendrás que abrirla otra vez. Es más
+  cómodo descargarlo en el momento.</p>
+</div>
+
+<h3>Seguir una ruta</h3>
+<p>Con el objetivo activo y el GPS encendido:</p>
+<ul>
+  <li>El <b>perfil de altura</b> muestra dónde estás: lo andado se apaga, lo que queda resalta, y
+  debajo van los kilómetros y los metros de subida <b>que faltan</b>.</li>
+  <li>A más de 500 m del trazado no marca nada. Mejor no situarte que situarte en falso.</li>
+</ul>
+
+<h3>Publicar los objetivos</h3>
+<p><span class="btn">Subirlos todos al repositorio</span>. Al cumplir uno y cerrarlo, se retira
+solo del repositorio y pasa a la colección.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-editor">
+<h2>7 · El editor de GPX</h2>
+
+<p>Se abre desde la lista de objetivos, botón <span class="btn">Editar</span>. Permite arreglar un
+track en el propio móvil, sin ordenador.</p>
+
+<div class="caja">
+  <span class="et">La regla del editor</span>
+  <p><b>Lo que no tocas no se toca.</b> Al sustituir un tramo, los puntos de fuera de la ventana
+  quedan idénticos, con sus alturas y sus tiempos. No se recalcula la ruta entera.</p>
+</div>
+
+<table>
+<tr><th>Operación</th><th>Cómo va</th></tr>
+<tr><td><b>Mover un punto de paso</b></td><td>Tocas un punto del track y luego dónde quieres que pase. Recalcula solo el trozo de alrededor, con una ventana proporcional a lo que lo hayas movido.</td></tr>
+<tr><td><b>Sustituir un tramo</b></td><td>Marcas dos puntos y dibujas el camino nuevo entre ellos.</td></tr>
+<tr><td><b>Recortar</b></td><td>Marcas dos puntos y te quedas con lo de en medio.</td></tr>
+<tr><td><b>Alargar por un extremo</b></td><td>Eliges qué extremo y sigues tocando puntos.</td></tr>
+<tr><td><b>Invertir el sentido</b></td><td>Al revés. Útil para hacer una travesía en el otro sentido.</td></tr>
+<tr><td><b>Unir con otro objetivo</b></td><td>Encadena dos tracks en uno.</td></tr>
+</table>
+
+<ul>
+  <li><b>Perfil</b>: elige cómo se calculan los caminos nuevos. Los mismos cinco del planificador.</li>
+  <li><span class="btn">Deshacer</span> va paso a paso hacia atrás.</li>
+  <li><span class="btn">Guardar</span> crea <b>una ruta nueva</b>. El original no se toca.</li>
+  <li><span class="btn">Descargar el .gpx</span> para llevártela al reloj.</li>
+</ul>
+
+<p>Mientras editas, la ruta bajo edición se oculta de la capa de objetivos para que no tape la
+línea amarilla del editor.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-tiempo">
+<h2>8 · El tiempo</h2>
+
+<h3>Previsión de lo que estoy viendo</h3>
+<p>Siete días del <b>centro del mapa</b>, no de donde estés tú. Así puedes mirar el tiempo de
+Peñalara desde el sofá.</p>
+<p>Una ficha grande para hoy y una columna por día: el cielo en pictograma sobre banda de color,
+máxima y mínima en pastilla, y al pie viento, lluvia y horas de sol.</p>
+
+<h4>La previsión guardada</h4>
+<p>La última consulta se queda guardada y aparece bajo el radio de búsqueda, con cuándo se hizo.
+Debajo de las 48 h se lee normal; a partir de ahí se pinta apagada, y pasados <b>siete días</b>
+se marca como <b>caducada</b> y deja de ofrecerse: una previsión de siete días hecha hace ocho no
+contiene ni un solo día futuro.</p>
+<p><span class="btn">Actualizarla</span> la rehace <b>del mismo sitio</b>, no del centro del mapa.
+Un toque en vez de volver a encuadrar la sierra.</p>
+
+<h3>¿Dónde hace mejor tiempo?</h3>
+<p>Compara <b>tus zonas</b> —las sacadas de los nombres de tu colección— dentro del radio que
+elijas, y las ordena por qué día quieres mirar. El selector de día es una tira horizontal:
+tocas uno y la lista se reordena.</p>
+
+<h3>Avisos de AEMET</h3>
+<p>Los avisos oficiales, por polígonos. Al abrir la app, si hay uno donde está el móvil,
+sale un aviso. Y en la previsión de 7 días aparecen como chip de color en su día.</p>
+<p>Los tres niveles: <b>amarillo</b> apagado, <b>naranja</b> y <b>rojo</b> destacados.</p>
+<p>Necesitan una clave gratuita de AEMET OpenData, que se pide en esa sección y vive solo en el
+navegador. El fichero completo son casi 4 MB, así que la app mira primero la marca de tiempo del
+boletín y no se lo baja si ya lo tiene.</p>
+
+<h3>Boletín de montaña</h3>
+<p>El boletín de AEMET de la zona que elijas. <b>Este lo traes tú</b> cuando lo necesitas; no baja solo.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-seguridad">
+<h2>9 · Seguridad</h2>
+
+<h3>Pantalla de emergencia</h3>
+<p>Botón <span class="btn">SOS</span> en el mapa, o desde el panel. Todo en grande y todo funciona
+sin cobertura:</p>
+<ul>
+  <li><b>Dónde estás</b>, en coordenadas y en UTM.</li>
+  <li><b>Cuánta luz queda</b>.</li>
+  <li><span class="btn">Mandar mi posición</span> — comparte o copia un texto con tus coordenadas
+  y un enlace de Google Maps.</li>
+  <li><span class="btn">Mandar los datos del 112</span> — el texto con lo que te van a preguntar.</li>
+  <li><span class="btn">Volver por donde vine</span> — usa la traza grabada.</li>
+</ul>
+
+<h3>Grabar la ruta</h3>
+<p>Plan B del reloj, por si se queda sin batería.</p>
+<div class="caja ojo">
+  <span class="et">Limitación real</span>
+  <p>El navegador congela la app con la pantalla apagada, así que la <b>grabación continua solo
+  funciona con la app a la vista</b>. Las migas de pan sí valen siempre: apuntan un punto cada vez
+  que miras el móvil, y eso no gasta nada.</p>
+</div>
+<p>Se puede parar, guardar como ruta, o descargar en .gpx.</p>
+
+<h3>Puntos marcados y punto de partida</h3>
+<p>El botón de marcar punto guarda una fuente, un cruce o lo que sea, con nombre.
+<b>Punto de partida</b> es para el coche: lo marcas al salir y luego lo tienes localizado.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-pc">
+<h2>10 · El ordenador — los scripts</h2>
+
+<p>Dos carpetas dentro de OneDrive, y cada una hace algo distinto:</p>
+<table>
+<tr><th>Carpeta</th><th>Qué es</th></tr>
+<tr><td><span class="ruta">App Mapas</span></td><td>La app. Esta carpeta <b>es</b> el repositorio, carpeta por carpeta.</td></tr>
+<tr><td><span class="ruta">Proyecto Mis Rutas</span></td><td>El archivo: los GPX en <span class="ruta">Tracks Diario</span>, el catálogo y el Excel de actividades.</td></tr>
+</table>
+
+<h3 id="s-publicar">Publicar Mapas.bat</h3>
+<p>En <span class="ruta">App Mapas</span>. Sube la app al repositorio sin necesidad de Git.</p>
+<table>
+<tr><th>Opción</th><th>Qué hace</th></tr>
+<tr><td><b>1 · Prueba en seco</b></td><td>Compara y enseña qué subiría. <b>No necesita token.</b> Imposible romper nada.</td></tr>
+<tr><td><b>2 · Publicar</b></td><td>Sube lo nuevo y lo cambiado en <b>un solo commit</b>.</td></tr>
+<tr><td><b>3 · Solo las rutas</b></td><td>Igual pero mirando solo <span class="ruta">rutas\</span>. Para cuando has tocado la colección.</td></tr>
+<tr><td><b>4 · Traer del repositorio</b></td><td>Baja lo que allí sea distinto. Guarda copia de lo que sustituya.</td></tr>
+</table>
+
+<p>Compara por el <b>hash de git</b>, no por la fecha: dos ficheros con el mismo contenido son el
+mismo aunque OneDrive les haya cambiado la hora. Antes de subir un fichero divergente mira cuándo
+se tocó en el repositorio y <b>te avisa si allí es más nuevo</b>.</p>
+<p>Nunca borra del repositorio. Si algo está allí y no en tu carpeta, te lo dice y lo deja.</p>
+
+<h4>El token</h4>
+<p>Un fichero de texto en <span class="ruta">C:\Users\carlo\publicar-token-mapas.txt</span>, con
+el token dentro y nada más. Fine-grained, solo el repositorio <code>mapas-ign</code>, permisos
+<b>Contents = Read and write</b> y <b>Metadata = Read</b>.</p>
+<div class="caja ojo">
+  <span class="et">Fuera de OneDrive a propósito</span>
+  <p>Si estuviera en una carpeta sincronizada, el token acabaría en la nube y en cualquier otro
+  ordenador donde entres con tu cuenta.</p>
+</div>
+<div class="caja truco">
+  <span class="et">La trampa del Bloc de notas</span>
+  <p>Añade su propio <code>.txt</code>, y como Windows esconde las extensiones conocidas el fichero
+  se llama <code>...txt.txt</code> pero se ve bien. Para esquivarlo, al guardar escribe el nombre
+  <b>entre comillas</b>: <code>"C:\Users\carlo\publicar-token-mapas.txt"</code>. Si aun así falla,
+  el script busca lo que se le parezca y te lo dice.</p>
+</div>
+
+<h4>Lo que nunca sube</h4>
+<p><span class="ruta">BACKLOG.md</span>, las carpetas que empiezan por <code>_</code>, las copias
+de seguridad, los <code>prueba-*.html</code> (andamios de diagnóstico) y los <code>lote-*</code>.</p>
+
+<h3 id="s-archivar">Archivar Rutas.bat</h3>
+<p>En <span class="ruta">Proyecto Mis Rutas</span>. Recoge lo que la app deja en Descargas cuando
+cierras una ruta, y lo mete en su sitio:</p>
+<ul>
+  <li>Mueve el GPX a <span class="ruta">Tracks Diario\Senderismo</span> o <span class="ruta">\Bici exterior</span>.</li>
+  <li>Añade la ruta a <span class="ruta">catalogo-rutas.json</span>.</li>
+  <li>Escribe la fila del Excel, en su hoja y en el inventario.</li>
+</ul>
+<div class="caja">
+  <span class="et">Si el día ya está apuntado</span>
+  <p>Muchas rutas que faltan son de días que <b>ya están en el Excel</b> —la actividad se registró
+  en su momento y lo que faltaba era el track—. En ese caso archiva el track y actualiza el
+  catálogo pero <b>no toca el Excel</b>, y te enseña lado a lado lo que traes y lo que ya hay, con
+  su número de fila. Nunca adivina cuál de dos actividades del mismo día es la tuya.</p>
+</div>
+
+<h3 id="s-renombrar">Renombrar Rutas.bat</h3>
+<p>Devuelve a los ficheros los nombres que corregiste en la app. <b>Cuatro pasos</b>, cada uno con
+su prueba en seco:</p>
+<table>
+<tr><th>Paso</th><th>Qué toca</th></tr>
+<tr><td>1 y 2</td><td>Renombra el <code>.gpx</code>, corrige la etiqueta <code>&lt;name&gt;</code> de dentro, actualiza <span class="ruta">catalogo-rutas.json</span> y el Excel en sus cuatro hojas.</td></tr>
+<tr><td>3 y 4</td><td>Actualiza <span class="ruta">App Mapas\rutas\index.json</span>, que es de donde la app lee los nombres.</td></tr>
+</table>
+<p>Antes hay que dejar el <span class="ruta">renombres.json</span> exportado en
+<span class="ruta">Proyecto Mis Rutas</span>, sustituyendo el que hubiera.</p>
+<div class="caja ojo">
+  <span class="et">Los pasos 3 y 4 no son opcionales</span>
+  <p>Sin ellos, el nombre corregido existe en los ficheros, en el catálogo y en el Excel, pero
+  <b>no en la app</b>: solo lo verías en el navegador donde lo escribiste. Y después hay que subir
+  <span class="ruta">rutas\</span> con la opción 3 de Publicar Mapas, o el móvil sigue igual.</p>
+</div>
+<p>Es repetible sin miedo: lo que ya está aplicado lo detecta y lo salta.</p>
+
+<h3>arreglar_gpx.py</h3>
+<p>Deja los GPX como XML válido. Un GPX inválido lo lee Python pero <b>no el navegador</b>: al
+cargarlo en la app diría «Ese fichero no tiene puntos de ruta», que parece que está vacío cuando
+lo que pasa es que no se ha podido leer.</p>
+<ul>
+  <li>El <code>&amp;</code> sin escapar.</li>
+  <li>Los prefijos <code>ns3:</code> de Garmin sin declarar.</li>
+  <li>Ficheros cortados a medias: recorta al último punto completo y cierra las etiquetas.</li>
+</ul>
+<p>Copia antes y comprueba que parsea después. <code>python arreglar_gpx.py</code> para la pasada
+en seco, <code>--aplicar</code> para hacerlo.</p>
+
+<h3>Los otros ficheros</h3>
+<table>
+<tr><td><span class="ruta">catalogo-rutas.json</span></td><td>El índice del archivo del PC: id, nombre, fecha y fichero de cada ruta.</td></tr>
+<tr><td><span class="ruta">renombres.json</span></td><td>Lo exportado de la app: nombres corregidos y lista de revisadas.</td></tr>
+<tr><td><span class="ruta">Senderismo y Actividades 2012-2026.xlsx</span></td><td>El Excel. Hojas Senderismo, Bici exterior, Paseos por Madrid e Inventario completo.</td></tr>
+<tr><td><span class="ruta">Colecciones Gpx\</span></td><td>Colecciones anuales de 2013 a 2021. Son un <b>respaldo independiente</b>: de ahí se recuperó El Yelmo entero cuando el track del archivo estaba truncado.</td></tr>
+</table>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-recetas">
+<h2>11 · Recetas</h2>
+
+<h3>Mañana voy al monte</h3>
+<ol class="pasos">
+  <li>Carga el objetivo, o dibújalo con el planificador.</li>
+  <li>Descarga la zona del mapa con wifi. Zoom 16 basta.</li>
+  <li>Descarga los senderos de OSM alrededor del GPX.</li>
+  <li>Mira la previsión y los avisos de AEMET.</li>
+  <li>Baja el .gpx al reloj si lo vas a seguir con él.</li>
+  <li>Marca el punto de partida al aparcar.</li>
+</ol>
+
+<h3>He hecho una ruta nueva</h3>
+<ol class="pasos">
+  <li>En la app: <span class="btn">Añadir una ruta ya hecha…</span> con el GPX del reloj.</li>
+  <li>Revisa el nombre y acepta. Se descargan el GPX y el encargo.</li>
+  <li><span class="btn">Publicar las rutas añadidas</span> para tenerla en los dos dispositivos.</li>
+  <li>En el ordenador: <b>Archivar Rutas.bat</b>. Prueba en seco, lee el bloque de «el Excel no se
+  toca», y aplica.</li>
+</ol>
+
+<h3>Quiero corregir nombres</h3>
+<ol class="pasos">
+  <li>Filtro <b>Solo las que faltan por revisar</b>. Corriges las que quieras.</li>
+  <li><span class="btn">Exportar los nombres corregidos</span> al terminar la sesión.</li>
+  <li>Deja el <span class="ruta">renombres.json</span> en <span class="ruta">Proyecto Mis Rutas</span>.</li>
+  <li><b>Renombrar Rutas.bat</b>, los cuatro pasos.</li>
+  <li><b>Publicar Mapas.bat</b> → opción 3.</li>
+</ol>
+
+<h3>He cambiado la app</h3>
+<ol class="pasos">
+  <li><b>Publicar Mapas.bat</b> → opción 1, para ver qué cambiaría.</li>
+  <li>Opción 2. Descarta lo que el repositorio tenga más nuevo si no sabes qué es.</li>
+  <li>Espera un minuto a que GitHub reconstruya.</li>
+  <li>Recarga dos veces en el móvil y comprueba la versión.</li>
+</ol>
+
+<h3>He revisado nombres en el móvil</h3>
+<ol class="pasos">
+  <li>Exportas desde el móvil. El fichero cae en Descargas del teléfono.</li>
+  <li>Lo llevas al ordenador (OneDrive, correo, cable).</li>
+  <li>Lo dejas en <span class="ruta">Proyecto Mis Rutas</span> y sigues la receta de nombres.</li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-donde">
+<h2>12 · Dónde vive cada cosa</h2>
+
+<p>Saber esto ahorra mucho tiempo cuando algo no aparece donde esperabas.</p>
+
+<table>
+<tr><th>Qué</th><th>Dónde</th></tr>
+<tr><td>Los mapas descargados</td><td>En el navegador de cada dispositivo. No viajan.</td></tr>
+<tr><td>La colección de rutas</td><td><span class="ruta">rutas/index.json</span> + <span class="ruta">rutas/geo-*.json</span> en el repositorio.</td></tr>
+<tr><td>Las rutas añadidas desde la app</td><td><span class="ruta">rutas/anadidas.json</span>, aparte del índice.</td></tr>
+<tr><td>Los objetivos</td><td><span class="ruta">objetivos/objetivos.json</span> en el repositorio.</td></tr>
+<tr><td>Los paquetes de senderos</td><td><span class="ruta">sendas/paquetes.json</span> en el repositorio.</td></tr>
+<tr><td>Nombres corregidos y revisadas</td><td><b>Solo en el navegador</b> hasta que exportas.</td></tr>
+<tr><td>Los tokens y la clave de AEMET</td><td>Solo en el navegador donde los escribes. El del PC, en un fichero fuera de OneDrive.</td></tr>
+<tr><td>Los GPX originales</td><td><span class="ruta">Proyecto Mis Rutas\Tracks Diario\</span></td></tr>
+</table>
+
+<div class="caja">
+  <span class="et">La regla de oro</span>
+  <p>Lo que está en el <b>repositorio</b> lo ven los dos dispositivos. Lo que está en el
+  <b>navegador</b> lo ve solo ese aparato. Cuando algo «no aparece en el móvil», casi siempre es
+  que se quedó en el navegador del ordenador.</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-problemas">
+<h2>13 · Cuando algo falla</h2>
+
+<table>
+<tr><th>Síntoma</th><th>Qué suele ser</th></tr>
+<tr><td>Sale el diseño antiguo después de subir</td><td>Falta la segunda recarga. Si persiste, cierra la pestaña del todo. Comprueba la versión en <b>Ruta y almacenamiento</b>.</td></tr>
+<tr><td>«Ese fichero no tiene puntos de ruta»</td><td>El GPX no es XML válido. Pásale <code>arreglar_gpx.py</code>.</td></tr>
+<tr><td>El nombre corregido no sale en el móvil</td><td>Faltan los pasos 3 y 4 de Renombrar Rutas, o subir <span class="ruta">rutas\</span>.</td></tr>
+<tr><td>Una ruta aparece dos veces</td><td>El identificador es <b>fecha + nombre</b>: el mismo track con dos nombres son dos rutas. Quita la que sobre desde la lista de añadidas.</td></tr>
+<tr><td>«No encuentro el token»</td><td>El fichero no existe o el Bloc de notas le puso <code>.txt</code> de más.</td></tr>
+<tr><td>GitHub responde 401 o 403</td><td>Al token le falta <b>Contents: Read and write</b>, o ha caducado.</td></tr>
+<tr><td>GitHub responde 404</td><td>El token es de otro repositorio.</td></tr>
+<tr><td>El deploy falla y no es tu culpa</td><td>Mira <a href="https://www.githubstatus.com" target="_blank" rel="noopener">githubstatus.com</a>. Ya ha pasado.</td></tr>
+<tr><td>El almacenamiento está lleno</td><td>Publica las rutas añadidas o quita tracks. Se ve en <b>Ruta y almacenamiento</b>.</td></tr>
+<tr><td>La grabación se para sola</td><td>El navegador congela la app con la pantalla apagada. No tiene arreglo desde aquí.</td></tr>
+</table>
+</section>
+
+<!-- ============================================================ -->
+<section id="s-pendiente">
+<h2>14 · Lo que queda por hacer</h2>
+
+<ul>
+  <li><b>Los nombres.</b> Quedan cerca de 590 rutas con nombre genérico.</li>
+  <li><b>Fundir <span class="ruta">anadidas.json</span> en el índice.</b> Hoy tiene cuatro rutas que
+  están también en el catálogo del PC. No molesta, pero conviene juntarlo antes de regenerar nada.</li>
+  <li><b>Los tracks truncados.</b> Hay días cuyo GPX del archivo es más corto que lo que dice el
+  Excel. Las <b>colecciones anuales</b> de 2013 a 2021 pueden tenerlos completos: así se recuperó
+  El Yelmo. Es la vía para cerrarlo sin volver a bajar nada de Garmin.</li>
+  <li><b>Diez actividades sin ruta</b> cuyo GPX está en el disco pero nunca entró en la colección:
+  Riaza, Soria, Irati, Teide, Sigüenza, Benasque, Laredo, Zahara, Aldeadávila y Ferrol.</li>
+  <li><b>Ideas sin hacer:</b> capas de espacios protegidos y vías pecuarias, «¿qué cumbre es esa?»,
+  isócronas, transporte público al inicio de ruta.</li>
+</ul>
+</section>
+
+</main>
+</div>
+
+<script>
+/* ---- índice, construido del propio documento --------------------------
+   Así no hay dos listas que mantener: si mañana se añade una sección, el
+   índice la recoge sola. */
+(function(){
+  var ind = document.getElementById('indice');
+  var secs = [].slice.call(document.querySelectorAll('main section'));
+  secs.forEach(function(sec){
+    var h2 = sec.querySelector('h2');
+    if (!h2) return;
+    if (!h2.id) h2.id = sec.id + '-t';
+    ind.appendChild(fila(sec.id, h2.textContent, ''));
+    [].slice.call(sec.querySelectorAll('h3')).forEach(function(h3, i){
+      if (!h3.id) h3.id = sec.id + '-h' + i;
+      ind.appendChild(fila(h3.id, h3.textContent, 'n2'));
+    });
+  });
+  function fila(id, txt, cls){
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#' + id; a.textContent = txt; if (cls) a.className = cls;
+    a.dataset.para = id;
+    li.appendChild(a); return li;
+  }
+
+  /* marcar dónde estás al desplazarte */
+  var enlaces = [].slice.call(ind.querySelectorAll('a'));
+  var obs = new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if (!e.isIntersecting) return;
+      enlaces.forEach(function(a){ a.classList.toggle('act', a.dataset.para === e.target.id); });
+    });
+  }, { rootMargin:'-10% 0px -80% 0px' });
+  [].slice.call(document.querySelectorAll('main section, main h3')).forEach(function(n){
+    if (n.id) obs.observe(n);
+  });
+
+  /* ---- buscador -------------------------------------------------------
+     Filtra por secciones enteras en vez de por párrafos sueltos: un párrafo
+     sin su título alrededor no se entiende. Resalta lo encontrado. */
+  var $b = document.getElementById('buscar');
+  var $c = document.getElementById('cuenta');
+  var nada = document.createElement('p');
+  nada.className = 'nada';
+  nada.textContent = 'Nada con esa palabra. Prueba con menos letras.';
+  document.querySelector('main').appendChild(nada);
+
+  var st = function(t){ return (t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); };
+  var origen = secs.map(function(s){ return { sec:s, txt: st(s.textContent) }; });
+
+  function limpiaMarcas(nodo){
+    [].slice.call(nodo.querySelectorAll('mark')).forEach(function(m){
+      var p = m.parentNode;
+      p.replaceChild(document.createTextNode(m.textContent), m);
+      p.normalize();
+    });
+  }
+  function marca(nodo, q){
+    var it = document.createTreeWalker(nodo, NodeFilter.SHOW_TEXT, null);
+    var pend = [], n;
+    while ((n = it.nextNode())) {
+      if (n.parentNode.nodeName === 'SCRIPT' || n.parentNode.nodeName === 'STYLE') continue;
+      if (st(n.nodeValue).indexOf(q) >= 0) pend.push(n);
+    }
+    pend.forEach(function(n){
+      var texto = n.nodeValue, plano = st(texto), frag = document.createDocumentFragment();
+      var i = 0, j;
+      while ((j = plano.indexOf(q, i)) >= 0) {
+        if (j > i) frag.appendChild(document.createTextNode(texto.slice(i, j)));
+        var m = document.createElement('mark');
+        m.textContent = texto.slice(j, j + q.length);
+        frag.appendChild(m);
+        i = j + q.length;
+      }
+      if (i < texto.length) frag.appendChild(document.createTextNode(texto.slice(i)));
+      n.parentNode.replaceChild(frag, n);
+    });
+  }
+
+  var t = null;
+  $b.addEventListener('input', function(){
+    clearTimeout(t);
+    t = setTimeout(filtra, 120);
+  });
+  function filtra(){
+    var q = st($b.value.trim());
+    origen.forEach(function(o){ limpiaMarcas(o.sec); });
+    if (q.length < 2) {
+      origen.forEach(function(o){ o.sec.classList.remove('oculto'); });
+      enlaces.forEach(function(a){ a.classList.remove('oculto'); });
+      nada.style.display = 'none';
+      $c.textContent = '';
+      return;
+    }
+    var n = 0, vivos = {};
+    origen.forEach(function(o){
+      var hay = o.txt.indexOf(q) >= 0;
+      o.sec.classList.toggle('oculto', !hay);
+      if (hay) { n++; vivos[o.sec.id] = true; marca(o.sec, q); }
+    });
+    enlaces.forEach(function(a){
+      var id = a.dataset.para;
+      var sec = document.getElementById(id);
+      var raiz = sec && sec.closest ? sec.closest('section') : null;
+      a.classList.toggle('oculto', !(vivos[id] || (raiz && vivos[raiz.id])));
+    });
+    nada.style.display = n ? 'none' : 'block';
+    $c.textContent = n ? (n + (n === 1 ? ' apartado' : ' apartados')) : '';
+  }
+
+  /* Escape limpia la búsqueda: se usa mucho más de lo que parece */
+  $b.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') { $b.value = ''; filtra(); }
+  });
+})();
+</script>
+</body>
+</html>
