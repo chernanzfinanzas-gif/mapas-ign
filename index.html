@@ -2509,9 +2509,18 @@ function bajaFichero(nombre, texto, tipo) {
   } catch (e) { avisa('No se ha podido preparar el fichero'); return false; }
 }
 
-/* nombre de fichero limpio: sin acentos, sin barras, sin sorpresas */
-const nombreFichero = t => (t || 'ruta').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^A-Za-z0-9 ._-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'ruta';
+/* Nombre de fichero limpio. Antes quitaba acentos y cambiaba los espacios por
+   guiones \u00abpor si acaso\u00bb, y eso romp\u00eda la convenci\u00f3n: los 609 ficheros de
+   `Tracks Diario` son \u00ab20130330 Aldea del Roc\u00edo. Do\u00f1ana.gpx\u00bb, con espacios y
+   con e\u00f1es, y `renombrar_rutas.py` los escribe igual. La app descargaba
+   \u00ab20230616 Muniellos-desde-Cangas-del-Narcea.gpx\u00bb y el archivo se llenaba de
+   guiones. Se quita solo lo que Windows no admite de verdad. */
+const nombreFichero = t => (t || 'ruta')
+  .replace(/[\\/:*?"<>|]/g, '-')            // los prohibidos de Windows
+  .replace(/[\u0000-\u001f\u007f]/g, '')   // control, que no se ven y molestan
+  .replace(/\s+/g, ' ').trim()
+  .slice(0, 60).trim().replace(/\.+$/, '')  // Windows tampoco quiere punto final
+  || 'ruta';
 
 /* ---- perfil de altura ---------------------------------------------------
    Los ficheros del reloj traen la altura de cada punto y hasta ahora se tiraba
@@ -2960,7 +2969,10 @@ function abreCierre(f, objPts, r, fich) {
   cont.querySelector('#c-no').onclick = cierra;
   capa.onclick = ev => { if (ev.target === capa) cierra(); };
   cont.querySelector('#c-si').onclick = async () => {
-    const nom = (cont.querySelector('#c-nom').value || '').trim() || f.nom;
+    /* mismo descuido que el de antes, un piso más abajo: si borras el nombre y
+       le das a aceptar, aquí se pedía `f.nom` sin mirar si hay objetivo. En
+       «Añadir una ruta ya hecha» no lo hay, así que reventaba. */
+    const nom = (cont.querySelector('#c-nom').value || '').trim() || (f && f.nom) || r.nom;
     const act = cont.querySelector('#c-act').value;
     cierra();
     await cierraCiclo(f, r, fich, nom, act);
@@ -3295,10 +3307,18 @@ function leeGpxDoc(txt, nombreFichero) {
   const pts = nodos.map(n => [parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon')), altDe(n)])
                    .filter(p => isFinite(p[0]) && isFinite(p[1]));
   if (pts.length < 2) return null;
-  /* el nombre bueno suele estar dentro del GPX; el del fichero es el
-     respaldo por si viene sin etiqueta */
+  /* El nombre. Regla: si el fichero sigue TU convención —«AAAAMMDD Algo.gpx»—
+     manda el nombre del fichero, porque ese lo has escrito tú a propósito.
+     Si no la sigue, manda la etiqueta de dentro del GPX, que es lo normal en
+     un track recién descargado, y el nombre del fichero queda de respaldo.
+     Antes ganaba siempre la etiqueta interna, y por eso un fichero tuyo
+     llamado «20230617 A ver Osos sin fortuna.gpx» proponía «Cangas del Narcea
+     Senderismo», que es lo que le pone el reloj. */
   const et = doc.getElementsByTagName('name')[0];
-  const nom = ((et && et.textContent.trim()) || (nombreFichero || '').replace(/\.gpx$/i, '')).slice(0, 80);
+  const sinExt = (nombreFichero || '').replace(/\.gpx$/i, '').trim();
+  const conFecha = /^\d{8}[ _-]+\S/.test(sinExt);
+  const nom = (conFecha ? sinExt.slice(8).trim().replace(/^[ _-]+/, '')
+                        : ((et && et.textContent.trim()) || sinExt)).slice(0, 80);
   /* el desnivel acumula subidas de más de 3 m, para no contar el ruido del
      altímetro barométrico */
   let subida = 0, prev = null, acum = 0;
@@ -6669,7 +6689,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v74';
+const VERSION = 'v75';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
