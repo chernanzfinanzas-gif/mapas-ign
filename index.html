@@ -1521,7 +1521,9 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <ul id="anadidas-lista"></ul>
       <button class="sec" id="btn-pub-rutas" hidden>Publicar las rutas añadidas</button>
       <div id="renom-cuenta" class="pista"></div>
-      <button class="sec solo-pc" id="btn-renom" disabled>Exportar los nombres corregidos</button>
+      <button class="sec" id="btn-renom" disabled>Exportar los nombres corregidos</button>
+      <button class="sec" id="btn-renom-imp">Traer nombres de otro dispositivo…</button>
+      <input type="file" id="file-renom" accept=".json,application/json" hidden>
     </section>
 
     <section>
@@ -5307,6 +5309,26 @@ function abreFichaRuta(r, latlng) {
   cont.querySelector('.fr-seguir').onclick = () => { mapa.closePopup(); seguirRuta(r); };
   cont.querySelector('.fr-guarda').onclick = () => {
     const nuevo = ($i.value || '').trim();
+
+    /* Las 692 del índice no se pueden tocar desde aquí —viven en ficheros
+       generados—, así que su nombre corregido va a una capa aparte que se
+       superpone al dibujar y que exportas para `Renombrar Rutas.bat`.
+
+       Pero una ruta AÑADIDA y todavía sin publicar sí es tuya y está aquí
+       entera. Si le aplicaba la capa, veías el nombre nuevo y al publicar se
+       subía el viejo, porque publicar lee la ruta guardada y no la capa. Se
+       le cambia el nombre en su sitio y no se usa la capa para nada. */
+    const add = r.c === '@add' && leeAnadidas().find(x => x.id === r.id && !x.pub);
+    if (add && nuevo && nuevo !== add.n) {
+      salvaAnadidas(leeAnadidas().map(x => x.id === r.id ? { ...x, n: nuevo } : x));
+      const n2 = leeNombres(); delete n2[r.id]; salvaNombres(n2);
+      olvidaIndiceRutas();
+      mapa.closePopup();
+      avisa('Renombrada: ' + nuevo);
+      pintaRutas(); pintaAnadidas(); pintaListaRenombres();
+      return;
+    }
+
     const n = leeNombres();
     if (!nuevo || nuevo === r.n) delete n[r.id]; else n[r.id] = nuevo;
     salvaNombres(n);
@@ -5508,6 +5530,62 @@ document.getElementById('rutas-sinrev').onchange = ev => {
   pintaRutas(); pintaListaRenombres();
 };
 document.getElementById('btn-cerca').onclick     = rutasCerca;
+/* ---- traer los nombres de otro dispositivo -------------------------------
+   Faltaba el camino de vuelta. `renombres.json` se exportaba y no se importaba
+   nunca, así que lo revisado en el móvil no llegaba al ordenador ni al revés, y
+   limpiar el navegador se llevaba la revisión entera por delante. Con 588
+   nombres por repasar eso es mucho trabajo guardado en un sitio frágil.
+
+   Se FUNDE, no se sustituye: los dos dispositivos pueden haber avanzado por
+   sitios distintos y ninguno de los dos avances debe perderse. Cuando el mismo
+   id tiene nombre en los dos y no coinciden, gana el que traes —que es lo que
+   acabas de decidir— y se te dice cuántos han cambiado. */
+function fundeRenombres(doc) {
+  if (!doc || typeof doc !== 'object') throw new Error('no es un fichero de nombres');
+  const entran = doc.nombres && typeof doc.nombres === 'object' ? doc.nombres : null;
+  const marcas = Array.isArray(doc.revisadas) ? doc.revisadas : [];
+  if (!entran && !marcas.length) throw new Error('no trae ni nombres ni revisadas');
+
+  const mios = leeNombres();
+  let nuevos = 0, cambiados = 0, iguales = 0;
+  for (const id in (entran || {})) {
+    const v = (entran[id] || '').trim();
+    if (!v) continue;
+    if (!(id in mios)) { mios[id] = v; nuevos++; }
+    else if (mios[id] !== v) { mios[id] = v; cambiados++; }
+    else iguales++;
+  }
+  salvaNombres(mios);
+
+  const antes = revisadas.size;
+  marcas.forEach(id => revisadas.add(id));
+  salvaRevisadas(revisadas);
+
+  return { nuevos, cambiados, iguales, marcasNuevas: revisadas.size - antes };
+}
+
+function pideRenombres() {
+  const ent = document.getElementById('file-renom');
+  ent.onchange = async ev => {
+   try {
+    const fich = ev.target.files[0]; ev.target.value = '';
+    if (!fich) return;
+    let doc;
+    try { doc = JSON.parse(await leeTexto(fich)); }
+    catch (e) { avisa('«' + fich.name + '» no es un JSON válido'); return; }
+    const r = fundeRenombres(doc);
+    pintaListaRenombres(); pintaRutas();
+    const trozos = [];
+    if (r.nuevos)       trozos.push(r.nuevos + ' nombres nuevos');
+    if (r.cambiados)    trozos.push(r.cambiados + ' cambiados');
+    if (r.marcasNuevas) trozos.push(r.marcasNuevas + ' revisadas más');
+    avisa(trozos.length ? 'Traído: ' + trozos.join(', ') + '.'
+                        : 'No traía nada que no tuvieras ya.');
+   } catch (e) { avisa('No se ha podido traer: ' + e.message); }
+  };
+  ent.click();
+}
+document.getElementById('btn-renom-imp').onclick = pideRenombres;
 document.getElementById('btn-renom').onclick = exportaRenombres;
 document.getElementById('btn-pub-rutas').onclick = publicaRutas;
 
@@ -6737,7 +6815,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v76';
+const VERSION = 'v78';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
