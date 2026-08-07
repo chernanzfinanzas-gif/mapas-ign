@@ -2333,7 +2333,11 @@ async function pintaAlmacen() {
       const e = await navigator.storage.estimate();
       /* el navegador da el total del sitio, no solo las teselas: aquí entran
          también los senderos, la colección de rutas y los tracks cargados */
-      txt = 'Ocupado en este dispositivo: <b>' + fmtMB(e.usage || 0) + '</b> de '
+      /* OJO: aquí ponía `txt =` en vez de `txt +=`, así que la línea de la
+         versión que se acaba de escribir arriba se borraba. Resultado: la
+         versión solo se veía en los navegadores donde falla `estimate()`,
+         es decir, casi en ninguno. */
+      txt += 'Ocupado en este dispositivo: <b>' + fmtMB(e.usage || 0) + '</b> de '
           + fmtMB(e.quota || 0) + ' disponibles. Incluye mapas, senderos, rutas y tracks.';
     } catch (er) {}
   }
@@ -6665,7 +6669,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v73';
+const VERSION = 'v74';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
