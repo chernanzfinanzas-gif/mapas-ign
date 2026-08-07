@@ -1353,12 +1353,14 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <div class="ln1" id="ed-pista">…</div>
   <div class="ln2">
     <select id="ed-op" title="Qué quieres hacer">
+      <option value="mover">Mover un punto de paso</option>
       <option value="tramo">Sustituir un tramo</option>
       <option value="recorta">Recortar: quedarme con un trozo</option>
       <option value="alarga">Alargar por un extremo</option>
       <option value="invierte">Invertir el sentido</option>
       <option value="une">Unir con otro objetivo</option>
     </select>
+    <select id="ed-perfil" title="Cómo se calculan los caminos nuevos"></select>
     <button id="ed-deshacer" title="Deshacer el último cambio">↶</button>
     <button id="ed-cancelar" title="Salir sin guardar">✕</button>
   </div>
@@ -4258,10 +4260,15 @@ function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib()
 
    Se guarda siempre como ruta NUEVA: editar es barato, perder un track no. */
 let idEditando = null;
-let edFicha = null, edPts = [], edPila = [], edOp = 'tramo',
-    edSel = [], edExtra = [], edCapa = null, edExtremo = null, edModo = 'caminos';
+let edFicha = null, edPts = [], edPila = [], edOp = 'mover',
+    edSel = [], edExtra = [], edCapa = null, edExtremo = null, edModo = 'caminos',
+    edMoverI = null, edMoverPt = null;
+
+/* el perfil vive ahora en la barra del editor, no prestado del planificador */
+const perfilEd = () => (document.getElementById('ed-perfil') || {}).value || 'hiking-beta';
 
 const EDITOR_OPS = {
+  mover:    'Toca un punto de la ruta y arrástralo: el camino se rehace para pasar por ahí.',
   tramo:    'Toca dos puntos de la ruta: el tramo entre ellos se sustituye.',
   recorta:  'Toca dos puntos: te quedas solo con lo de en medio.',
   alarga:   'Toca cerca de la salida o de la llegada para elegir extremo.',
@@ -4277,6 +4284,24 @@ function masCercanoEnTraza(pts, ll) {
     if (d < dm) { dm = d; mejor = i; }
   }
   return { i: mejor, d: dm };
+}
+
+/* Cuánto track se rehace al mover un punto. Fijo no vale: arrastrarlo cien
+   metros no debe tocar medio valle, y arrastrarlo cinco kilómetros no cabe en
+   una ventana corta. Así que la ventana la marca lo que has arrastrado —el
+   doble a cada lado— con suelo y techo para que nunca sea absurda. */
+function ventanaDe(desplazado) {
+  return Math.min(5000, Math.max(400, desplazado * 2));
+}
+/* índice al que se llega andando `metros` por la traza desde `i` */
+function alejate(pts, i, metros, signo) {
+  let acum = 0, k = i;
+  while (k + signo >= 0 && k + signo < pts.length) {
+    acum += metrosEntre(pts[k], pts[k + signo]);
+    k += signo;
+    if (acum >= metros) break;
+  }
+  return k;
 }
 
 function metricasDe(pts) {
@@ -4324,6 +4349,23 @@ function pintaEd() {
       html:'<div style="width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:'
          + col + ';box-shadow:0 1px 4px rgba(0,0,0,.45)"></div>' }) });
   edSel.forEach((i, k) => capas.push(marca(i, k === 0 ? '#12306e' : '#a8321f', k === 0 ? 'A' : 'B')));
+  /* cinturón: cualquier cambio de la traza puede dejar el índice fuera */
+  if (edMoverI != null && !edPts[edMoverI]) { edMoverI = null; edMoverPt = null; }
+  if (edOp === 'mover' && edMoverI != null) {
+    const m = L.marker(edMoverPt || [edPts[edMoverI][0], edPts[edMoverI][1]],
+      { draggable:true, pane:'rutas', title:'Arrástralo a donde quieres que pase',
+        icon: L.divIcon({ className:'', iconSize:[26,26], iconAnchor:[13,13],
+          html:'<div style="width:26px;height:26px;border-radius:50%;border:3px solid #fff;'
+             + 'background:#3d6b4a;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>' }) });
+    m.on('dragstart', () => { edMoverPt = null; });
+    m.on('drag', ev => { const l = ev.target.getLatLng();
+      /* la goma mientras arrastras: se ve a dónde va antes de soltar */
+      if (edCapa && edCapa._goma) edCapa.removeLayer(edCapa._goma);
+      edCapa._goma = L.polyline([[edPts[edMoverI][0], edPts[edMoverI][1]], [l.lat, l.lng]],
+        { pane:'rutas', color:'#3d6b4a', weight:2, dashArray:'5,5', opacity:.8 }).addTo(edCapa); });
+    m.on('dragend', ev => { const l = ev.target.getLatLng(); aplicaMovido([l.lat, l.lng]); });
+    capas.push(m);
+  }
   edExtra.forEach((p, k) => capas.push(L.marker(p, { pane:'rutas', title:'Paso ' + (k + 1),
     icon: L.divIcon({ className:'', iconSize:[18,18], iconAnchor:[9,9],
       html:'<div style="width:18px;height:18px;border-radius:50%;border:2px solid #fff;'
@@ -4336,7 +4378,14 @@ function pintaEd() {
    distintas y una fila fija llena de botones apagados se lee fatal */
 function pintaFilaEd() {
   const $f = document.getElementById('ed-fila-op');
-  if (edOp === 'tramo') {
+  if (edOp === 'mover') {
+    $f.innerHTML = edMoverI == null
+      ? '<span style="font-size:12.5px;color:#8a857c">Toca un punto de la ruta para agarrarlo.</span>'
+      : '<button id="ed-suelta">Soltar el punto</button>'
+        + '<span style="font-size:12px;color:#8a857c;flex:1 1 auto">Arrástralo y el camino se rehace.</span>';
+    const b = $f.querySelector('#ed-suelta');
+    if (b) b.onclick = () => { edMoverI = null; edMoverPt = null; pintaEd(); pintaFilaEd(); };
+  } else if (edOp === 'tramo') {
     $f.innerHTML = '<button data-m="caminos">Por caminos</button>'
       + '<button data-m="recto">Recto</button><button data-m="quita">Quitarlo</button>'
       + '<button id="ed-hazlo" class="ok">Aplicar</button>';
@@ -4385,6 +4434,30 @@ function pintaFilaEd() {
   }
 }
 
+async function aplicaMovido(destino) {
+  const i = edMoverI;
+  if (i == null) return;
+  const d = metrosEntre(edPts[i], destino);
+  if (d < 15) { pintaEd(); return; }        // un roce no es una intención
+  const v = ventanaDe(d);
+  const a = alejate(edPts, i, v, -1), b = alejate(edPts, i, v, +1);
+  pistaEd('Rehaciendo ' + fmtDist(v) + ' a cada lado para pasar por ahí…');
+  let medio;
+  try {
+    const r = leeGpxDoc(await pideRuta([[edPts[a][0], edPts[a][1]], destino,
+                                        [edPts[b][0], edPts[b][1]]], perfilEd()), 'movido.gpx');
+    if (!r) throw new Error('el camino ha vuelto vacío');
+    medio = r.pts.slice(1, -1);
+  } catch (e) { pistaEd('No se ha podido: ' + e.message, true); pintaEd(); return; }
+  apuntaEnPila();
+  edPts = edPts.slice(0, a + 1).concat(medio, edPts.slice(b));
+  /* el manejador se queda donde lo soltaste, en el punto de la traza nueva más
+     cercano: así puedes seguir afinando sin volver a tocar */
+  edMoverI = masCercanoEnTraza(edPts, { lat: destino[0], lng: destino[1] }).i;
+  edMoverPt = null;
+  pintaEd(); estadoEd(); pintaFilaEd();
+}
+
 async function aplicaTramo() {
   if (edSel.length !== 2) return;
   const [a, b] = edSel.slice().sort((x, y) => x - y);
@@ -4395,8 +4468,7 @@ async function aplicaTramo() {
     $h.disabled = true; pistaEd('Calculando el camino nuevo…');
     try {
       const puntos = [[edPts[a][0], edPts[a][1]], ...edExtra, [edPts[b][0], edPts[b][1]]];
-      const r = leeGpxDoc(await pideRuta(puntos, document.getElementById('pl-perfil').value
-                                                 || 'hiking-beta'), 'tramo.gpx');
+      const r = leeGpxDoc(await pideRuta(puntos, perfilEd()), 'tramo.gpx');
       if (!r) throw new Error('el tramo ha vuelto vacío');
       medio = r.pts.slice(1, -1);
     } catch (e) { pistaEd('No se ha podido: ' + e.message, true); $h.disabled = false; return; }
@@ -4424,8 +4496,7 @@ async function aplicaAlargue() {
   let nuevo;
   try {
     const puntos = [[desde[0], desde[1]], ...edExtra];
-    const r = leeGpxDoc(await pideRuta(puntos, document.getElementById('pl-perfil').value
-                                               || 'hiking-beta'), 'alargue.gpx');
+    const r = leeGpxDoc(await pideRuta(puntos, perfilEd()), 'alargue.gpx');
     if (!r) throw new Error('la prolongación ha vuelto vacía');
     nuevo = r.pts;
   } catch (e) { pistaEd('No se ha podido: ' + e.message, true); $h.disabled = false; return; }
@@ -4448,7 +4519,7 @@ async function aplicaUnion() {
     if (edModo === 'ruta') {
       const fin = edPts[edPts.length - 1], ini = pts[0];
       const r = leeGpxDoc(await pideRuta([[fin[0], fin[1]], [ini[0], ini[1]]],
-        document.getElementById('pl-perfil').value || 'hiking-beta'), 'puente.gpx');
+        perfilEd()), 'puente.gpx');
       if (r) puente = r.pts.slice(1, -1);
     }
     apuntaEnPila();
@@ -4461,6 +4532,14 @@ async function aplicaUnion() {
 
 function clicEd(e) {
   if (edOp === 'invierte' || edOp === 'une') return;
+  if (edOp === 'mover') {
+    const c = masCercanoEnTraza(edPts, e.latlng);
+    if (c.d > 2000) { pistaEd('Ese punto está a ' + fmtDist(c.d) + ' de la ruta; toca sobre ella.', true); return; }
+    edMoverI = c.i; edMoverPt = null;
+    pistaEd('Agarrado. Arrástralo a donde quieres que pase la ruta.');
+    pintaEd(); pintaFilaEd();
+    return;
+  }
   if (edOp === 'alarga') {
     if (edExtremo == null) {
       /* el toque más cerca de un extremo elige ese extremo */
@@ -4498,9 +4577,14 @@ function abreEditor(f) {
     if (!pts || pts.length < 2) { avisa('Esa ruta no tiene puntos que editar'); return; }
     edFicha = f; idEditando = f.id; edPts = pts.map(p => p.slice()); edPila = [];
     pintaGpxs();
-    edSel = []; edExtra = []; edExtremo = null; edOp = 'tramo'; edModo = 'caminos';
+    edSel = []; edExtra = []; edExtremo = null; edOp = 'mover'; edModo = 'caminos';
+    edMoverI = null; edMoverPt = null;
+    const $p = document.getElementById('ed-perfil');
+    $p.innerHTML = PERFILES.map(x => '<option value="' + x.id + '">' + x.n + '</option>').join('');
+    const guardado = localStorage.getItem(LS_PERFIL);
+    if (guardado && PERFILES.some(x => x.id === guardado)) $p.value = guardado;
     document.getElementById('ed-titulo').textContent = 'Editando: ' + f.nom;
-    document.getElementById('ed-op').value = 'tramo';
+    document.getElementById('ed-op').value = 'mover';
     document.getElementById('ed-nombre').value = f.nom + ' (editada)';
     document.getElementById('barra-edita').hidden = false;
     mapa.on('click', clicEd);
@@ -4515,6 +4599,7 @@ function cierraEditor() {
   mapa.off('click', clicEd);
   if (edCapa) { mapa.removeLayer(edCapa); edCapa = null; }
   edFicha = null; edPts = []; edPila = []; edSel = []; edExtra = [];
+  edMoverI = null; edMoverPt = null;
   document.getElementById('barra-edita').hidden = true;
 }
 
@@ -4546,16 +4631,21 @@ async function guardaEdicion() {
 
 document.getElementById('ed-op').onchange = ev => {
   edOp = ev.target.value; edSel = []; edExtra = []; edExtremo = null;
+  edMoverI = null; edMoverPt = null;
   if (edOp === 'tramo') edModo = 'caminos'; else if (edOp === 'une') edModo = 'pega';
   pintaEd(); pintaFilaEd(); pistaEd(EDITOR_OPS[edOp]);
 };
 document.getElementById('ed-deshacer').onclick = () => {
   if (!edPila.length) { pistaEd('No hay nada que deshacer.'); return; }
   edPts = edPila.pop(); edSel = []; edExtra = [];
+  /* el manejador apuntaba a un índice de la traza ANTERIOR: tras deshacer ese
+     punto puede no existir, y pintarlo reventaba */
+  edMoverI = null; edMoverPt = null;
   pintaEd(); estadoEd(); pintaFilaEd();
 };
 document.getElementById('ed-cancelar').onclick = () => { cierraEditor(); abrePanel(); };
 document.getElementById('ed-guardar').onclick = guardaEdicion;
+document.getElementById('ed-perfil').onchange = ev => guarda(LS_PERFIL, ev.target.value);
 document.getElementById('ed-bajar').onclick = () => {
   if (!edPts.length) return;
   const nom = (document.getElementById('ed-nombre').value || '').trim() || 'Ruta editada';
@@ -6547,7 +6637,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v70';
+const VERSION = 'v71';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
