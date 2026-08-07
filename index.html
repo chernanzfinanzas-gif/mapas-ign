@@ -1177,6 +1177,12 @@ ul.zonas li.mj-1 .mj-chip.pv-ll-si{background:#e6eef7;border-color:#d3e0ef}
 .av-chip:has(.niv.naranja){background:#fdf3ec;border-color:#e8c6ab}
 .av-chip:has(.niv.rojo){background:#fdeeee;border-color:#e5b3b3}
 
+/* el filtro de revisión: un interruptor, no un desplegable más. Es de usar y
+   tirar mientras dura la revisión de los 692 nombres. */
+.tog-rev{display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:13px;color:#4a4741}
+.tog-rev input{width:17px;height:17px;margin:0;accent-color:var(--verde);flex:0 0 auto}
+.tog-rev:has(input:checked) span{color:var(--verde);font-weight:600}
+
 .bol-sec{margin:10px 0 0;padding:11px 12px;background:#f2efe9;border-radius:11px}
 .bol-sec h5{margin:0 0 6px;font-size:13px;color:var(--verde)}
 .bol-ap{font-size:13px;margin:0 0 7px;line-height:1.45}
@@ -1499,6 +1505,8 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
           <select id="rutas-anio"><option value="todos">Todos</option></select>
         </label>
       </div>
+      <label class="tog-rev"><input type="checkbox" id="rutas-sinrev">
+        <span>Solo las que faltan por revisar</span></label>
       <label class="campo">Colorear por
         <select id="rutas-color">
           <option value="act">Actividad</option>
@@ -5089,8 +5097,14 @@ function montaAnios(idx) {
   $s.value = hay.includes(antes) ? antes : 'todos';
   filtroAnio = $s.value;
 }
+/* Mientras revisas los 692 nombres, lo que estorba son las que ya has hecho.
+   Con el interruptor puesto solo quedan en el mapa las que faltan, así que vas
+   tocando y tachando hasta que el mapa se queda vacío — que es la señal de
+   haber terminado. */
+let soloSinRevisar = false;
 const pasaFiltros = r => (filtroAct === 'todas' || r.a === filtroAct)
-                      && (filtroAnio === 'todos' || anioDe(r) === filtroAnio);
+                      && (filtroAnio === 'todos' || anioDe(r) === filtroAnio)
+                      && (!soloSinRevisar || !estaRevisada(r.id));
 let rutasVisibles = localStorage.getItem(LS_RUTAS_ON) !== 'no';
 const leeNombres  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_NOM)) || {}; } catch (e) { return {}; } };
 const salvaNombres = n => guarda(LS_RUTAS_NOM, n);
@@ -5235,9 +5249,13 @@ async function pintaListaRenombres() {
   if (!$c) return;
   const total = indiceRutas ? indiceRutas.length : 0;
   const rev = revisadas.size;
-  let txt = total ? '<b>' + fmtN(rev) + ' de ' + fmtN(total) + '</b> revisadas'
-                    + (total ? ' · ' + Math.round(100 * rev / total) + ' %' : '')
+  /* el número que de verdad usas mientras revisas es cuántas FALTAN, no
+     cuántas llevas: es el que baja a cero */
+  let txt = total ? '<b>' + fmtN(rev) + ' de ' + fmtN(total) + '</b> revisadas · '
+                    + Math.round(100 * rev / total) + ' % · faltan <b>'
+                    + fmtN(total - rev) + '</b>'
                   : fmtN(rev) + ' revisadas';
+  if (soloSinRevisar) txt += '<br><b style="color:var(--verde)">El mapa enseña solo las que faltan.</b>';
   txt += '<br>' + (c ? c + (c === 1 ? ' nombre corregido.' : ' nombres corregidos.')
                      : 'Ningún nombre corregido todavía.');
   $c.innerHTML = txt;
@@ -5407,6 +5425,10 @@ document.getElementById('rutas-ver').onchange = ev => {
 document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); buscaRutas(); };
 document.getElementById('rutas-anio').onchange   = ev => ponAnio(ev.target.value);
 document.getElementById('rutas-color').onchange  = ev => { modoColor = ev.target.value; pintaRutas(); };
+document.getElementById('rutas-sinrev').onchange = ev => {
+  soloSinRevisar = ev.target.checked;
+  pintaRutas(); pintaListaRenombres();
+};
 document.getElementById('btn-cerca').onclick     = rutasCerca;
 document.getElementById('btn-renom').onclick = exportaRenombres;
 document.getElementById('btn-pub-rutas').onclick = publicaRutas;
@@ -6637,7 +6659,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v71';
+const VERSION = 'v72';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
