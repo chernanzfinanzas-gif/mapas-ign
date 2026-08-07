@@ -2885,14 +2885,20 @@ function svgDosTrazas(obj, hecha) {
 async function pideCierreDeCiclo(f) {
   const ent = document.getElementById('file-hecha');
   ent.onchange = async ev => {
+   try {
     const fich = ev.target.files[0]; ev.target.value = '';
     if (!fich) return;
     let r = null;
     try { r = leeGpxDoc(await leeTexto(fich), fich.name); }
     catch (e) { avisa('No se pudo leer «' + fich.name + '»'); return; }
     if (!r) { avisa('Ese fichero no tiene puntos de ruta'); return; }
-    const objPts = await leePuntosGpx(f.id);
+    /* Con `f` nulo —«Añadir una ruta ya hecha», que nunca fue objetivo— no hay
+       objetivo con el que comparar. Esto pedía `f.id` sin mirar si `f` existía,
+       así que reventaba dentro del manejador del fichero: elegías el GPX y NO
+       PASABA NADA, ni ruta ni aviso de error. El fallo más feo posible. */
+    const objPts = f ? await leePuntosGpx(f.id) : null;
     abreCierre(f, objPts, r, fich);
+   } catch (e) { avisa('No se ha podido abrir esa ruta: ' + e.message); }
   };
   ent.click();
 }
@@ -6659,7 +6665,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v72';
+const VERSION = 'v73';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
