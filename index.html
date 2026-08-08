@@ -919,7 +919,19 @@ img.leaflet-tile{image-rendering:auto}
   font-size:20px;line-height:1;cursor:pointer;color:#57544e}
 #fab-gps.buscando{animation:pulso 1.1s infinite}
 #fab-gps.activo{background:var(--verde);border-color:var(--verde);color:#fff}
-#fab-gps.siguiendo{background:var(--verde);border-color:#1d4a35;color:#fff;box-shadow:0 0 0 4px rgba(47,107,79,.28),0 3px 14px rgba(0,0,0,.25)}
+#fab-gps.activo{background:var(--verde);border-color:var(--verde);color:#fff}
+/* El segundo botón: centrar. Va justo debajo del GPS porque son cosas
+   distintas —una recibe posición, la otra mueve el mapa— pero se usan
+   seguidas. Apagado cuando el GPS lo está: centrar sin posición no es nada. */
+#fab-centrar{position:absolute;right:8px;top:calc(52px + var(--safe-t));z-index:610;
+  width:40px;height:40px;border-radius:10px;border:1px solid var(--linea);
+  background:rgba(251,250,247,.94);box-shadow:var(--sombra);
+  line-height:0;cursor:pointer;color:#57544e;display:flex;
+  align-items:center;justify-content:center}
+#fab-centrar.siguiendo{background:var(--verde);border-color:#1d4a35;color:#fff;
+  box-shadow:0 0 0 4px rgba(47,107,79,.28),0 3px 14px rgba(0,0,0,.25)}
+#fab-centrar:disabled{opacity:.38;cursor:default;box-shadow:var(--sombra)}
+#fab-gps{display:flex;align-items:center;justify-content:center;line-height:0}
 @keyframes pulso{50%{opacity:.45}}
 
 /* aviso de red */
@@ -1383,7 +1395,8 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 <div id="av-banda" hidden></div>
 
 <div id="lectura"></div>
-<button id="fab-gps" title="Mi posición">&#9678;</button>
+<button id="fab-gps" title="GPS"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M6.5 6.5a7.8 7.8 0 0 0 0 11M17.5 6.5a7.8 7.8 0 0 1 0 11"/><path d="M3.6 3.6a11.9 11.9 0 0 0 0 16.8M20.4 3.6a11.9 11.9 0 0 1 0 16.8" opacity=".55"/></svg></button>
+<button id="fab-centrar" title="Centrar el mapa en mi posición"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><path d="M12 1.6v3.4M12 19v3.4M1.6 12h3.4M19 12h3.4"/></svg></button>
 <div id="aviso"></div>
 
 <div id="panel">
@@ -1547,6 +1560,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <button class="sec" id="grab-volver" hidden>Volver por donde vine</button>
       <button class="sec" id="grab-guardar" hidden>Guardar como ruta</button>
       <button class="sec" id="grab-gpx" hidden>Descargar la traza en .gpx</button>
+      <button class="sec" id="grab-borrar" hidden>Borrar la grabación</button>
 
       <h4>Puntos marcados</h4>
       <p class="pista">El botón ⚑ de la pantalla los guarda al instante. Tócalos en el mapa para nombrarlos o borrarlos.</p>
@@ -2366,46 +2380,100 @@ async function pintaAlmacen() {
   $a.innerHTML = txt;
 }
 
-/* ---------- 8. GPS ---------------------------------------------------- */
-let watch = null, modo = 0, marca = null, circulo = null;
-const $fab = document.getElementById('fab-gps'), $lec = document.getElementById('lectura');
+/* ---------- 8. GPS ----------------------------------------------------
+   Rediseñado tras la primera salida de verdad (8-ago). Antes había UN botón
+   que giraba entre apagado → encendido → siguiendo, y eso mezclaba dos cosas
+   que no tienen nada que ver:
+
+     · recibir posición, que es lo que quieres SIEMPRE en el monte;
+     · que el mapa te persiga, que quieres a ratos —cuando miras adónde vas—
+       y estorba el resto del tiempo, porque en cuanto arrastras el mapa para
+       ver lo que viene, la siguiente lectura te devuelve a tu punto.
+
+   Ahora son dos botones independientes y cada uno recuerda cómo lo dejaste.
+   El GPS además arranca solo al abrir la app: tenerlo que encender cada vez
+   era lo primero que se notaba andando. */
+let watch = null, marca = null, circulo = null;
+let gpsOn = false, centrando = false, buscando = false;
+const LS_GPS_ON  = 'ign.gps.on';
+const LS_GPS_CEN = 'ign.gps.centrar';
+const $fab = document.getElementById('fab-gps');
+const $cen = document.getElementById('fab-centrar');
+const $lec = document.getElementById('lectura');
 const iconoYo = L.divIcon({ className:'', iconSize:[18, 18], iconAnchor:[9, 9],
   html:'<div class="marca-yo" style="width:18px;height:18px"></div>' });
 
 $fab.onclick = () => {
-  if (modo === 0) arrancaGps();
-  else if (modo === 1) { modo = 2; pintaFab(); if (marca) mapa.setView(marca.getLatLng(), Math.max(mapa.getZoom(), 15)); avisa('Siguiendo tu posición'); }
-  else paraGps();
+  if (gpsOn || buscando) { paraGps(); guarda(LS_GPS_ON, 'no'); avisa('GPS apagado'); }
+  else { guarda(LS_GPS_ON, 'si'); arrancaGps(); }
 };
+$cen.onclick = () => {
+  centrando = !centrando;
+  guarda(LS_GPS_CEN, centrando ? 'si' : 'no');
+  pintaFab();
+  if (centrando && marca) mapa.setView(marca.getLatLng(), Math.max(mapa.getZoom(), 15));
+  avisa(centrando ? 'El mapa te sigue' : 'El mapa se queda donde lo dejes');
+};
+
 function pintaFab() {
-  $fab.className = modo === 0 ? '' : modo === 1 ? 'activo' : 'siguiendo';
-  $fab.title = modo === 0 ? 'Mi posición' : modo === 1 ? 'Centrar y seguir' : 'Dejar de localizar';
+  $fab.className = buscando ? 'buscando' : gpsOn ? 'activo' : '';
+  $fab.title = gpsOn ? 'GPS encendido — tócalo para apagarlo'
+             : buscando ? 'Buscando el GPS…' : 'GPS apagado — tócalo para encenderlo';
+  /* centrar sin posición no significa nada, así que se apaga con el GPS */
+  $cen.disabled = !gpsOn && !buscando;
+  $cen.className = centrando ? 'siguiendo' : '';
+  $cen.title = centrando ? 'El mapa te sigue — tócalo para soltarlo'
+                         : 'Centrar el mapa en mi posición y seguirme';
 }
 function arrancaGps() {
   if (!navigator.geolocation) { avisa('Este navegador no da la posición'); return; }
-  $fab.className = 'buscando'; avisa('Buscando el GPS…');
+  buscando = true; pintaFab();
   /* maximumAge a 0: con 5 s el navegador reutilizaba la última posición y no
      avisaba de los movimientos, así que la grabación se quedaba en un punto */
   watch = navigator.geolocation.watchPosition(onPos, onErrPos,
     { enableHighAccuracy:true, maximumAge:0, timeout:30000 });
-  modo = 1;
 }
 function paraGps() {
   if (watch !== null) navigator.geolocation.clearWatch(watch);
-  watch = null; modo = 0; pintaFab();
+  watch = null; gpsOn = false; buscando = false;
   if (marca) { mapa.removeLayer(marca); marca = null; }
   if (circulo) { mapa.removeLayer(circulo); circulo = null; }
   $lec.style.display = 'none';
+  pintaFab();
 }
+
+/* Al abrir: se recupera cómo lo dejaste, y el GPS se enciende solo.
+
+   Solo si el permiso YA está concedido. Arrancarlo a pelo dispararía el aviso
+   de ubicación del navegador nada más abrir la app, y eso la primera vez es
+   una emboscada: no sabes por qué te lo pide. Con el permiso ya dado no hay
+   aviso ninguno y simplemente funciona, que es lo que se busca. */
+(function arranqueGps() {
+  centrando = localStorage.getItem(LS_GPS_CEN) !== 'no';   // por defecto, sí
+  const quiere = localStorage.getItem(LS_GPS_ON) !== 'no'; // por defecto, sí
+  pintaFab();
+  if (!quiere || !navigator.geolocation) return;
+  if (!navigator.permissions || !navigator.permissions.query) return;
+  navigator.permissions.query({ name:'geolocation' })
+    .then(p => { if (p.state === 'granted') arrancaGps(); })
+    .catch(() => {});
+})();
 function onPos(p) {
   const ll = [p.coords.latitude, p.coords.longitude], pr = p.coords.accuracy || 0;
-  if (!marca) {
+  const primera = !marca;
+  if (primera) {
     marca = L.marker(ll, { icon:iconoYo, zIndexOffset:1000, interactive:false }).addTo(mapa);
     circulo = L.circle(ll, { radius:pr, color:'#1f6fd8', weight:1, fillOpacity:.12, interactive:false }).addTo(mapa);
-    if (modo === 1) { mapa.setView(ll, Math.max(mapa.getZoom(), 15)); modo = 2; }
   } else { marca.setLatLng(ll); circulo.setLatLng(ll).setRadius(pr); }
+  buscando = false; gpsOn = true;
   pintaFab();
-  if (modo === 2) mapa.panTo(ll, { animate:true, duration:.5 });
+  /* Mover el mapa es AHORA cosa exclusiva del botón de centrar. Antes la
+     primera lectura te llevaba a tu posición aunque estuvieras mirando otra
+     zona a propósito; ahora solo pasa si lo has pedido. */
+  if (centrando) {
+    if (primera) mapa.setView(ll, Math.max(mapa.getZoom(), 15));
+    else mapa.panTo(ll, { animate:true, duration:.5 });
+  }
   /* la seguridad se alimenta de cada lectura del GPS */
   const primeraPos = !ultimaPos;
   ultimaPos = [ll[0], ll[1], p.coords.altitude, pr];
@@ -2418,11 +2486,30 @@ function onPos(p) {
     + (p.coords.altitude != null ? ' · ' + Math.round(p.coords.altitude) + ' m' : '')
     + ' <span class="prec">±' + Math.round(pr) + ' m</span>';
 }
+/* Un error del GPS casi nunca es definitivo. Antes CUALQUIERA de ellos hacía
+   `paraGps()`, y eso cierra el watch: bajo una pared, en un barranco o dentro
+   de un hayedo cerrado, una lectura fallida te dejaba sin localización hasta
+   que te dieras cuenta y la reactivaras a mano. Justo donde peor viene.
+
+   Solo el permiso denegado es definitivo —sin permiso no hay nada que hacer—.
+   Los otros dos son pasajeros y `watchPosition` sigue reintentando solo: se
+   avisa una vez, se deja el botón parpadeando para que se vea que está
+   buscando, y no se toca nada más. */
+let avisadoGps = 0;
 function onErrPos(e) {
-  paraGps();
-  avisa(e.code === 1 ? 'Has denegado el permiso de ubicación'
-      : e.code === 3 ? 'El GPS no responde. A cielo abierto tarda menos'
-      : 'No se pudo obtener la posición');
+  if (e.code === 1) {                       // PERMISSION_DENIED
+    paraGps();
+    avisa('Has denegado el permiso de ubicación');
+    return;
+  }
+  buscando = true; gpsOn = false;
+  pintaFab();
+  /* sin machacar: en una zona mala esto salta cada pocos segundos */
+  if (Date.now() - avisadoGps > 60000) {
+    avisadoGps = Date.now();
+    avisa(e.code === 3 ? 'El GPS no responde; sigue buscando. A cielo abierto tarda menos'
+                       : 'Sin señal de GPS ahora mismo; sigue buscando');
+  }
 }
 
 /* ---------- 9. GPX ---------------------------------------------------- */
@@ -5967,6 +6054,11 @@ function pintaSeguridad() {
   /* la descarga se ofrece también con la grabación en marcha: si te queda
      poca batería, mejor tener el fichero ya guardado */
   document.getElementById('grab-gpx').hidden = !(g && g.pts.length > 1);
+  /* Faltaba la salida de emergencia: se podía guardar la traza o descargarla,
+     pero no TIRARLA. Y una grabación que no quieres se quedaba pintada en el
+     mapa hasta que empezaras otra encima. Se ofrece siempre que haya algo,
+     grabando o parado. */
+  document.getElementById('grab-borrar').hidden = !(g && g.pts.length);
 
   const c = leeCoche();
   const $c = document.getElementById('coche-estado');
@@ -6014,6 +6106,23 @@ document.getElementById('grab-empezar').onclick = empiezaGrabacion;
 document.getElementById('grab-parar').onclick   = paraGrabacion;
 document.getElementById('grab-volver').onclick  = vuelvePorDondeVine;
 document.getElementById('grab-guardar').onclick = guardaGrabacion;
+/* Tirar la grabación. Pide confirmación diciendo lo que se pierde —los
+   kilómetros y los puntos—, porque es lo único de aquí que no tiene vuelta:
+   la traza vive en el navegador y no hay copia en ninguna parte. */
+function borraGrabacion() {
+  const g = leeGrab(); if (!g || !g.pts.length) return;
+  const cuanto = fmtDist(largoGrabacion(g)) + ' y ' + g.pts.length
+               + (g.pts.length === 1 ? ' punto' : ' puntos');
+  if (!confirm('¿Borrar la grabación?\n\nSe pierden ' + cuanto + '. No hay copia en '
+             + 'ninguna parte, así que esto no se puede deshacer.\n\nSi quieres '
+             + 'conservarla, cancela y usa «Guardar como ruta» o «Descargar la traza».')) return;
+  if (g.activa) pideBloqueo(false);
+  localStorage.removeItem(LS_GRAB);
+  if (capaGrab) { mapa.removeLayer(capaGrab); capaGrab = null; }
+  pintaSeguridad();
+  avisa('Grabación borrada');
+}
+document.getElementById('grab-borrar').onclick = borraGrabacion;
 document.getElementById('grab-gpx').onclick = () => {
   const g = leeGrab(); if (!g || g.pts.length < 2) { avisa('No hay traza grabada todavía'); return; }
   const d = new Date(g.ini);
@@ -6871,7 +6980,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v80';
+const VERSION = 'v81';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
