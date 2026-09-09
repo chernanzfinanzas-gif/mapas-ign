@@ -3014,6 +3014,28 @@ async function pideCierreDeCiclo(f) {
   ent.click();
 }
 
+/* Fecha y duración escritas a mano. Hasta ahora salían SOLO de las marcas de
+   tiempo del fichero, y hay dos casos corrientes que no las traen: una ruta
+   que hiciste hace años y reconstruyes ahora en el planificador (Bled, sin GPX
+   del reloj) y los tracks viejos exportados sin horas. Ésas entraban en la
+   colección sin día —y por tanto sin fila en el Excel— y no había dónde
+   escribirlo. El fichero que se archiva no se toca: la fecha viaja en su
+   nombre, como en las otras 692, y la duración en la ficha del script. */
+function hmDe(h) {
+  const m = Math.round(h * 60);
+  return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+}
+/* Admite «3:20», «3h20», «3h», «3,5» y «3.5». Lo que no entienda vale 0, que
+   es lo mismo que dejarlo en blanco: el Excel se queda sin esa celda y ya. */
+function horasDeTexto(t) {
+  t = (t || '').trim().replace(',', '.');
+  if (!t) return 0;
+  const m = t.match(/^(\d+)\s*[:hH]\s*(\d{1,2})?\s*(?:m|min)?$/);
+  if (m) return +m[1] + (m[2] ? +m[2] / 60 : 0);
+  const v = parseFloat(t);
+  return isFinite(v) && v > 0 ? v : 0;
+}
+
 function abreCierre(f, objPts, r, fich) {
   const cobObj   = objPts ? coincidencia(objPts, r.red) : 0;   // del objetivo, ¿cuánto hiciste?
   const cobHecha = objPts ? coincidencia(r.red, objPts) : 0;   // de lo que hiciste, ¿cuánto era el objetivo?
@@ -3030,6 +3052,9 @@ function abreCierre(f, objPts, r, fich) {
     +   '<tr><td>Duración</td><td>—</td><td id="c-hh"></td></tr></table>'
     + '<div id="c-coin" class="pista"></div>'
     + '<label class="campo">Nombre en tu colección<input type="text" id="c-nom"></label>'
+    + '<label class="campo">Fecha<input type="date" id="c-fec"></label>'
+    + '<label class="campo">Duración<input type="text" id="c-dur" placeholder="3:20" '
+    +   'inputmode="text" autocomplete="off"></label>'
     + '<label class="campo">Actividad<select id="c-act">'
     +   '<option value="sen">Senderismo</option><option value="bici">Bici</option></select></label>'
     + '<div id="c-nota" class="pista"></div>'
@@ -3054,12 +3079,23 @@ function abreCierre(f, objPts, r, fich) {
       + (cobObj < .5 ? '<br><b>Ojo:</b> coincide poco. ¿Seguro que es esta ruta?' : '')
     : 'El objetivo no tiene traza para comparar.';
   cont.querySelector('#c-nom').value = (f && f.nom) || r.nom;
+  /* la del fichero manda sobre la del objetivo: el objetivo lleva la fecha en
+     que lo planificaste, no la del día que saliste */
+  const fIni = r.fecha || (f && f.fecha) || '';
+  cont.querySelector('#c-fec').value = /^\d{8}$/.test(fIni)
+    ? fIni.slice(0,4) + '-' + fIni.slice(4,6) + '-' + fIni.slice(6,8) : '';
+  cont.querySelector('#c-dur').value = r.horas ? hmDe(r.horas) : '';
   cont.querySelector('#c-nota').textContent = f
     ? 'Al confirmar: tu traza reducida entra en la colección, el objetivo se retira '
       + '(también del repositorio), y se descarga el GPX del reloj con el nombre de la '
       + 'convención para que lo archive «Archivar Rutas.bat».'
     : 'Al confirmar: tu traza reducida entra en la colección y se descarga el GPX con '
       + 'el nombre de la convención para que lo archive «Archivar Rutas.bat».';
+  /* sin marcas de tiempo dentro no hay ni día ni duración que sacar: es el
+     caso de una ruta reconstruida en el planificador */
+  if (!r.horas) cont.querySelector('#c-nota').textContent +=
+    ' Este fichero no trae horas dentro —una ruta planificada, o un track viejo—: '
+    + 'escribe tú la fecha y la duración, que es lo que va al Excel.';
 
   const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
   document.body.appendChild(capa);
@@ -3072,13 +3108,17 @@ function abreCierre(f, objPts, r, fich) {
        «Añadir una ruta ya hecha» no lo hay, así que reventaba. */
     const nom = (cont.querySelector('#c-nom').value || '').trim() || (f && f.nom) || r.nom;
     const act = cont.querySelector('#c-act').value;
+    const fec = (cont.querySelector('#c-fec').value || '').replace(/-/g, '');
+    const hrs = horasDeTexto(cont.querySelector('#c-dur').value);
     cierra();
-    await cierraCiclo(f, r, fich, nom, act);
+    await cierraCiclo(f, r, fich, nom, act, fec, hrs);
   };
 }
 
-async function cierraCiclo(f, r, fich, nom, act) {
-  const fecha = r.fecha || (f && f.fecha) || '';
+async function cierraCiclo(f, r, fich, nom, act, fecUsr, horasUsr) {
+  /* manda lo que haya escrito el operador; si no escribió nada, lo de siempre */
+  const fecha = /^\d{8}$/.test(fecUsr || '') ? fecUsr : (r.fecha || (f && f.fecha) || '');
+  const horas = horasUsr || r.horas || 0;
   /* 1. a la colección va TU traza, simplificada igual que las otras 692 */
   const red = simplificaTrack(r.pts, 8).map(p => [ +p[0].toFixed(5), +p[1].toFixed(5) ]);
   const id = (fecha ? fecha + '-' : '') + idDesde(nom);
@@ -3105,7 +3145,7 @@ async function cierraCiclo(f, r, fich, nom, act) {
         de qué actividad, y los números de verdad para el Excel */
   bajaFichero('archivar-' + (fecha || 'sf') + '-' + nombreFichero(nom) + '.json',
     JSON.stringify({ v:1, rutas:[{ fichero: base + '.gpx', nom, fecha, act,
-      km:+r.km.toFixed(2), d:r.d || 0, horas:+r.horas.toFixed(2), id }] }, null, 1),
+      km:+r.km.toFixed(2), d:r.d || 0, horas:+horas.toFixed(2), id }] }, null, 1),
     'application/json');
 
   /* 4. y el objetivo deja de serlo (si lo era) */
@@ -7003,7 +7043,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v82';
+const VERSION = 'v84';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
