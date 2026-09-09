@@ -3217,6 +3217,11 @@ async function publicaRutas() {
     const porId = new Map();
     previas.forEach(x => porId.set(x.id, x));
     leeAnadidas().forEach(x => { const { pub, ...limpia } = x; porId.set(x.id, limpia); });
+    /* Poda: lo que ya está en el índice general sobra aquí. Si no se quitara,
+       anadidas.json crecería para siempre y serviría copias de rutas que el
+       ordenador ya archivó. */
+    await cargaIndiceRutas();
+    idsIndiceBase.forEach(id => porId.delete(id));
     const txt = JSON.stringify({ v:1, rutas:[...porId.values()] });
     const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
       body: JSON.stringify({ message:'Añade rutas a la colección desde la app',
@@ -5290,6 +5295,10 @@ const nombreDe = r => (leeNombres()[r.id] || r.n);
 const LS_RUTAS_ADD = 'ign.rutas.anadidas';
 const RUTA_ANADIDAS = RUTAS_DIR + 'anadidas.json';
 const geoAnadidas = new Map();
+/* Los ids que trae rutas/index.json, el archivo general del ordenador. Se
+   rellena al leer el índice y sirve para no duplicar: una ruta que ya está
+   ahí no vuelve a subirse como añadida ni se dibuja dos veces. */
+var idsIndiceBase = new Set();
 const leeAnadidas  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_ADD)) || []; } catch (e) { return []; } };
 const salvaAnadidas = a => guarda(LS_RUTAS_ADD, a);
 /* Al publicar NO se borran de aquí: GitHub Pages tarda cerca de un minuto en
@@ -5314,15 +5323,21 @@ async function cargaIndiceRutas() {
     const res = await fetch(RUTA_ANADIDAS);
     if (res.ok) publicadas = (await res.json()).rutas || [];
   } catch (e) {}
+  /* El índice general manda. Una ruta que ya está en index.json —porque la
+     llevó allí el ordenador desde el archivo— deja de necesitar su copia de
+     añadida: si no, la app dibujaría la misma ruta dos veces, una de cada
+     sitio. Esto se comprueba SIEMPRE, esté la añadida publicada o no. */
+  const enIndice = new Set(base.map(r => r.id));
+  idsIndiceBase = enIndice;
   /* limpieza: las que ya viajaron al repositorio y allí están dejan de hacer
      falta en este navegador */
   const enRepo = new Set(publicadas.map(r => r.id));
   const locales = leeAnadidas();
-  const quedan = locales.filter(r => !(r.pub && enRepo.has(r.id)));
+  const quedan = locales.filter(r => !enIndice.has(r.id) && !(r.pub && enRepo.has(r.id)));
   if (quedan.length !== locales.length) salvaAnadidas(quedan);
   /* las locales mandan sobre las publicadas con el mismo id */
   const porId = new Map();
-  publicadas.forEach(r => porId.set(r.id, r));
+  publicadas.forEach(r => { if (!enIndice.has(r.id)) porId.set(r.id, r); });
   quedan.forEach(r => porId.set(r.id, r));
   indiceRutas = base.concat([...porId.values()].map(fichaDeAnadida));
   return indiceRutas;
@@ -6980,7 +6995,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v81';
+const VERSION = 'v82';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
