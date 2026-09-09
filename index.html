@@ -5189,7 +5189,12 @@ document.getElementById('sendas-ver').onchange = ev => {
 const RUTAS_DIR   = 'rutas/';
 const LS_RUTAS_ON = 'ign.rutas.ver';
 const LS_RUTAS_NOM= 'ign.rutas.nombres';
-const Z_MIN_RUTAS = 9;                 // más lejos que esto no se dibujan
+const Z_MIN_RUTAS = 7;                 // más lejos que esto no se dibujan
+/* Por debajo de 9 se ve media España de golpe y una ruta de 12 km mide tres
+   píxeles: con el grosor normal el mapa se convierte en una mancha. A 7 y 8 se
+   dibuja la traza real, pero con línea fina, que es lo justo para localizar
+   dónde has estado y luego acercarte. */
+const Z_FINO_RUTAS = 9;                // por debajo de esto, línea delgada
 /* morado para senderismo y rojo oscuro para bici: el azul se confundía
    con los ríos del topográfico */
 const COLOR_ACT   = { sen:'#6d28d9', bici:'#8f1d1d' };
@@ -5346,7 +5351,9 @@ function olvidaIndiceRutas() { indiceRutas = null; geoAnadidas.clear(); }
 /* Cada celda son cientos de trazas en memoria. En una sesión larga moviéndote
    por el mapa se acumularían todas; se guardan las últimas y las demás se
    sueltan — volver a leerlas es un fetch que ya sirve el service worker. */
-const CELDAS_EN_MEMORIA = 12;
+/* A zoom 7 caben más de cien zonas en pantalla; con el tope antiguo (12) se
+   pedían y se soltaban sin parar. La colección entera son unos 2,5 MB. */
+const CELDAS_EN_MEMORIA = 60;
 async function cargaCelda(celda) {
   if (geoRutas.has(celda)) return geoRutas.get(celda);
   while (geoRutas.size >= CELDAS_EN_MEMORIA) geoRutas.delete(geoRutas.keys().next().value);
@@ -5369,6 +5376,7 @@ async function pintaRutas() {
     if ($s) $s.textContent = idx.length + ' rutas en la colección. Acércate un poco para verlas sobre el mapa.';
     return;
   }
+  const grosor = mapa.getZoom() < Z_FINO_RUTAS ? 1.6 : 3.4;
   const v = mapa.getBounds().pad(.2);
   const enVista = idx.filter(r => pasaFiltros(r) && tocaLaVista(r.b, v));
   if ($s) $s.textContent = enVista.length + ' de ' + idx.length + ' rutas por esta zona.';
@@ -5383,7 +5391,7 @@ async function pintaRutas() {
     if (!segs) continue;
     for (const s of segs) {
       const ln = L.polyline(s, { renderer:lienzoSendas, pane:'rutas',
-        color: colorDeRuta(r), weight:3.4, opacity:.8 });
+        color: colorDeRuta(r), weight:grosor, opacity:.85 });
       ln.on('click', ev => { L.DomEvent.stop(ev); abreFichaRuta(r, ev.latlng); });
       capas.push(ln);
     }
