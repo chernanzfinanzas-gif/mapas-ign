@@ -1018,6 +1018,7 @@ ul#rutas-resultados{max-height:44vh;overflow-y:auto}
 #hoja section h4{margin:16px 0 4px;font-size:13px;color:var(--verde);text-transform:uppercase;letter-spacing:.04em}
 .pin-punto{width:24px;height:24px;border-radius:50%;background:#2f6b4f;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.ficha-ruta .fr-tit{font-weight:700;font-size:15px;line-height:1.3;margin:0 0 4px}
 .ficha-ruta .fr-rev{display:flex;align-items:center;gap:7px;margin:8px 0 2px;
   font-size:13px;color:#4a4741;cursor:pointer}
 .ficha-ruta .fr-rev input{width:17px;height:17px;accent-color:#12306e;flex:0 0 auto}
@@ -1520,8 +1521,6 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
           <select id="rutas-anio"><option value="todos">Todos</option></select>
         </label>
       </div>
-      <label class="tog-rev"><input type="checkbox" id="rutas-sinrev">
-        <span>Solo las que faltan por revisar</span></label>
       <label class="campo">Colorear por
         <select id="rutas-color">
           <option value="act">Actividad</option>
@@ -1533,10 +1532,8 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <div id="anadidas-estado" class="pista"></div>
       <ul id="anadidas-lista"></ul>
       <button class="sec" id="btn-pub-rutas" hidden>Publicar las rutas añadidas</button>
-      <div id="renom-cuenta" class="pista"></div>
-      <button class="sec" id="btn-renom" disabled>Exportar los nombres corregidos</button>
-      <button class="sec" id="btn-renom-imp">Traer nombres de otro dispositivo…</button>
-      <input type="file" id="file-renom" accept=".json,application/json" hidden>
+      <div id="renom-cuenta" class="pista" hidden></div>
+      <button class="sec" id="btn-renom" hidden>Descargar los nombres que quedaron corregidos aquí</button>
     </section>
 
     <section>
@@ -2868,6 +2865,7 @@ function pintaListaGpx() {
   const fs = leeGpxs().slice().sort((a, b) => a.nom.localeCompare(b.nom, 'es'));
   ul.innerHTML = '';
   if (!fs.length) { ul.innerHTML = '<li class="vacio">Ningún objetivo cargado.</li>'; pintaEstadoObjetivos(); return; }
+  if (ritmo && fs.some(f => f.estK !== claveEst(f))) completaEstimas();
   fs.forEach(f => {
     const li = document.createElement('li');
     li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
@@ -2886,6 +2884,8 @@ function pintaListaGpx() {
       + (f.pub ? 'EN EL REPO · ' : '')
       + f.km.toFixed(1) + ' km · ' + fmtN(f.n) + ' puntos'
       + (f.d ? ' · ' + fmtN(f.d) + ' m+' : '')
+      + (f.est && f.estK === claveEst(f)
+           ? ' · ' + fmtH5(f.est[1]) + ' (' + fmtH5(f.est[2]) + '–' + fmtH5(f.est[3]) + ')' : '')
       + (f.w ? ' · ' + f.w + (f.w === 1 ? ' punto marcado' : ' puntos marcados') : '');
     if (f.nav) li.querySelector('.det').classList.add('es-nav');
     const ir = document.createElement('button'); ir.className = 'ir'; ir.textContent = 'Ir';
@@ -4554,7 +4554,7 @@ function pistaEd(txt, mal) {
 function estadoEd() {
   const m = metricasDe(edPts);
   pistaEd('<b>' + fmtN(+m.km.toFixed(1)) + ' km</b> · ' + fmtN(m.d) + ' m de subida · '
-    + fmtN(edPts.length) + ' puntos · unas ' + fmtHoras(horasEstimadas(m.km, m.d)) + ' a tu ritmo');
+    + fmtN(edPts.length) + ' puntos · ' + textoEstima(estimaRuta(edPts, m.km, m.d)));
 }
 
 function pintaEd() {
@@ -4912,11 +4912,76 @@ const LS_PERFIL = 'ign.brouter.perfil';
 let modoPlan = false, puntosPlan = [], capaPlan = null, rutaPlan = null,
     pidiendoPlan = false, marcasPlan = [], ultimoArrastre = 0;
 
-/* Tu ritmo, sacado de tus propias rutas: unos 16,7 min por km llano más 15,2
-   min por cada 100 m de subida. Es una ESTIMACIÓN con bastante dispersión
-   —la mitad de tus rutas se salen media hora— así que se enseña redondeada y
-   dicho lo que es. */
-const horasEstimadas = (km, subida) => (km * 16.7 + (subida / 100) * 15.2) / 60;
+/* ---- cuánto vas a tardar: tu curva de ritmo -----------------------------
+   La curva la saca `ritmo_personal.py` (Proyecto Mis Rutas) de tus GPX de
+   senderismo y la deja en `rutas/ritmo.json`; se rehace sola cada vez que
+   pasa «Llevar a la App», así que cada ruta que archivas la afina.
+   Aquí se recorre la ruta en tramos de 100 m, cada uno con los minutos por km
+   que llevas TÚ a esa pendiente, y al tiempo andando se le suman las paradas:
+   tu ruta entera dura de mediana 1,44 veces lo que vas andando, y la mitad de
+   tus rutas caen entre 1,27 y 1,71. Por eso se enseña un rango.
+   Medido con tus rutas de los últimos 4 años (13-oct-2026): se equivoca unos
+   27 min en la ruta típica, frente a 31 de la fórmula fija de antes, y ya no
+   se queda corta — aquélla se quedaba media hora corta porque ahora paras más
+   que hace diez años; andando vas igual. */
+const horasEstimadas = (km, subida) => (km * 16.7 + (subida / 100) * 15.2) / 60;   // la de antes, si no hay curva
+const LS_RITMO = 'ign.ritmo';
+let ritmo = (() => { try { return JSON.parse(localStorage.getItem(LS_RITMO)); } catch (e) { return null; } })();
+fetch('rutas/ritmo.json').then(r => r.ok ? r.json() : null).then(d => {
+  if (!d || !d.minKm || !d.factor) return;
+  const nuevo = !ritmo || ritmo.generado !== d.generado;
+  ritmo = d; guarda(LS_RITMO, d);
+  if (nuevo) try { pintaListaGpx(); } catch (e) {}
+}).catch(() => {});
+
+function estimaRuta(pts, km, subida) {
+  if (!ritmo) return { vieja: true, tot: horasEstimadas(km || 0, subida || 0) };
+  const c = ritmo.minKm, F = ritmo.factor;
+  let min = 0, acc = 0, i0 = 0, conAlt = 0, largo = 0;
+  const tramo = (m, a, b) => {
+    let g = 0;
+    if (a != null && b != null && isFinite(a) && isFinite(b)) { g = (b - a) / m * 100; conAlt += m; }
+    const k = Math.max(-40, Math.min(40, Math.round(g / 5) * 5));
+    min += (c[String(k)] || c['0']) * m / 1000; largo += m;
+  };
+  pts = pts || [];
+  for (let i = 1; i < pts.length; i++) {
+    acc += metrosEntre(pts[i - 1], pts[i]);
+    if (acc >= 100) { tramo(acc, pts[i0][2], pts[i][2]); acc = 0; i0 = i; }
+  }
+  if (acc > 0) tramo(acc, pts[i0][2], pts[pts.length - 1][2]);
+  if (!largo && km) { min = km * c['0']; largo = km * 1000; }
+  const and = min / 60;
+  return { and, tot: and * F.p50, lo: and * F.p25, hi: and * F.p75, sinAlt: conAlt < largo * 0.5 };
+}
+const fmtH5 = h => fmtHoras(Math.round(h * 12) / 12);         // de 5 en 5 minutos
+function textoEstima(e) {
+  if (e.vieja) return 'unas ' + fmtHoras(e.tot) + ' a tu ritmo';
+  return 'andando ' + fmtH5(e.and) + ' · con paradas <b>' + fmtH5(e.tot) + '</b> (entre '
+    + fmtH5(e.lo) + ' y ' + fmtH5(e.hi) + ')'
+    + (e.sinAlt ? ' · <span class="mal">sin altitud: cuenta todo como llano</span>' : '');
+}
+
+/* En la lista de objetivos la duración se calcula una vez y se guarda con el
+   objetivo; se rehace sola si cambia el trazado o llega una curva nueva. */
+const claveEst = f => f.n + '|' + f.km + '|' + (ritmo ? ritmo.generado : '');
+let calculandoEst = false;
+async function completaEstimas() {
+  if (calculandoEst || !ritmo) return;
+  calculandoEst = true; let cambio = false;
+  try {
+    for (const f of leeGpxs()) {
+      if (f.estK === claveEst(f)) continue;
+      const pts = await leePuntosGpx(f.id);
+      if (!pts || pts.length < 2) continue;
+      const e = estimaRuta(pts, f.km, f.d || 0);
+      const g = leeGpxs(), x = g.find(z => z.id === f.id);
+      if (x) { x.est = [e.and, e.tot, e.lo, e.hi].map(v => +v.toFixed(3)); x.estK = claveEst(x); salvaGpxs(g); cambio = true; }
+    }
+  } catch (e) { /* sin puntos guardados: se queda sin duración */ }
+  finally { calculandoEst = false; }
+  if (cambio) pintaListaGpx();
+}
 
 function fmtHoras(h) {
   const m = Math.round(h * 60);
@@ -5014,9 +5079,8 @@ async function recalculaPlan() {
     if (!r) throw new Error('la ruta ha vuelto vacía');
     rutaPlan = r;
     pintaPlan();
-    const h = horasEstimadas(r.km, r.d);
-    pistaPlan('<b>' + fmtN(+r.km.toFixed(1)) + ' km</b> · ' + fmtN(r.d) + ' m de subida · '
-      + 'unas ' + fmtHoras(h) + ' a tu ritmo');
+    pistaPlan('<b>' + fmtN(+r.km.toFixed(1)) + ' km</b> · ' + fmtN(r.d) + ' m de subida<br>'
+      + textoEstima(estimaRuta(r.pts, r.km, r.d)));
     $g.disabled = false; $d.disabled = false;
   } catch (e) {
     rutaPlan = null; pintaPlan();
@@ -5281,7 +5345,7 @@ function colorBaseDeRuta(r) {
    quieres saber de un vistazo es qué has mirado ya, no de qué año era. */
 const COLOR_REV = '#12306e';
 function colorDeRuta(r) {
-  return estaRevisada(r.id) ? COLOR_REV : colorBaseDeRuta(r);
+  return colorBaseDeRuta(r);
 }
 
 /* la leyenda es además el filtro: tocar un año deja solo ese */
@@ -5331,7 +5395,7 @@ const pasaFiltros = r => (filtroAct === 'todas' || r.a === filtroAct)
 let rutasVisibles = localStorage.getItem(LS_RUTAS_ON) !== 'no';
 const leeNombres  = () => { try { return JSON.parse(localStorage.getItem(LS_RUTAS_NOM)) || {}; } catch (e) { return {}; } };
 const salvaNombres = n => guarda(LS_RUTAS_NOM, n);
-const nombreDe = r => (leeNombres()[r.id] || r.n);
+const nombreDe = r => r.n;
 
 /* Las rutas que añades tú viven aparte del índice generado: en el repositorio,
    en `rutas/anadidas.json`, y mientras no las publiques, en este navegador.
@@ -5440,85 +5504,31 @@ async function pintaRutas() {
   subeGpx();
 }
 
-/* ficha al tocar una ruta, con el nombre editable ahí mismo */
+/* ficha al tocar una ruta. El nombre ya no se edita aquí: se renombra en
+   Menú Semanal y llega a la colección con «Rutas al día». */
 function abreFichaRuta(r, latlng) {
   const cont = document.createElement('div');
   cont.className = 'ficha-ruta';
   const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
-  cont.innerHTML = '<input type="text" class="fr-nom"><div class="fr-det"></div>'
-    + '<label class="fr-rev"><input type="checkbox" class="fr-rev-si"> Nombre revisado</label>'
-    + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button>'
-    + '<button class="fr-guarda">Guardar nombre</button></div>';
-  const $i = cont.querySelector('.fr-nom');
-  $i.value = nombreDe(r);
-  const $rev = cont.querySelector('.fr-rev-si');
-  $rev.checked = estaRevisada(r.id);
-  /* la marca se aplica al instante, sin pasar por «Guardar nombre»: muchas
-     rutas se revisan sin tocarles el nombre */
-  $rev.onchange = () => {
-    if ($rev.checked) revisadas.add(r.id); else revisadas.delete(r.id);
-    salvaRevisadas(revisadas);
-    pintaListaRenombres(); pintaRutas();
-  };
+  cont.innerHTML = '<div class="fr-tit"></div><div class="fr-det"></div>'
+    + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button></div>';
+  cont.querySelector('.fr-tit').textContent = nombreDe(r);
   cont.querySelector('.fr-det').textContent =
     [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
   cont.querySelector('.fr-seguir').onclick = () => { mapa.closePopup(); seguirRuta(r); };
-  cont.querySelector('.fr-guarda').onclick = () => {
-    const nuevo = ($i.value || '').trim();
-
-    /* Las 692 del índice no se pueden tocar desde aquí —viven en ficheros
-       generados—, así que su nombre corregido va a una capa aparte que se
-       superpone al dibujar y que exportas para `Renombrar Rutas.bat`.
-
-       Pero una ruta AÑADIDA y todavía sin publicar sí es tuya y está aquí
-       entera. Si le aplicaba la capa, veías el nombre nuevo y al publicar se
-       subía el viejo, porque publicar lee la ruta guardada y no la capa. Se
-       le cambia el nombre en su sitio y no se usa la capa para nada. */
-    const add = r.c === '@add' && leeAnadidas().find(x => x.id === r.id && !x.pub);
-    if (add && nuevo && nuevo !== add.n) {
-      salvaAnadidas(leeAnadidas().map(x => x.id === r.id ? { ...x, n: nuevo } : x));
-      const n2 = leeNombres(); delete n2[r.id]; salvaNombres(n2);
-      olvidaIndiceRutas();
-      mapa.closePopup();
-      avisa('Renombrada: ' + nuevo);
-      pintaRutas(); pintaAnadidas(); pintaListaRenombres();
-      return;
-    }
-
-    const n = leeNombres();
-    if (!nuevo || nuevo === r.n) delete n[r.id]; else n[r.id] = nuevo;
-    salvaNombres(n);
-    /* si le has cambiado el nombre, es que la has revisado */
-    if (nuevo && nuevo !== r.n) { revisadas.add(r.id); salvaRevisadas(revisadas); }
-    mapa.closePopup();
-    avisa(nuevo && nuevo !== r.n ? 'Nombre corregido' : 'Nombre original restaurado');
-    pintaListaRenombres(); pintaRutas();
-  };
   L.popup({ maxWidth:280, autoPan:true }).setLatLng(latlng).setContent(cont).openOn(mapa);
 }
 
-async function pintaListaRenombres() {
-  const n = leeNombres(), c = Object.keys(n).length;
+/* Lo que queda del renombrado de antes: si en este navegador hay nombres
+   corregidos que nunca se exportaron, sale un botón para descargarlos y no
+   perderlos. Si no queda ninguno, no se ve nada. */
+function pintaListaRenombres() {
+  const c = Object.keys(leeNombres()).length;
   const $c = document.getElementById('renom-cuenta');
   const $b = document.getElementById('btn-renom');
-  if ($b) $b.disabled = !c && !revisadas.size;
-  if (!$c) return;
-  const total = indiceRutas ? indiceRutas.length : 0;
-  const rev = revisadas.size;
-  /* el número que de verdad usas mientras revisas es cuántas FALTAN, no
-     cuántas llevas: es el que baja a cero */
-  let txt = total ? '<b>' + fmtN(rev) + ' de ' + fmtN(total) + '</b> revisadas · '
-                    + Math.round(100 * rev / total) + ' % · faltan <b>'
-                    + fmtN(total - rev) + '</b>'
-                  : fmtN(rev) + ' revisadas';
-  if (soloSinRevisar) txt += '<br><b style="color:var(--verde)">El mapa enseña solo las que faltan.</b>';
-  txt += '<br>' + (c ? c + (c === 1 ? ' nombre corregido.' : ' nombres corregidos.')
-                     : 'Ningún nombre corregido todavía.');
-  $c.innerHTML = txt;
-  if (!total) {                     // aún no se ha leído el índice: se pide y se repinta
-    const idx = await cargaIndiceRutas();
-    if (idx.length) pintaListaRenombres();
-  }
+  if ($b) $b.hidden = !c;
+  if ($c) { $c.hidden = !c; $c.textContent = c ? (c === 1 ? 'Queda 1 nombre corregido' : 'Quedan ' + c + ' nombres corregidos')
+      + ' en este navegador sin llevar al archivo. Descárgalos y pásalos con «Renombrar Rutas.bat».' : ''; }
 }
 function exportaRenombres() {
   const n = leeNombres();
@@ -5681,73 +5691,13 @@ document.getElementById('rutas-ver').onchange = ev => {
 document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target.value; pintaRutas(); buscaRutas(); };
 document.getElementById('rutas-anio').onchange   = ev => ponAnio(ev.target.value);
 document.getElementById('rutas-color').onchange  = ev => { modoColor = ev.target.value; pintaRutas(); };
-document.getElementById('rutas-sinrev').onchange = ev => {
-  soloSinRevisar = ev.target.checked;
-  pintaRutas(); pintaListaRenombres();
-};
 document.getElementById('btn-cerca').onclick     = rutasCerca;
-/* ---- traer los nombres de otro dispositivo -------------------------------
-   Faltaba el camino de vuelta. `renombres.json` se exportaba y no se importaba
-   nunca, así que lo revisado en el móvil no llegaba al ordenador ni al revés, y
-   limpiar el navegador se llevaba la revisión entera por delante. Con 588
-   nombres por repasar eso es mucho trabajo guardado en un sitio frágil.
-
-   Se FUNDE, no se sustituye: los dos dispositivos pueden haber avanzado por
-   sitios distintos y ninguno de los dos avances debe perderse. Cuando el mismo
-   id tiene nombre en los dos y no coinciden, gana el que traes —que es lo que
-   acabas de decidir— y se te dice cuántos han cambiado. */
-function fundeRenombres(doc) {
-  if (!doc || typeof doc !== 'object') throw new Error('no es un fichero de nombres');
-  const entran = doc.nombres && typeof doc.nombres === 'object' ? doc.nombres : null;
-  const marcas = Array.isArray(doc.revisadas) ? doc.revisadas : [];
-  if (!entran && !marcas.length) throw new Error('no trae ni nombres ni revisadas');
-
-  const mios = leeNombres();
-  let nuevos = 0, cambiados = 0, iguales = 0;
-  for (const id in (entran || {})) {
-    const v = (entran[id] || '').trim();
-    if (!v) continue;
-    if (!(id in mios)) { mios[id] = v; nuevos++; }
-    else if (mios[id] !== v) { mios[id] = v; cambiados++; }
-    else iguales++;
-  }
-  salvaNombres(mios);
-
-  const antes = revisadas.size;
-  marcas.forEach(id => revisadas.add(id));
-  salvaRevisadas(revisadas);
-
-  return { nuevos, cambiados, iguales, marcasNuevas: revisadas.size - antes };
-}
-
-function pideRenombres() {
-  const ent = document.getElementById('file-renom');
-  ent.onchange = async ev => {
-   try {
-    const fich = ev.target.files[0]; ev.target.value = '';
-    if (!fich) return;
-    let doc;
-    try { doc = JSON.parse(await leeTexto(fich)); }
-    catch (e) { avisa('«' + fich.name + '» no es un JSON válido'); return; }
-    const r = fundeRenombres(doc);
-    pintaListaRenombres(); pintaRutas();
-    const trozos = [];
-    if (r.nuevos)       trozos.push(r.nuevos + ' nombres nuevos');
-    if (r.cambiados)    trozos.push(r.cambiados + ' cambiados');
-    if (r.marcasNuevas) trozos.push(r.marcasNuevas + ' revisadas más');
-    avisa(trozos.length ? 'Traído: ' + trozos.join(', ') + '.'
-                        : 'No traía nada que no tuvieras ya.');
-   } catch (e) { avisa('No se ha podido traer: ' + e.message); }
-  };
-  ent.click();
-}
 /* El manual, en otra pestaña: así no pierdes lo que tuvieras a medias en el
    mapa —una ruta dibujándose, el editor abierto— por ir a mirar cómo era algo. */
 document.getElementById('btn-manual').onclick = () => {
   const v = window.open('manual.html', '_blank', 'noopener');
   if (!v) avisa('El navegador ha bloqueado la ventana. Abre manual.html a mano.');
 };
-document.getElementById('btn-renom-imp').onclick = pideRenombres;
 document.getElementById('btn-renom').onclick = exportaRenombres;
 document.getElementById('btn-pub-rutas').onclick = publicaRutas;
 
@@ -7043,7 +6993,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v84';
+const VERSION = 'v85';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };

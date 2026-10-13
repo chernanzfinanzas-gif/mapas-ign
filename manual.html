@@ -302,14 +302,12 @@ son las que quieres hacer.</p>
 <tr><th>Control</th><th>Qué hace</th></tr>
 <tr><td><b>Actividad</b></td><td>Todas, senderismo o bici.</td></tr>
 <tr><td><b>Año</b></td><td>Un año concreto.</td></tr>
-<tr><td><b>Solo las que faltan por revisar</b></td><td>Deja en el mapa las que aún tienen nombre genérico.</td></tr>
 <tr><td><b>Colorear por</b></td><td>Actividad o <b>año</b>. Coloreado por año el mapa es una biografía.</td></tr>
 </table>
 
 <p>Colores por actividad:
 <span class="pt" style="background:#6b3fa0"></span>senderismo ·
-<span class="pt" style="background:#8f2d20"></span>bici ·
-<span class="pt" style="background:#1f3a6b"></span>ya revisada de nombre.</p>
+<span class="pt" style="background:#8f2d20"></span>bici.</p>
 
 <h3>¿Qué he hecho por aquí?</h3>
 <p>Botón que lista las rutas de tu colección cercanas al centro del mapa. Es la forma de contestar
@@ -318,36 +316,15 @@ son las que quieres hacer.</p>
 <h3>La ficha de una ruta</h3>
 <p>Tocas la línea en el mapa y sale con la fecha, actividad, distancia y desnivel, más:</p>
 <ul>
-  <li><b>El nombre, editable ahí mismo.</b> Lo cambias y <span class="btn">Guardar nombre</span>.</li>
-  <li><b>Nombre revisado</b> — casilla que se aplica al instante, sin guardar. Muchas rutas se
-  revisan sin tocarles el nombre, y por eso la marca viaja aparte.</li>
   <li><span class="btn">Seguir esta ruta</span> — la carga como ruta a seguir, con su perfil de altura.</li>
 </ul>
 
-<h3>Revisar los nombres</h3>
-<p>De las 694, muchas se llaman «Senderismo en Colmenar Viejo» porque así las bautizó el reloj.
-Corregirlas es trabajo de varias sentadas, y el sistema está pensado para eso:</p>
-<ol class="pasos">
-  <li>Activa <b>Solo las que faltan por revisar</b>. El mapa se queda con las pendientes.</li>
-  <li>Tocas una, corriges el nombre, y desaparece del mapa.</li>
-  <li>Al terminar la sesión, <span class="btn">Exportar los nombres corregidos</span>.
-  Descarga <span class="ruta">renombres.json</span>.</li>
-  <li>En el otro dispositivo, <span class="btn">Traer nombres de otro dispositivo…</span> y eliges ese fichero.</li>
-</ol>
-
-<div class="caja ojo">
-  <span class="et">Exporta al terminar cada sesión</span>
-  <p>Las marcas de revisado viven <b>solo</b> en el navegador donde las hiciste. No están en el
-  índice, ni en el catálogo, ni en el Excel. Hasta que exportas, un borrado de datos del navegador
-  se las lleva por delante.</p>
-</div>
-
-<p><b>Traer nombres funde, no sustituye.</b> Los dos dispositivos pueden haber avanzado por sitios
-distintos y no se pierde nada de ninguno. Si el mismo id trae nombres distintos gana el que traes,
-y te dice cuántos han cambiado.</p>
-
-<p>Para que el nombre corregido llegue a los ficheros, al Excel y al otro móvil hace falta pasar
-por el ordenador: ver <a href="#s-renombrar">Renombrar Rutas</a>.</p>
+<h3>Los nombres</h3>
+<p>Desde la versión 85 los nombres ya no se cambian en esta app: se renombran en <b>Menú Semanal</b>
+y llegan solos a los GPX, al catálogo, al Excel y al mapa con <b>Rutas al día</b>.</p>
+<p>Si en algún navegador quedaron nombres corregidos con la versión vieja y sin exportar, en
+<b>Mis rutas</b> sale el botón <span class="btn">Descargar los nombres que quedaron corregidos aquí</span>.
+Ese fichero se pasa una vez con <a href="#s-renombrar">Renombrar Rutas</a>. Si no queda ninguno, el botón no sale.</p>
 
 <h3>Añadir una ruta ya hecha</h3>
 <p>Está en <b>Mis objetivos</b> aunque sea de la colección, porque comparte el mecanismo.
@@ -394,8 +371,24 @@ salida en el ordenador y la tienes en el móvil sin volver a cargar nada.</p>
   <li><b>Arrastra un punto</b> y la ruta se recalcula pasando por ahí.</li>
   <li><span class="btn">Volver al punto de partida</span> cierra el anillo.</li>
   <li><span class="btn">Quitar el último punto</span> deshace.</li>
-  <li>Abajo salen los kilómetros, el desnivel y las <b>horas estimadas</b>.</li>
+  <li>Abajo salen los kilómetros, el desnivel y la <b>duración estimada</b>.</li>
 </ul>
+
+<h3>La duración estimada</h3>
+<p>Sale en el planificador, en el editor y en la lista de objetivos. Está sacada de <b>tus</b> rutas:
+la ruta se recorre en tramos de 100 m y a cada uno se le pone el ritmo que llevas tú a esa pendiente.
+Por ejemplo, llano unos 15 min/km, subiendo al 15 % unos 21 min/km y bajando al 15 % unos 18 min/km.
+Se lee así:</p>
+<p><i>andando 3 h 00 · con paradas <b>4 h 20</b> (entre 3 h 50 y 5 h 05)</i></p>
+<ul>
+  <li><b>Andando</b> es el tiempo en movimiento.</li>
+  <li><b>Con paradas</b> es lo que sueles tardar de verdad. Tu ruta entera dura de mediana 1,44 veces lo que vas andando.</li>
+  <li><b>El rango</b> es honesto: la mitad de tus rutas caen dentro. El error típico es de unos 27 minutos.
+  Lo que más lo mueve son las paradas y el terreno (en La Pedriza tardas bastante más de lo que dice la pendiente).</li>
+</ul>
+<p>La curva la calcula <code>ritmo_personal.py</code> con tus GPX de senderismo y se rehace sola cada
+vez que pasa <b>Llevar a la App</b> (y por tanto <b>Rutas al día</b>). Queda en
+<span class="ruta">rutas/ritmo.json</span>. Si el GPX no trae altitud, lo avisa y lo cuenta como llano.</p>
 
 <h3>Bajarla al Garmin</h3>
 <p><span class="btn">Descargar el .gpx para el reloj</span>. El fichero lleva la traza y además
@@ -645,13 +638,7 @@ en seco, <code>--aplicar</code> para hacerlo.</p>
 </ol>
 
 <h3>Quiero corregir nombres</h3>
-<ol class="pasos">
-  <li>Filtro <b>Solo las que faltan por revisar</b>. Corriges las que quieras.</li>
-  <li><span class="btn">Exportar los nombres corregidos</span> al terminar la sesión.</li>
-  <li>Deja el <span class="ruta">renombres.json</span> en <span class="ruta">Proyecto Mis Rutas</span>.</li>
-  <li><b>Renombrar Rutas.bat</b>, los cuatro pasos.</li>
-  <li><b>Publicar Mapas.bat</b> → opción 3.</li>
-</ol>
+<p>Se hace en <b>Menú Semanal</b>. El lunes, <b>Rutas al día</b> lo lleva a todas partes.</p>
 
 <h3>He cambiado la app</h3>
 <ol class="pasos">
@@ -661,12 +648,6 @@ en seco, <code>--aplicar</code> para hacerlo.</p>
   <li>Recarga dos veces en el móvil y comprueba la versión.</li>
 </ol>
 
-<h3>He revisado nombres en el móvil</h3>
-<ol class="pasos">
-  <li>Exportas desde el móvil. El fichero cae en Descargas del teléfono.</li>
-  <li>Lo llevas al ordenador (OneDrive, correo, cable).</li>
-  <li>Lo dejas en <span class="ruta">Proyecto Mis Rutas</span> y sigues la receta de nombres.</li>
-</ol>
 </section>
 
 <!-- ============================================================ -->
