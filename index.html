@@ -1227,7 +1227,12 @@ table.cmp td:first-child{text-align:left;color:#6b6862}
 .tramo.hecho{opacity:.45}
 .tramo.aqui{background:#f3efe6;border-radius:6px}
 .tramos .nota{color:#8a857c;font-size:11.5px;padding-top:6px}
-.dlg.dlg-perfil{max-width:640px}
+.dlg.dlg-perfil{max-width:640px;max-height:92vh;overflow:auto}
+.tramo.parada{cursor:pointer}
+.tramo.parada .ic{color:#4b4a8f}
+.tramo.parada .t{color:#4b4a8f}
+.tramo .bien{color:#2f6b4f} .tramo .mal2{color:#b4521f}
+.ficha-ruta .fr-perfil{width:100%;margin-top:6px}
 .perfil-det{font-size:12.5px;color:#4a4741;margin-top:8px;font-variant-numeric:tabular-nums}
 .pin-coche{width:26px;height:26px;border-radius:50%;background:#1f2937;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
@@ -2670,7 +2675,7 @@ function restaDelPerfil(p, i) {
   return { km: (p.d[p.d.length - 1] - p.d[i]) / 1000, sube: Math.round(sube) };
 }
 
-function svgPerfil(p, color, iPos, tramos) {
+function svgPerfil(p, color, iPos, tramos, paradas) {
   const W = 330, H = 120, mI = 34, mD = 6, mA = 8, mB = 18;
   const ax = W - mI - mD, ay = H - mA - mB;
   const hmin = Math.floor(p.min / 50) * 50, hmax = Math.ceil(p.max / 50) * 50;
@@ -2714,6 +2719,17 @@ function svgPerfil(p, color, iPos, tramos) {
       bandas += '<text x="' + xm + '" y="' + (mA + 9) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#b4521f">' + (++nSub) + '</text>';
       if (x2 - x1 >= 30) bandas += '<text x="' + xm + '" y="' + (mA + 18) + '" text-anchor="middle" font-size="7.5" fill="#b4521f">' + fmtH5(x.and).replace(' min', '′') + '</text>';
     }
+  });
+  /* paradas de una ruta ya hecha: un punto sobre la línea, con los minutos
+     encima si fue de diez o más */
+  const altEn = m => { let k = 0; while (k < p.d.length - 1 && p.d[k + 1] < m) k++;
+    const a = p.d[k], b = p.d[Math.min(k + 1, p.d.length - 1)];
+    return b > a ? p.h[k] + (p.h[k + 1] - p.h[k]) * (m - a) / (b - a) : p.h[k]; };
+  (paradas || []).forEach(q => {
+    const m = q.km * 1000, xq = X(m).toFixed(1), yq = Y(altEn(m));
+    bandas += '<circle cx="' + xq + '" cy="' + yq.toFixed(1) + '" r="' + (q.min >= 10 ? 4 : 2.8)
+      + '" fill="#4b4a8f" stroke="#fff" stroke-width="1.2"/>';
+    if (q.min >= 10) bandas += '<text x="' + xq + '" y="' + (yq - 7).toFixed(1) + '" text-anchor="middle" font-size="7.5" font-weight="700" fill="#4b4a8f">' + q.min + '′</text>';
   });
   /* dónde vas: una banda sombreada sobre lo ya andado, la línea vertical y el
      punto. Lo hecho se apaga y lo que queda resalta, que es lo que miras. */
@@ -5696,6 +5712,93 @@ async function pintaRutas() {
   subeGpx();
 }
 
+/* ---- rutas hechas: duración, tramos y paradas -------------------------
+   Lo calcula `analisis_rutas.py` (Proyecto Mis Rutas) con los GPX del reloj,
+   que traen la hora de cada punto, y lo deja en rutas/ana-<celda>.json; se
+   rehace con «Llevar a la App». Parada = más de 2 min sin salir de 35 m (o
+   el reloj en pausa); se enseñan las de 3 min o más. */
+const memoriaAna = new Map();
+async function anaDe(r) {
+  if (!r || !r.c || r.c === '@add') return null;
+  if (!memoriaAna.has(r.c)) {
+    let d = null;
+    try { const x = await fetch('rutas/ana-' + r.c + '.json'); if (x.ok) d = await x.json(); } catch (e) {}
+    memoriaAna.set(r.c, d || {});
+  }
+  return memoriaAna.get(r.c)[r.id] || null;
+}
+const minTxt = m => fmtH5(m / 60);
+let capaParadas = null;
+function quitaParadasMapa() { if (capaParadas) { mapa.removeLayer(capaParadas); capaParadas = null; } }
+function abrePerfilHecha(r, a) {
+  quitaParadasMapa();
+  const p = { d: a.perfil.d, h: a.perfil.h, min: Math.min(...a.perfil.h), max: Math.max(...a.perfil.h) };
+  const ts = a.tramos.map(x => ({ ...x, and: x.and / 60 }));
+  const cont = document.createElement('div'); cont.className = 'dlg dlg-perfil';
+  cont.innerHTML = '<h4></h4><div class="perfil-caja"></div><div class="perfil-det"></div>'
+    + '<div class="dlg-bot"><button class="sec" id="perf-no">Cerrar</button></div>';
+  cont.querySelector('h4').textContent = nombreDe(r);
+  cont.querySelector('.perfil-caja').innerHTML = svgPerfil(p, colorBaseDeRuta(r), null, ts, a.paradas);
+  /* comparación con tu curva: solo senderismo */
+  const conPrev = a.tramos.filter(x => x.prev != null);
+  const sAnd = conPrev.reduce((s, x) => s + x.and, 0), sPrev = conPrev.reduce((s, x) => s + x.prev, 0);
+  const ritmo = sPrev > 0 ? Math.round(100 * (sAnd / sPrev - 1)) : null;
+  let html = '<b>' + a.ini + ' → ' + a.fin + '</b> · ' + fmtN(+a.km.toFixed(1)) + ' km · sube ' + fmtN(a.sube)
+    + ' m · baja ' + fmtN(a.baja) + ' m<br>Total <b>' + fmtH5(a.dur) + '</b> · andando <b>' + fmtH5(a.mov)
+    + '</b> · parado <b>' + fmtH5(a.parado) + '</b>' + (a.paradas.length ? ' (' + a.paradas.length + (a.paradas.length === 1 ? ' parada' : ' paradas') + ')' : '')
+    + (ritmo == null ? '' : Math.abs(ritmo) < 3 ? '<br>Andando fuiste <b>a tu ritmo habitual</b>'
+       : '<br>Andando fuiste un <b>' + Math.abs(ritmo) + ' % ' + (ritmo > 0 ? 'más lento' : 'más rápido') + '</b> que tu ritmo habitual');
+  /* la secuencia: tramos y paradas por orden, como pasaron */
+  const items = [];
+  let n = 0;
+  ts.forEach(x => items.push({ k: x.desde, x, num: x.tipo === 'sube' ? ++n : 0 }));
+  a.paradas.forEach(q => {
+    const dentro = ts.find(x => q.km * 1000 > x.desde + 30 && q.km * 1000 < x.hasta - 30);
+    items.push({ k: q.km * 1000 + .5, q, dentro });
+  });
+  items.sort((u, v) => u.k - v.k);
+  html += '<div class="tramos">';
+  items.forEach(it => {
+    if (it.q) {
+      const q = it.q, d = it.dentro;
+      html += '<div class="tramo parada" data-lat="' + q.g[0] + '" data-lon="' + q.g[1] + '"><span class="ic">⏸</span>'
+        + '<span>Parada <span class="q">· ' + q.hora + ' · km ' + fmtN(+q.km.toFixed(1))
+        + (d ? ' · en mitad de ' + (d.tipo === 'sube' ? 'la subida' : d.tipo === 'baja' ? 'la bajada' : 'un llano') : '')
+        + ' · ver en el mapa</span></span><span class="t">' + minTxt(q.min) + '</span></div>';
+      return;
+    }
+    const x = it.x;
+    const ic = x.tipo === 'sube' ? '▲' + it.num : x.tipo === 'baja' ? '▼' : '→';
+    const q = x.tipo === 'llano' ? (x.dz ? (x.dz > 0 ? '+' : '') + fmtN(x.dz) + ' m' : 'llano')
+            : (x.dz > 0 ? '+' : '−') + fmtN(Math.abs(x.dz)) + ' m · ' + (x.km ? Math.round(Math.abs(x.dz) / (x.km * 10)) : 0) + ' %';
+    let sub = x.par >= 1 ? 'parado ' + minTxt(x.par) : 'sin paradas';
+    if (x.prev != null && x.prev > 3) {
+      const dif = Math.round(100 * (x.and * 60 / x.prev - 1));
+      sub += ' · <span class="' + (dif > 10 ? 'mal2' : dif < -10 ? 'bien' : '') + '">tu media ' + minTxt(x.prev) + '</span>';
+    }
+    html += '<div class="tramo"><span class="ic ' + x.tipo + '">' + ic + '</span>'
+      + '<span>' + fmtN(+x.km.toFixed(1)) + ' km <span class="q">· ' + q + ' · ' + x.ini
+      + ' · del km ' + kmTxt(x.desde) + ' al ' + kmTxt(x.hasta) + '</span></span>'
+      + '<span class="t">' + fmtH5(x.and) + '<small>' + sub + '</small></span></div>';
+  });
+  html += '<div class="nota">En negrita, lo que tardaste andando en cada tramo, sin las paradas. «Tu media» es lo que '
+    + 'sueles tardar tú en un tramo así: en verde si fuiste más rápido, en naranja si más lento. Las paradas '
+    + '(3 min o más) salen en su sitio; tócalas para verlas en el mapa.</div></div>';
+  cont.querySelector('.perfil-det').innerHTML = html;
+  /* las paradas también en el mapa mientras miras el perfil */
+  capaParadas = L.layerGroup(a.paradas.map(q => L.circleMarker(q.g, { radius: q.min >= 10 ? 7 : 5,
+    color:'#fff', weight:2, fillColor:'#4b4a8f', fillOpacity:.95 })
+    .bindTooltip('Parada ' + minTxt(q.min) + ' · ' + q.hora, { direction:'top' }))).addTo(mapa);
+  const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
+  document.body.appendChild(capa);
+  const cierra = (dejar) => { capa.remove(); if (!dejar) quitaParadasMapa(); };
+  cont.querySelector('#perf-no').onclick = () => cierra(false);
+  capa.onclick = ev => { if (ev.target === capa) cierra(false); };
+  cont.querySelectorAll('.tramo.parada').forEach(el => el.onclick = () => {
+    cierra(true); mapa.setView([+el.dataset.lat, +el.dataset.lon], Math.max(mapa.getZoom(), 16));
+  });
+}
+
 /* ficha al tocar una ruta. El nombre ya no se edita aquí: se renombra en
    Menú Semanal y llega a la colección con «Rutas al día». */
 function abreFichaRuta(r, latlng) {
@@ -5703,12 +5806,21 @@ function abreFichaRuta(r, latlng) {
   cont.className = 'ficha-ruta';
   const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
   cont.innerHTML = '<div class="fr-tit"></div><div class="fr-det"></div>'
-    + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button></div>';
+    + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button></div>'
+    + '<button class="fr-guarda fr-perfil" hidden>⛰ Perfil, tramos y paradas</button>';
   cont.querySelector('.fr-tit').textContent = nombreDe(r);
   cont.querySelector('.fr-det').textContent =
     [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
   cont.querySelector('.fr-seguir').onclick = () => { mapa.closePopup(); seguirRuta(r); };
   L.popup({ maxWidth:280, autoPan:true }).setLatLng(latlng).setContent(cont).openOn(mapa);
+  /* la duración y el perfil, de su análisis (si el GPX traía horas) */
+  anaDe(r).then(a => {
+    if (!a) return;
+    cont.querySelector('.fr-det').innerHTML = escXml([f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · '))
+      + '<br><b>' + fmtH5(a.dur) + '</b> en total · andando ' + fmtH5(a.mov) + ' · ' + a.ini + '–' + a.fin;
+    const b = cont.querySelector('.fr-perfil'); b.hidden = false;
+    b.onclick = () => { mapa.closePopup(); abrePerfilHecha(r, a); };
+  });
 }
 
 /* Lo que queda del renombrado de antes: si en este navegador hay nombres
@@ -7185,7 +7297,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v88';
+const VERSION = 'v89';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
