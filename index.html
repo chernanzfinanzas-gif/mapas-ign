@@ -4178,6 +4178,36 @@ async function descargaSendas(bounds, nombre, poly) {
   }
 }
 
+/* ---- paquetes sin caminos: se reparan solos --------------------------
+   La ficha de cada paquete vive en localStorage y sus caminos en la caché.
+   Chrome puede vaciar la caché por su cuenta para liberar espacio, y
+   entonces la lista sigue ahí, marcada, pero no se dibuja nada —y tampoco
+   se podía volver a añadir de «Paquetes preparados», porque figuraba como
+   «Ya lo tienes». (13-oct-2026, en el ordenador.)
+   Al arrancar se mira cada paquete; al que le faltan los caminos se le
+   vuelven a poner del repositorio, emparejado por origen o por nombre. El que
+   no está en el repositorio se marca en la lista para volver a descargarlo. */
+let sendasSinDatos = new Set();
+async function reparaSendas() {
+  const fichas = leeSendas(); if (!fichas.length) return { n:0, quedan:0 };
+  const faltan = [];
+  for (const f of fichas) { let d = null; try { d = await leeDatosSendas(f.id); } catch (e) {}
+    if (!d) faltan.push(f); }
+  if (!faltan.length) { sendasSinDatos = new Set(); return { n:0, quedan:0 }; }
+  let lista = [];
+  try { const r = await fetch(RUTA_PAQUETES, { cache:'no-cache' }); if (r.ok) lista = (await r.json()).paquetes || []; } catch (e) {}
+  let n = 0; const sin = new Set();
+  for (const f of faltan) {
+    const p = lista.find(q => q.id === f.origen || q.id === idDesde(f.nom));
+    if (!p) { sin.add(f.id); continue; }
+    await salvaDatosSendas(f.id, { v:2, w:p.w || [], p:p.p || [], bbox:p.bbox, poly:p.poly || null });
+    memoriaSendas.delete(f.id); n++;
+  }
+  sendasSinDatos = sin;
+  if (n) avisa('Senderos recuperados del repositorio: ' + n + (n === 1 ? ' paquete' : ' paquetes'));
+  return { n, quedan: sin.size };
+}
+
 function pintaListaSendas() {
   const ul = document.getElementById('sendas-lista'), fs = leeSendas();
   ul.innerHTML = '';
@@ -4187,7 +4217,8 @@ function pintaListaSendas() {
     li.innerHTML = '<div class="info"><div class="nom"></div><div class="det"></div></div>';
     li.querySelector('.nom').textContent = f.nom;
     li.querySelector('.det').textContent = fmtN(f.n) + ' caminos'
-      + (f.np ? ' · ' + fmtN(f.np) + ' puntos' : '') + ' · ' + f.kb + ' KB · ' + fmtFecha(f.fecha);
+      + (f.np ? ' · ' + fmtN(f.np) + ' puntos' : '') + ' · ' + f.kb + ' KB · ' + fmtFecha(f.fecha)
+      + (sendasSinDatos.has(f.id) ? ' · SIN DATOS: bórralo y vuelve a descargarlo' : '');
     const ver = document.createElement('input');
     ver.type = 'checkbox'; ver.className = 'ver1'; ver.checked = !f.off;
     ver.title = 'Mostrar este paquete';
@@ -7136,7 +7167,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v86';
+const VERSION = 'v87';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
@@ -7540,6 +7571,7 @@ function abrePor(texto) {
   pintaListaSendas();
   pintaSendas();
   pintaPaquetesRepo();
+  reparaSendas().then(r => { if (r.n || r.quedan) { pintaListaSendas(); pintaSendas(); } }).catch(() => {});
   /* el tiempo: se enseña lo último consultado, que sin red es lo único que hay */
   const $ac = document.getElementById('aemet-clave');
   if ($ac) $ac.value = localStorage.getItem(LS_AEMET) || '';
