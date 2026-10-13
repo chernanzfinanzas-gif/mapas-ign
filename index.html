@@ -1216,6 +1216,17 @@ table.cmp td{padding:3px 0;border-top:1px solid var(--linea);text-align:right}
 table.cmp td:first-child{text-align:left;color:#6b6862}
 .perfil-caja{width:100%;overflow:hidden}
 .perfil-caja svg{display:block;width:100%;height:auto}
+.tramos{margin-top:8px;font-size:12.5px;font-variant-numeric:tabular-nums;max-height:38vh;overflow:auto}
+.tramos .tot{padding:0 0 6px;color:#4a4741}
+.tramo{display:grid;grid-template-columns:24px 1fr auto;gap:6px;padding:5px 2px;border-top:1px solid #ece8e0;align-items:baseline}
+.tramo .ic{font-weight:700}
+.tramo .ic.sube{color:#b4521f} .tramo .ic.baja{color:#227580} .tramo .ic.llano{color:#8a857c}
+.tramo .q{color:#8a857c;font-size:11.5px}
+.tramo .t{font-weight:700;text-align:right;white-space:nowrap}
+.tramo .t small{display:block;font-weight:400;font-size:11px;color:#8a857c}
+.tramo.hecho{opacity:.45}
+.tramo.aqui{background:#f3efe6;border-radius:6px}
+.tramos .nota{color:#8a857c;font-size:11.5px;padding-top:6px}
 .perfil-det{font-size:12.5px;color:#4a4741;margin-top:8px;font-variant-numeric:tabular-nums}
 .pin-coche{width:26px;height:26px;border-radius:50%;background:#1f2937;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
@@ -2657,7 +2668,7 @@ function restaDelPerfil(p, i) {
   return { km: (p.d[p.d.length - 1] - p.d[i]) / 1000, sube: Math.round(sube) };
 }
 
-function svgPerfil(p, color, iPos) {
+function svgPerfil(p, color, iPos, tramos) {
   const W = 330, H = 120, mI = 34, mD = 6, mA = 8, mB = 18;
   const ax = W - mI - mD, ay = H - mA - mB;
   const hmin = Math.floor(p.min / 50) * 50, hmax = Math.ceil(p.max / 50) * 50;
@@ -2688,6 +2699,16 @@ function svgPerfil(p, color, iPos) {
       + (ult ? 'end' : 'middle') + '" font-size="9" fill="#8a857c">'
       + (m / 1000).toFixed(largo > 20000 ? 0 : 1) + (ult ? ' km' : '') + '</text>');
   }
+  /* subidas y bajadas, sombreadas detrás de la línea; las subidas numeradas
+     como en la lista de abajo */
+  let bandas = '', nSub = 0;
+  (tramos || []).forEach(x => {
+    if (x.tipo === 'llano') return;
+    const x1 = X(x.desde), x2 = X(x.hasta), sube = x.tipo === 'sube';
+    bandas += '<rect x="' + x1.toFixed(1) + '" y="' + mA + '" width="' + Math.max(0.5, x2 - x1).toFixed(1)
+      + '" height="' + ay + '" fill="' + (sube ? '#c8642a' : '#2a7f8a') + '" opacity="' + (sube ? '.14' : '.09') + '"/>';
+    if (sube) bandas += '<text x="' + ((x1 + x2) / 2).toFixed(1) + '" y="' + (mA + 9) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#b4521f">' + (++nSub) + '</text>';
+  });
   /* dónde vas: una banda sombreada sobre lo ya andado, la línea vertical y el
      punto. Lo hecho se apaga y lo que queda resalta, que es lo que miras. */
   let marca = '';
@@ -2701,7 +2722,7 @@ function svgPerfil(p, color, iPos) {
           + '" r="4" fill="#12306e" stroke="#fff" stroke-width="1.8"/>';
   }
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img">'
-    + rejilla.join('') + kms.join('')
+    + rejilla.join('') + kms.join('') + bandas
     + '<path d="' + area + '" fill="' + color + '" fill-opacity=".18"/>'
     + '<path d="' + linea + '" fill="none" stroke="' + color + '" stroke-width="1.8" '
     + 'stroke-linejoin="round" stroke-linecap="round"/>'
@@ -2734,7 +2755,8 @@ async function abrePerfil(f) {
          ruta, o aún no has llegado. Mejor no marcar nada que mentir. */
       if (dmin > 500) iPos = null;
     }
-    cont.querySelector('.perfil-caja').innerHTML = svgPerfil(p, f.nav ? COLOR_NAV : f.color, iPos);
+    const ts = tramosDe(p);
+    cont.querySelector('.perfil-caja').innerHTML = svgPerfil(p, f.nav ? COLOR_NAV : f.color, iPos, ts);
     let txt = p.km.toFixed(2) + ' km · sube <b>' + fmtN(p.sube) + ' m</b> · baja <b>' + fmtN(p.baja) + ' m</b>'
       + '<br>Entre ' + fmtN(Math.round(p.min)) + ' y ' + fmtN(Math.round(p.max)) + ' m de altitud.';
     if (iPos != null) {
@@ -2749,7 +2771,8 @@ async function abrePerfil(f) {
     } else {
       txt += '<br><span style="color:#8a857c">Sin posición GPS todavía: cuando la haya, aquí saldrá por dónde vas.</span>';
     }
-    cont.querySelector('.perfil-det').innerHTML = txt;
+    cont.querySelector('.perfil-det').innerHTML = txt
+      + htmlTramos(ts, pts, iPos != null ? p.d[iPos] : null);
   }
   const capa = document.createElement('div'); capa.className = 'dlg-fondo'; capa.appendChild(cont);
   document.body.appendChild(capa);
@@ -4962,6 +4985,125 @@ function textoEstima(e) {
     + (e.sinAlt ? ' · <span class="mal">sin altitud: cuenta todo como llano</span>' : '');
 }
 
+/* ---- tramos: subidas, bajadas y llanos ---------------------------------
+   El mismo método que `ritmo_personal.py` (si se cambia uno, se cambia el
+   otro): perfil cada 50 m suavizado a 250 m, y se cambia de tramo cuando el
+   terreno se da la vuelta más de 40 m; a subidas y bajadas se les quita el
+   llano de los extremos. Cada tramo lleva su tiempo andando (tu curva) y con
+   sus paradas cortas. Medido en tus rutas (13-oct-2026): una subida de más de
+   150 m dura 1,31 veces lo andado en ella, y así el tiempo de cada subida se
+   acierta con unos 14 min de error típico (13 %). La diferencia con el total
+   de la ruta son las paradas largas: comida, cima. */
+function tramosDe(p) {
+  if (!p || !ritmo || !ritmo.minKm) return [];
+  const PASO = ritmo.tramoPaso || 50, HH = ritmo.tramoH || 40, c = ritmo.minKm;
+  const d = [0], e0 = [p.h[0]];
+  for (let i = 1; i < p.d.length; i++)
+    if (p.d[i] - d[d.length - 1] >= PASO) { d.push(p.d[i]); e0.push(p.h[i]); }
+  if (d.length < 3) return [];
+  const e = e0.map((_, i) => {
+    const a = Math.max(0, i - 2), b = Math.min(e0.length, i + 3);
+    let s = 0; for (let k = a; k < b; k++) s += e0[k]; return s / (b - a);
+  });
+  const piv = [0]; let tr = 0, ext = 0;
+  for (let i = 1; i < e.length; i++) {
+    if (tr === 0) { if (e[i] - e[0] >= HH) { tr = 1; ext = i; } else if (e[0] - e[i] >= HH) { tr = -1; ext = i; } }
+    else if (tr === 1) { if (e[i] > e[ext]) ext = i; else if (e[ext] - e[i] >= HH) { piv.push(ext); tr = -1; ext = i; } }
+    else { if (e[i] < e[ext]) ext = i; else if (e[i] - e[ext] >= HH) { piv.push(ext); tr = 1; ext = i; } }
+  }
+  if (tr !== 0 && ext !== piv[piv.length - 1] && ext !== e.length - 1) piv.push(ext);
+  piv.push(e.length - 1);
+  const recorta = (a, b) => {
+    const g = e[b] - e[a], s = g > 0 ? 1 : -1, amp = Math.abs(g);
+    let i = a;
+    while (i < b && s * (e[i + 1] - e[a]) < .05 * amp && s * (e[i + 1] - e[i]) / (d[i + 1] - d[i]) < .03) i++;
+    let j = b;
+    while (j > i && s * (e[b] - e[j - 1]) < .05 * amp && s * (e[j] - e[j - 1]) / (d[j] - d[j - 1]) < .03) j--;
+    return [i, j];
+  };
+  /* un rellano de más de 800 m en medio de una subida o bajada es un tramo
+     llano de por sí: se mira la pendiente en ventanas de 500 m */
+  const parteLlanos = (tipo, a, b) => {
+    const s = tipo === 'sube' ? 1 : -1, plano = [];
+    for (let k = a; k < b; k++) {
+      const u = Math.max(a, k - 5), v = Math.min(b, k + 5);
+      plano.push(s * (e[v] - e[u]) / (d[v] - d[u] || 1) < .03);
+    }
+    const out = []; let ini = a, k = 0;
+    while (k < plano.length) {
+      if (!plano[k]) { k++; continue; }
+      let f = k; while (f < plano.length && plano[f]) f++;
+      const i = a + k, j = a + f;
+      if (d[j] - d[i] >= 800 && i > ini) { out.push([tipo, ini, i]); out.push(['llano', i, j]); ini = j; }
+      k = f;
+    }
+    out.push([tipo, ini, b]);
+    /* un trozo que se ha quedado sin desnivel ya no es subida ni bajada */
+    return out.map(x => x[0] !== 'llano' && Math.abs(e[x[2]] - e[x[1]]) < 20 ? ['llano', x[1], x[2]] : x);
+  };
+  let t = [];
+  for (let k = 0; k + 1 < piv.length; k++) {
+    const a = piv[k], b = piv[k + 1]; if (b <= a) continue;
+    const g = e[b] - e[a], L = d[b] - d[a];
+    if (Math.abs(g) >= HH && Math.abs(g) / L >= .03) {
+      const [i, j] = recorta(a, b);
+      if (i > a) t.push(['llano', a, i]);
+      parteLlanos(g > 0 ? 'sube' : 'baja', i, j).forEach(x => t.push(x));
+      if (j < b) t.push(['llano', j, b]);
+    } else t.push(['llano', a, b]);
+  }
+  const une = l => { const m = []; l.forEach(x => { const u = m[m.length - 1];
+    if (u && u[0] === x[0]) u[2] = x[2]; else m.push(x.slice()); }); return m; };
+  t = une(t);
+  /* los trocitos de menos de 300 m no merecen fila: se los queda el vecino */
+  t = une(t.map((x, k) => (d[x[2]] - d[x[1]] < 300 && t.length > 1)
+    ? [(t[k - 1] || t[k + 1])[0], x[1], x[2]] : x));
+  const F = ritmo.tramos || {}, def = { p25:1.14, p50:1.33, p75:1.6 };
+  return t.map(([tipo, a, b]) => {
+    let min = 0;
+    for (let k = a; k < b; k++) {
+      const L = d[k + 1] - d[k], g = (e[k + 1] - e[k]) / L * 100;
+      const key = Math.max(-40, Math.min(40, Math.round(g / 5) * 5));
+      min += (c[String(key)] || c['0']) * L / 1000;
+    }
+    const f = F[tipo] || def, h = min / 60, km = (d[b] - d[a]) / 1000;
+    return { tipo, desde:d[a], hasta:d[b], km, dz:Math.round(e[b] - e[a]),
+             pend: km ? Math.round(Math.abs(e[b] - e[a]) / (km * 10)) : 0,
+             and:h, tot:h * f.p50, lo:h * f.p25, hi:h * f.p75 };
+  });
+}
+const kmTxt = m => fmtN(+(m / 1000).toFixed(1));
+/* las subidas que importan, en una línea: para el planificador */
+function lineaSubidas(ts) {
+  const s = ts.filter(x => x.tipo === 'sube' && x.dz >= 150);
+  if (!s.length) return '';
+  return 'Subidas: ' + s.slice(0, 4).map(x => fmtN(+x.km.toFixed(1)) + ' km +' + fmtN(x.dz)
+    + ' m ≈ <b>' + fmtH5(x.tot) + '</b>').join(' · ') + (s.length > 4 ? ' · …' : '');
+}
+/* la lista de tramos para la ventana del perfil; con posición, lo hecho se
+   apaga, el tramo en que estás se marca y se dice lo que queda */
+function htmlTramos(ts, pts, posM) {
+  if (!ts.length) return '';
+  const e = estimaRuta(pts, 0, 0);
+  let n = 0, html = '<div class="tramos"><div class="tot">Total: ' + textoEstima(e) + '</div>';
+  ts.forEach(x => {
+    const ic = x.tipo === 'sube' ? '▲' + (++n) : x.tipo === 'baja' ? '▼' : '→';
+    const cls = posM == null ? '' : x.hasta <= posM ? ' hecho' : x.desde <= posM ? ' aqui' : '';
+    const q = x.tipo === 'llano' ? (x.dz ? (x.dz > 0 ? '+' : '') + fmtN(x.dz) + ' m' : 'llano')
+            : (x.dz > 0 ? '+' : '−') + fmtN(Math.abs(x.dz)) + ' m · ' + x.pend + ' %';
+    html += '<div class="tramo' + cls + '"><span class="ic ' + x.tipo + '">' + ic + '</span>'
+      + '<span>' + fmtN(+x.km.toFixed(1)) + ' km <span class="q">· ' + q
+      + ' · del km ' + kmTxt(x.desde) + ' al ' + kmTxt(x.hasta) + '</span></span>'
+      + '<span class="t">' + fmtH5(x.tot) + '<small>' + fmtH5(x.lo) + '–' + fmtH5(x.hi) + '</small></span></div>';
+  });
+  if (posM != null) {
+    let q = 0;
+    ts.forEach(x => { if (x.hasta > posM) q += x.tot * (x.hasta - Math.max(posM, x.desde)) / (x.hasta - x.desde || 1); });
+    html += '<div class="tot" style="padding-top:6px">Te quedan unas <b>' + fmtH5(q) + '</b> de tramos, más las paradas largas que hagas.</div>';
+  }
+  return html + '<div class="nota">Cada tramo lleva sus paradas cortas. Lo que falta hasta el total son las paradas largas: comida, cima.</div></div>';
+}
+
 /* En la lista de objetivos la duración se calcula una vez y se guarda con el
    objetivo; se rehace sola si cambia el trazado o llega una curva nueva. */
 const claveEst = f => f.n + '|' + f.km + '|' + (ritmo ? ritmo.generado : '');
@@ -5080,7 +5222,8 @@ async function recalculaPlan() {
     rutaPlan = r;
     pintaPlan();
     pistaPlan('<b>' + fmtN(+r.km.toFixed(1)) + ' km</b> · ' + fmtN(r.d) + ' m de subida<br>'
-      + textoEstima(estimaRuta(r.pts, r.km, r.d)));
+      + textoEstima(estimaRuta(r.pts, r.km, r.d))
+      + (() => { const l = lineaSubidas(tramosDe(calculaPerfil(r.pts))); return l ? '<br>' + l : ''; })());
     $g.disabled = false; $d.disabled = false;
   } catch (e) {
     rutaPlan = null; pintaPlan();
@@ -6993,7 +7136,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v85';
+const VERSION = 'v86';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
