@@ -1227,6 +1227,7 @@ table.cmp td:first-child{text-align:left;color:#6b6862}
 .tramo.hecho{opacity:.45}
 .tramo.aqui{background:#f3efe6;border-radius:6px}
 .tramos .nota{color:#8a857c;font-size:11.5px;padding-top:6px}
+.dlg.dlg-perfil{max-width:640px}
 .perfil-det{font-size:12.5px;color:#4a4741;margin-top:8px;font-variant-numeric:tabular-nums}
 .pin-coche{width:26px;height:26px;border-radius:50%;background:#1f2937;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
@@ -1359,6 +1360,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   </div>
   <div class="ln2 ln3">
     <input type="text" id="pl-nombre" placeholder="Nombre de la ruta" autocomplete="off">
+    <button id="pl-ver-perfil" title="Perfil con las subidas y el tiempo de cada tramo" disabled>⛰ Perfil</button>
     <button id="pl-bajar" title="Descargar el .gpx para el reloj">⤓ GPX</button>
     <button id="pl-guardar" class="ok">A objetivos</button>
   </div>
@@ -2707,7 +2709,11 @@ function svgPerfil(p, color, iPos, tramos) {
     const x1 = X(x.desde), x2 = X(x.hasta), sube = x.tipo === 'sube';
     bandas += '<rect x="' + x1.toFixed(1) + '" y="' + mA + '" width="' + Math.max(0.5, x2 - x1).toFixed(1)
       + '" height="' + ay + '" fill="' + (sube ? '#c8642a' : '#2a7f8a') + '" opacity="' + (sube ? '.14' : '.09') + '"/>';
-    if (sube) bandas += '<text x="' + ((x1 + x2) / 2).toFixed(1) + '" y="' + (mA + 9) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#b4521f">' + (++nSub) + '</text>';
+    if (sube) {
+      const xm = ((x1 + x2) / 2).toFixed(1);
+      bandas += '<text x="' + xm + '" y="' + (mA + 9) + '" text-anchor="middle" font-size="9" font-weight="700" fill="#b4521f">' + (++nSub) + '</text>';
+      if (x2 - x1 >= 30) bandas += '<text x="' + xm + '" y="' + (mA + 18) + '" text-anchor="middle" font-size="7.5" fill="#b4521f">' + fmtH5(x.and).replace(' min', '′') + '</text>';
+    }
   });
   /* dónde vas: una banda sombreada sobre lo ya andado, la línea vertical y el
      punto. Lo hecho se apaga y lo que queda resalta, que es lo que miras. */
@@ -2730,11 +2736,11 @@ function svgPerfil(p, color, iPos, tramos) {
     + '</svg>';
 }
 
-async function abrePerfil(f) {
-  const pts = await leePuntosGpx(f.id);
+async function abrePerfil(f, ptsDirectos) {
+  const pts = ptsDirectos || await leePuntosGpx(f.id);
   const p = pts && calculaPerfil(pts);
   const cont = document.createElement('div');
-  cont.className = 'dlg';
+  cont.className = 'dlg dlg-perfil';
   cont.innerHTML = '<h4></h4><div class="perfil-caja"></div><div class="perfil-det"></div>'
     + '<div class="dlg-bot"><button class="sec" id="perf-no">Cerrar</button></div>';
   cont.querySelector('h4').textContent = f.nom;
@@ -5108,31 +5114,33 @@ const kmTxt = m => fmtN(+(m / 1000).toFixed(1));
 function lineaSubidas(ts) {
   const s = ts.filter(x => x.tipo === 'sube' && x.dz >= 150);
   if (!s.length) return '';
-  return 'Subidas: ' + s.slice(0, 4).map(x => fmtN(+x.km.toFixed(1)) + ' km +' + fmtN(x.dz)
-    + ' m ≈ <b>' + fmtH5(x.tot) + '</b>').join(' · ') + (s.length > 4 ? ' · …' : '');
+  return 'Subidas, andando: ' + s.slice(0, 4).map(x => fmtN(+x.km.toFixed(1)) + ' km +' + fmtN(x.dz)
+    + ' m ≈ <b>' + fmtH5(x.and) + '</b>').join(' · ') + (s.length > 4 ? ' · …' : '')
+    + ' · <span style="color:#8a857c">detalle en ⛰ Perfil</span>';
 }
 /* la lista de tramos para la ventana del perfil; con posición, lo hecho se
    apaga, el tramo en que estás se marca y se dice lo que queda */
 function htmlTramos(ts, pts, posM) {
   if (!ts.length) return '';
   const e = estimaRuta(pts, 0, 0);
-  let n = 0, html = '<div class="tramos"><div class="tot">Total: ' + textoEstima(e) + '</div>';
+  let n = 0, acum = 0, html = '<div class="tramos"><div class="tot">Total: ' + textoEstima(e) + '</div>';
   ts.forEach(x => {
+    acum += x.and;
     const ic = x.tipo === 'sube' ? '▲' + (++n) : x.tipo === 'baja' ? '▼' : '→';
     const cls = posM == null ? '' : x.hasta <= posM ? ' hecho' : x.desde <= posM ? ' aqui' : '';
     const q = x.tipo === 'llano' ? (x.dz ? (x.dz > 0 ? '+' : '') + fmtN(x.dz) + ' m' : 'llano')
             : (x.dz > 0 ? '+' : '−') + fmtN(Math.abs(x.dz)) + ' m · ' + x.pend + ' %';
     html += '<div class="tramo' + cls + '"><span class="ic ' + x.tipo + '">' + ic + '</span>'
       + '<span>' + fmtN(+x.km.toFixed(1)) + ' km <span class="q">· ' + q
-      + ' · del km ' + kmTxt(x.desde) + ' al ' + kmTxt(x.hasta) + '</span></span>'
-      + '<span class="t">' + fmtH5(x.tot) + '<small>' + fmtH5(x.lo) + '–' + fmtH5(x.hi) + '</small></span></div>';
+      + ' · del km ' + kmTxt(x.desde) + ' al ' + kmTxt(x.hasta) + ' · llevas ' + fmtH5(acum) + '</span></span>'
+      + '<span class="t">' + fmtH5(x.and) + '<small>con paradas ' + fmtH5(x.tot) + '</small></span></div>';
   });
   if (posM != null) {
     let q = 0;
-    ts.forEach(x => { if (x.hasta > posM) q += x.tot * (x.hasta - Math.max(posM, x.desde)) / (x.hasta - x.desde || 1); });
-    html += '<div class="tot" style="padding-top:6px">Te quedan unas <b>' + fmtH5(q) + '</b> de tramos, más las paradas largas que hagas.</div>';
+    ts.forEach(x => { if (x.hasta > posM) q += x.and * (x.hasta - Math.max(posM, x.desde)) / (x.hasta - x.desde || 1); });
+    html += '<div class="tot" style="padding-top:6px">Te quedan unas <b>' + fmtH5(q) + '</b> andando, sin contar paradas.</div>';
   }
-  return html + '<div class="nota">Cada tramo lleva sus paradas cortas. Lo que falta hasta el total son las paradas largas: comida, cima.</div></div>';
+  return html + '<div class="nota">En negrita, cada tramo andando, sin paradas; «llevas» es lo andado acumulado al acabarlo. Debajo, con las paradas cortas que sueles hacer en un tramo así. Las paradas largas (comida, cima) solo van en el total.</div></div>';
 }
 
 /* En la lista de objetivos la duración se calcula una vez y se guarda con el
@@ -5234,12 +5242,14 @@ async function recalculaPlan() {
   document.getElementById('pl-cerrar-anillo').disabled = puntosPlan.length < 3;
   const $d = document.getElementById('pl-bajar');
   if (puntosPlan.length < 2) {
-    rutaPlan = null; $g.disabled = true; $d.disabled = true; pintaPlan();
+    rutaPlan = null; $g.disabled = true; $d.disabled = true;
+    document.getElementById('pl-ver-perfil').disabled = true; pintaPlan();
     pistaPlan(puntosPlan.length ? 'Toca otro punto: hacen falta al menos dos.'
                                 : 'Toca en el mapa por dónde quieres pasar.');
     return;
   }
   $g.disabled = true; $d.disabled = true;
+  document.getElementById('pl-ver-perfil').disabled = true;
   pintaPlan();
   pistaPlan('Calculando por los caminos…');
   const perfil = document.getElementById('pl-perfil').value;
@@ -5256,6 +5266,7 @@ async function recalculaPlan() {
       + textoEstima(estimaRuta(r.pts, r.km, r.d))
       + (() => { const l = lineaSubidas(tramosDe(calculaPerfil(r.pts))); return l ? '<br>' + l : ''; })());
     $g.disabled = false; $d.disabled = false;
+    document.getElementById('pl-ver-perfil').disabled = false;
   } catch (e) {
     rutaPlan = null; pintaPlan();
     pistaPlan('No se ha podido: ' + e.message, true);
@@ -5340,6 +5351,13 @@ document.getElementById('pl-perfil').onchange = ev => {
   guarda(LS_PERFIL, ev.target.value); recalculaPlan();
 };
 document.getElementById('pl-guardar').onclick = guardaPlan;
+/* el perfil de la ruta que estás dibujando, con sus tramos, sin tener que
+   guardarla antes como objetivo */
+document.getElementById('pl-ver-perfil').onclick = () => {
+  if (!rutaPlan) return;
+  const nom = (document.getElementById('pl-nombre').value || '').trim() || 'Ruta planificada';
+  abrePerfil({ id:null, nom, color:'#6b3fa0' }, rutaPlan.pts);
+};
 
 /* Al reloj va la traza COMPLETA que devuelve el motor, no la reducida que se
    guarda como objetivo. Son dos usos distintos: la reducida existe para no
@@ -7167,7 +7185,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v87';
+const VERSION = 'v88';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
