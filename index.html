@@ -1233,6 +1233,7 @@ table.cmp td:first-child{text-align:left;color:#6b6862}
 .tramo.parada .t{color:#4b4a8f}
 .tramo .bien{color:#2f6b4f} .tramo .mal2{color:#b4521f}
 .ficha-ruta .fr-perfil{width:100%;margin-top:6px}
+.ficha-ruta .fr-perf svg{display:block;width:100%;height:auto;margin-top:6px}
 .perfil-det{font-size:12.5px;color:#4a4741;margin-top:8px;font-variant-numeric:tabular-nums}
 .pin-coche{width:26px;height:26px;border-radius:50%;background:#1f2937;color:#fff;border:2px solid #fff;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
@@ -5806,18 +5807,24 @@ function abreFichaRuta(r, latlng) {
   cont.className = 'ficha-ruta';
   const f = r.f ? r.f.slice(6,8) + '/' + r.f.slice(4,6) + '/' + r.f.slice(0,4) : '';
   cont.innerHTML = '<div class="fr-tit"></div><div class="fr-det"></div>'
+    + '<div class="fr-perf"></div>'
     + '<div class="fr-bot"><button class="fr-seguir">Seguir esta ruta</button></div>'
-    + '<button class="fr-guarda fr-perfil" hidden>⛰ Perfil, tramos y paradas</button>';
+    + '<button class="fr-guarda fr-perfil" hidden>⛰ Tramos y paradas</button>';
   cont.querySelector('.fr-tit').textContent = nombreDe(r);
   cont.querySelector('.fr-det').textContent =
     [f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · ');
   cont.querySelector('.fr-seguir').onclick = () => { mapa.closePopup(); seguirRuta(r); };
-  L.popup({ maxWidth:280, autoPan:true }).setLatLng(latlng).setContent(cont).openOn(mapa);
+  const pop = L.popup({ maxWidth:340, minWidth:280, autoPan:true }).setLatLng(latlng).setContent(cont).openOn(mapa);
   /* la duración y el perfil, de su análisis (si el GPX traía horas) */
   anaDe(r).then(a => {
     if (!a) return;
     cont.querySelector('.fr-det').innerHTML = escXml([f, ETIQ_ACT[r.a] || r.a, r.km + ' km', r.d ? r.d + ' m+' : ''].filter(Boolean).join(' · '))
       + '<br><b>' + fmtH5(a.dur) + '</b> en total · andando ' + fmtH5(a.mov) + ' · ' + a.ini + '–' + a.fin;
+    /* el perfil, pequeño, ahí mismo: subidas numeradas y paradas */
+    const pf = { d: a.perfil.d, h: a.perfil.h, min: Math.min(...a.perfil.h), max: Math.max(...a.perfil.h) };
+    cont.querySelector('.fr-perf').innerHTML = svgPerfil(pf, colorBaseDeRuta(r), null,
+      a.tramos.map(x => ({ ...x, and: x.and / 60 })), a.paradas);
+    pop.update();
     const b = cont.querySelector('.fr-perfil'); b.hidden = false;
     b.onclick = () => { mapa.closePopup(); abrePerfilHecha(r, a); };
   });
@@ -7297,7 +7304,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v89';
+const VERSION = 'v90';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
