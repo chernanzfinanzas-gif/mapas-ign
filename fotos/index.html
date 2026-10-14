@@ -318,6 +318,16 @@ nav button.on{color:var(--verde)}
    - Abierta desde el PC (file://): miniaturas en ./miniaturas, originales en C:\Fotos\30_BIBLIOTECA.
    - Abierta desde internet (GitHub): todo se pide a pCloud con la llave de este aparato. */
 const MODO = location.protocol==="file:" ? "pc" : "nube";
+/* Si algo falla, se ve: aviso rojo abajo con el mensaje (para mandar captura a Claude) */
+function avisoError(e){
+  const t=(e&&(e.message||e.reason&&e.reason.message||e.reason))||String(e);
+  let d=document.getElementById("avisoError");
+  if(!d){ d=document.createElement("div"); d.id="avisoError"; d.style.cssText="position:fixed;left:8px;right:8px;bottom:calc(var(--barra,62px) + 8px);z-index:30000;background:#b42318;color:#fff;font:13px system-ui,sans-serif;padding:8px 12px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)";
+    d.onclick=()=>d.remove(); document.body.appendChild(d); }
+  d.textContent="Error (pásale una captura a Claude; toca para cerrar): "+t;
+}
+window.addEventListener("error",e=>{ if(e.message) avisoError(e); });
+window.addEventListener("unhandledrejection",e=>avisoError(e));
 // Dentro de la App Mapas IGN (mapas-ign/fotos/): botón para volver a la parte de rutas
 if(/\/mapas-ign\//.test(location.pathname)){ const a=document.getElementById("aRutas"); if(a) a.style.display=""; document.title="Mapa de fotos"; }
 function enc(r){ return r.split("/").map(encodeURIComponent).join("/"); }
@@ -481,7 +491,7 @@ function aplicar(){
   const conGps = visibles.filter(f=>f.lat!=null).length;
   $("resumen").textContent = visibles.length.toLocaleString("es-ES")+" fotos y vídeos · "+conGps.toLocaleString("es-ES")+" en el mapa";
   pintaRejilla();
-  if(mapaListo) pintaMapa(!!document.querySelector("#vMapa.activa"));
+  if(mapaListo){ try{ pintaMapa(!!document.querySelector("#vMapa.activa")); }catch(e){ avisoError(e); } }
   guarda();
 }
 function pintaChips(){
@@ -903,7 +913,7 @@ function marcaPersonas(){
   if(n) $("selTxt").textContent=[...E.personas].map(p=>PERS[p].nombre).join(", ")+" · "+visibles.length.toLocaleString("es-ES")+" fotos";
 }
 $("selLimpia").onclick=()=>{ E.personas.clear(); aplicar(); };
-$("selVer").onclick=()=>{ E.ano=""; $("fAno").value=""; aplicar(); cambia("vFotos"); window.scrollTo(0,0); };
+$("selVer").onclick=()=>{ E.ano=""; $("fAno").value=""; cambia("vFotos"); window.scrollTo(0,0); aplicar(); };
 
 /* ============ FAMILIA ============ */
 function pintaFamilia(){
