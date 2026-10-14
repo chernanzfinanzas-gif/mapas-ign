@@ -104,9 +104,11 @@ body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-are
 #mapaZona.panelMin #panel{flex:0 0 40px!important;padding:0 12px;overflow:hidden;cursor:pointer;display:flex;justify-content:center;align-items:center}
 #mapaZona.panelMin #panel>*{display:none}
 #mapaZona.panelMin #panelMini{display:block}
-.ctlMapa{background:var(--papel,#fff);border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.3);font:13px system-ui,sans-serif;color:#222}
-.ctlMapa button{width:34px;height:34px;border:0;background:none;font-size:18px;cursor:pointer;color:#222}
-.ctlMezcla{padding:6px 8px;display:flex;flex-direction:column;gap:5px;min-width:150px}
+.ctlMapa{background:#fff;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.3);font:13px system-ui,sans-serif;color:#222}
+.ctlMapa button{width:34px;height:34px;border:0;background:#fff;border-radius:8px;font-size:18px;cursor:pointer;color:#222}
+.ctlMezcla span{color:#333}
+.ctlMezcla{padding:6px 8px;display:flex;flex-direction:column;gap:5px;min-width:150px;max-width:230px}
+.ctlMezcla select{flex:1;min-width:0}
 .ctlMezcla select{font:inherit;font-size:12.5px;padding:3px 4px;border-radius:6px;border:1px solid #ccc;background:#fff;color:#222}
 .ctlMezcla input[type=range]{width:100%;margin:0}
 .ctlMezcla .fila{display:flex;align-items:center;gap:6px;font-size:12px;color:#555}
@@ -545,31 +547,53 @@ function iniciaMapa(){
   if(!window.L){ $("mapa").innerHTML='<div class="vacio">El mapa necesita conexión a internet.</div>'; return; }
   document.documentElement.style.setProperty("--hfiltros", $("filtros").offsetHeight+"px");
   mapa=L.map("mapa",{zoomControl:true, worldCopyJump:true, maxZoom:19}).setView([40.4,-3.7],6);
-  const ESRI="https://server.arcgisonline.com/ArcGIS/rest/services/";
-  /* Mapas del IGN pedidos EXACTAMENTE como los pide la App Mapas: así, dentro de esa app,
-     el móvil usa también las zonas que ya tienes descargadas para ir sin cobertura. */
-  const IGN=(srv,capa)=>"https://www.ign.es/wmts/"+srv+"?layer="+capa+"&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}";
+  /* Los MISMOS mapas que la App Mapas IGN, con sus atribuciones y pedidos con la misma URL:
+     así, dentro de esa app, el móvil aprovecha también las zonas descargadas para ir sin cobertura.
+     Los de OpenStreetMap y derivados exigen saber desde qué web se piden (referer): a ellos se les
+     dice; a pCloud no (la página va con «no-referrer»). */
+  const OSMA='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
   const AIGN='&copy; <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
-  const DEF_FONDOS={
-    "IGN Topográfico": o=>L.tileLayer(IGN("mapa-raster","MTN"),Object.assign({maxZoom:19, maxNativeZoom:17, attribution:AIGN},o)),
-    "IGN Ortofoto": o=>L.tileLayer(IGN("pnoa-ma","OI.OrthoimageCoverage"),Object.assign({maxZoom:19, attribution:AIGN},o)),
-    "IGN Base": o=>L.tileLayer(IGN("ign-base","IGNBaseTodo"),Object.assign({maxZoom:19, attribution:AIGN},o)),
-    "Calles": o=>L.tileLayer(ESRI+"World_Street_Map/MapServer/tile/{z}/{y}/{x}",Object.assign({maxZoom:19, attribution:"Tiles &copy; Esri"},o)),
-    "Satélite": o=>L.tileLayer(ESRI+"World_Imagery/MapServer/tile/{z}/{y}/{x}",Object.assign({maxZoom:19, attribution:"Tiles &copy; Esri"},o)),
-    "Topográfico": o=>L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",Object.assign({maxZoom:19, maxNativeZoom:17, subdomains:"abc", attribution:'&copy; <a href="https://opentopomap.org">OpenTopoMap</a> &copy; OpenStreetMap'},o)),
-    "OpenStreetMap": o=>L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",Object.assign({maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'},o))
-  };
-  const fondos={}; Object.keys(DEF_FONDOS).forEach(k=>fondos[k]=DEF_FONDOS[k]());
-  let elegido="Calles"; try{ const g=localStorage.getItem("visorFondo"); if(fondos[g]) elegido=g; }catch(e){}
-  fondos[elegido].addTo(mapa);
-  controlCapas=L.control.layers(fondos,null,{position:"topright"}).addTo(mapa);
+  const WMTS=(srv,capa)=>"https://www.ign.es/wmts/"+srv+"?layer="+capa+"&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg";
+  const ESRI="https://server.arcgisonline.com/ArcGIS/rest/services/";
+  const MAPAS=[
+    {n:"IGN Topográfico", tipo:"wmts", url:WMTS("mapa-raster","MTN"), maxZ:17, atrib:AIGN},
+    {n:"IGN Ortofoto", tipo:"wmts", url:WMTS("pnoa-ma","OI.OrthoimageCoverage"), maxZ:19, atrib:AIGN},
+    {n:"IGN Base", tipo:"wmts", url:WMTS("ign-base","IGNBaseTodo"), maxZ:19, atrib:AIGN},
+    {n:"IGN 1915 (MTN 1ª edición)", tipo:"wms", url:"https://www.ign.es/wms/primera-edicion-mtn?", capaWms:"MTN50", maxZ:16, atrib:AIGN},
+    {n:"OpenStreetMap", tipo:"xyz", url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png", maxZ:19, atrib:OSMA, ref:true},
+    {n:"Sendas+ (CyclOSM)", tipo:"xyz", url:"https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png", subs:["a","b","c"], maxZ:19, ref:true,
+      atrib:OSMA+' · estilo <a href="https://www.cyclosm.org/" target="_blank" rel="noopener">CyclOSM</a>, teselas de OSM-FR'},
+    {n:"TS Topo (Tracestrack)", tipo:"xyz", url:"https://tile.tracestrack.com/topo_es/{z}/{x}/{y}.webp?key=12469969a3be5c23eae6aa0e36e806b1", maxZ:19, ref:true,
+      atrib:OSMA+' · &copy; <a href="https://www.tracestrack.com/" target="_blank" rel="noopener">Tracestrack</a>'},
+    {n:"Hike (OpenHikingMap)", tipo:"xyz", url:"https://tile.openmaps.fr/openhikingmap/{z}/{x}/{y}.png", maxZ:17, ref:true,
+      atrib:OSMA+' · teselas de <a href="https://openmaps.fr/" target="_blank" rel="noopener">openmaps.fr</a>'},
+    {n:"GR/PR (senderos señalizados)", tipo:"xyz", url:"https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png", maxZ:18, ref:true, soloEncima:true,
+      atrib:'Senderos: <a href="https://waymarkedtrails.org" target="_blank" rel="noopener">Waymarked Trails</a> · datos de OpenStreetMap'},
+    {n:"Calles (Esri)", tipo:"xyz", url:ESRI+"World_Street_Map/MapServer/tile/{z}/{y}/{x}", maxZ:19, atrib:"Tiles &copy; Esri"},
+    {n:"Satélite (Esri)", tipo:"xyz", url:ESRI+"World_Imagery/MapServer/tile/{z}/{y}/{x}", maxZ:19, atrib:"Tiles &copy; Esri"}
+  ];
+  const bbox3857=(x,y,z)=>{ const R=20037508.342789244, t=2*R/(1<<z), minx=-R+x*t, maxy=R-y*t; return [minx,maxy-t,minx+t,maxy]; };
+  const urlTesela=(c,z,x,y)=>{   // igual que urlTile() de la App Mapas
+    if(c.tipo==="xyz"){ const sub=c.subs? c.subs[(x+y)%c.subs.length] : ""; return c.url.replace("{s}",sub).replace("{z}",z).replace("{x}",x).replace("{y}",y); }
+    if(c.tipo==="wms") return c.url+"SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS="+c.capaWms+"&STYLES=&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg&BBOX="+bbox3857(x,y,z).join(",");
+    return c.url+"&TileMatrix="+z+"&TileCol="+x+"&TileRow="+y; };
+  const Tesela=L.TileLayer.extend({ getTileUrl(t){ return urlTesela(this._cfg, t.z, t.x, t.y); } });
+  const DEF_FONDOS={};
+  MAPAS.forEach(c=>{ DEF_FONDOS[c.n]=o=>{ const l=new Tesela("",Object.assign({maxZoom:19, maxNativeZoom:c.maxZ, attribution:c.atrib,
+      referrerPolicy: c.ref? "strict-origin-when-cross-origin" : "no-referrer"},o)); l._cfg=c; return l; }; });
+  const BASES=MAPAS.filter(c=>!c.soloEncima).map(c=>c.n);
+  let elegido="Calles (Esri)"; try{ const g=localStorage.getItem("visorFondo"); if(DEF_FONDOS[g] && BASES.includes(g)) elegido=g; }catch(e){}
+  let capaFondo=DEF_FONDOS[elegido]().addTo(mapa);
+  window.cambiaFondo=n=>{ if(!DEF_FONDOS[n]) return; mapa.removeLayer(capaFondo); capaFondo=DEF_FONDOS[n]().addTo(mapa); capaFondo.bringToBack(); elegido=n;
+    try{ localStorage.setItem("visorFondo",n); }catch(e){} };
+  window.fondoActual=()=>elegido; window.listaBases=BASES;
+  controlCapas=L.control.layers({},null,{position:"topright"}).addTo(mapa);
   try{ calorOn = localStorage.getItem("visorCalor")!=="0"; }catch(e){}
   mapa.on("overlayadd",e=>{ if(e.layer===calor){ calorOn=true; try{localStorage.setItem("visorCalor","1");}catch(_){} ajustaCapas(); } });
   mapa.on("overlayremove",e=>{ if(e.layer===calor){ calorOn=false; try{localStorage.setItem("visorCalor","0");}catch(_){} ajustaCapas(); } });
   mapa.on("zoomend",ajustaCapas);
   mapa.on("moveend",()=>{ clearTimeout(tPanel); tPanel=setTimeout(pintaPanel,150); });
   mapa.on("click",e=>{ if(mapa.getZoom()<UMBRAL) mapa.setView(e.latlng, Math.min(mapa.getZoom()+3, UMBRAL+1)); });
-  mapa.on("baselayerchange",e=>{ try{ localStorage.setItem("visorFondo", e.name); }catch(_){} });
   mapaListo=true;
   preparaBusca();
   preparaRutas();
@@ -584,11 +608,13 @@ function preparaMezcla(DEF){
   let nom="", op=50; try{ nom=localStorage.getItem("visorEncima")||""; op=+(localStorage.getItem("visorOpac")||50); }catch(e){}
   const C=L.Control.extend({onAdd(){
     const d=L.DomUtil.create("div","ctlMapa ctlMezcla");
-    d.innerHTML='<div class="fila">Encima <select id="mzSel"><option value="">ninguno</option>'+Object.keys(DEF).map(k=>'<option>'+k+'</option>').join("")+'</select></div><input type="range" id="mzOp" min="0" max="100" step="5" title="Transparencia del mapa de encima">';
+    d.innerHTML='<div class="fila"><span style="width:46px">Mapa</span><select id="mzBase">'+window.listaBases.map(k=>'<option>'+k+'</option>').join("")+'</select></div>'
+      +'<div class="fila"><span style="width:46px">Encima</span><select id="mzSel"><option value="">ninguno</option>'+Object.keys(DEF).map(k=>'<option>'+k+'</option>').join("")+'</select></div><input type="range" id="mzOp" min="0" max="100" step="5" title="Transparencia del mapa de encima">';
     L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
     return d; }});
   new C({position:"topright"}).addTo(mapa);
-  const sel=$("mzSel"), rng=$("mzOp");
+  const sel=$("mzSel"), rng=$("mzOp"), base=$("mzBase");
+  base.value=window.fondoActual(); base.onchange=()=>window.cambiaFondo(base.value);
   sel.value=DEF[nom]?nom:""; rng.value=op; rng.style.display=sel.value?"":"none";
   const pon=()=>{
     if(capaEncima){ mapa.removeLayer(capaEncima); capaEncima=null; }
