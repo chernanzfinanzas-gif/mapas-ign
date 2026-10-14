@@ -4,7 +4,7 @@
    · Intercepta cada tile que pide el mapa: si está descargado, lo sirve de
      la caché; si no y hay red, lo pide al IGN y lo guarda de paso.
    ========================================================================= */
-const APP   = 'ign-app-v90';
+const APP   = 'ign-app-v91';
 const TILES = 'ign-tiles-v1';
 /* El manual entra en el SHELL a propósito: es autocontenido —un solo fichero,
    sin imágenes ni tipografías fuera— y lo que se consulta en el monte es justo
@@ -114,7 +114,8 @@ self.addEventListener('fetch', e => {
      colección no cambian nunca y pesan; pedirlos a la red primero en el monte
      sería esperar el tiempo de espera en cada uno. */
   if (url.origin === location.origin
-      && (url.pathname.includes('/sendas/') || /\/(anadidas|objetivos|ritmo)\.json$/.test(url.pathname))) {
+      && (url.pathname.includes('/sendas/') || url.pathname.includes('/fotos/')
+          || /\/(anadidas|objetivos|ritmo)\.json$/.test(url.pathname))) {
     e.respondWith((async () => {
       const cache = await caches.open(APP);
       try {

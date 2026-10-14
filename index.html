@@ -700,6 +700,11 @@ img.leaflet-tile{image-rendering:auto}
 #barra>*{pointer-events:auto}
 #btn-panel{width:40px;height:40px;flex:0 0 auto;border:1px solid var(--linea);border-radius:10px;
   background:var(--papel);box-shadow:var(--sombra);font-size:18px;line-height:1;cursor:pointer}
+/* La otra mitad de la app: el MAPA DE FOTOS (visor del catálogo de fotos, en fotos/).
+   Su índice va cifrado; la clave solo la tienen el PC y el móvil (14-10-2026). */
+#btn-fotos{width:40px;height:40px;flex:0 0 auto;border:1px solid var(--linea);border-radius:10px;
+  background:var(--papel);box-shadow:var(--sombra);font-size:18px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit}
 /* La barra del título es también el buscador: el sitio que dice DÓNDE ESTÁS
    es el sitio natural para escribir a dónde quieres ir, y así no hace falta
    un botón más arriba. */
@@ -1319,6 +1324,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 <div id="barra">
   <button id="btn-panel" title="Zonas y descargas">&#9776;</button>
   <button id="zona-activa" title="Buscar un sitio e ir"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg><span id="zona-txt">Mapas IGN offline</span></button>
+  <a id="btn-fotos" href="fotos/" title="Mapa de fotos: tus fotos y las fotos de cada ruta">&#128247;</a>
   <div class="hueco-gps"></div>
 </div>
 <div id="buscador" hidden>
@@ -7304,7 +7310,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v90';
+const VERSION = 'v91';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
