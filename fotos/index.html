@@ -78,17 +78,40 @@ main{padding-bottom:calc(var(--barra) + env(safe-area-inset-bottom))}
   #mapa{flex:0 0 56%}
   #panel{width:auto;flex:1 1 auto;border-left:0;border-top:1px solid var(--linea)}
 }
+/* --- filtros recogidos en el mapa y panel con asa (14-10-2026) --- */
+#fBoton{display:none;background:var(--papel);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:5px 12px;font:inherit;font-size:13.5px;cursor:pointer}
+body.enMapa #fBoton{display:inline-block}
+body.enMapa #filtros{padding:6px 12px}
+body.enMapa #filtros:not(.abierto)>*:not(#fBoton):not(#resumen){display:none}
+body.enMapa #filtros:not(.abierto) #resumen{flex:1;margin:0;font-size:12px}
+#panel{position:relative}
+#asa{position:absolute;z-index:3;touch-action:none;display:flex;align-items:center;justify-content:center}
+#asa::after{content:"";background:var(--linea);border-radius:3px}
+@media (min-width:800px){
+  #panel{width:var(--panelAncho,440px);flex:0 0 var(--panelAncho,440px);padding-left:16px}
+  #asa{left:0;top:0;bottom:0;width:12px;cursor:col-resize}
+  #asa::after{width:4px;height:44px}
+}
+@media (max-width:799px){
+  #mapa{flex:1 1 auto!important}
+  #panel{flex:0 0 var(--panelAlto,170px)!important;padding-top:18px}
+  #asa{left:0;right:0;top:0;height:18px;cursor:row-resize}
+  #asa::after{width:48px;height:5px}
+  #panel .ph{font-size:12px;margin-bottom:4px}
+  #panel .ph span{display:none}
+}
+#mapaZona.panelMin #asa{display:none}
 /* --- más mapa: esconder barras y plegar el panel (14-10-2026) --- */
 body.enMapa.mapaGrande header, body.enMapa.mapaGrande #filtros{display:none}
 body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-area-inset-bottom))}
 #panel .plegar{flex:0 0 auto;background:var(--papel);border:1px solid var(--linea);border-radius:8px;height:30px;padding:0 9px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--tinta)}
 #panelMini{display:none;font-size:13px;font-weight:600;color:var(--verde);white-space:nowrap;cursor:pointer;user-select:none}
-#mapaZona.panelMin #panel{flex:0 0 42px;width:42px;padding:10px 0;overflow:hidden;cursor:pointer;display:flex;justify-content:center}
+#mapaZona.panelMin #panel{flex:0 0 42px!important;width:42px;padding:10px 0;overflow:hidden;cursor:pointer;display:flex;justify-content:center}
 #mapaZona.panelMin #panel>*{display:none}
 #mapaZona.panelMin #panelMini{display:block;writing-mode:vertical-rl;transform:rotate(180deg)}
 @media (max-width:799px){
   #mapaZona.panelMin #mapa{flex:1 1 auto}
-  #mapaZona.panelMin #panel{flex:0 0 40px;width:auto;padding:0 12px;align-items:center}
+  #mapaZona.panelMin #panel{flex:0 0 40px!important;width:auto;padding:0 12px;align-items:center}
   #mapaZona.panelMin #panelMini{writing-mode:horizontal-tb;transform:none}
 }
 .ctlMapa{background:var(--papel,#fff);border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.3);font:13px system-ui,sans-serif;color:#222}
@@ -237,6 +260,7 @@ nav button.on{color:var(--verde)}
 
 <main>
   <div class="filtros" id="filtros">
+    <button id="fBoton" type="button" title="Mostrar u ocultar los filtros">Filtros ▾</button>
     <select id="fAno" aria-label="Año"><option value="">Todos los años</option></select>
     <input type="search" id="fTexto" placeholder="Buscar evento o lugar…" aria-label="Buscar">
     <label class="toggle"><input type="checkbox" id="fCinco"> Solo ★★★★★</label>
@@ -249,7 +273,7 @@ nav button.on{color:var(--verde)}
   </div>
 
   <section class="vista activa" id="vFotos"><div id="lista"></div><div class="centinela" id="centinela"></div></section>
-  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div id="panelMini" title="Mostrar las fotos">📷 fotos</div><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span><button class="plegar" id="pPlegar" title="Esconder el panel para ver más mapa">Ocultar</button></div><div class="rejilla" id="panelRej"></div></aside></div></section>
+  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div id="asa" title="Arrastra para ver más o menos fotos"></div><div id="panelMini" title="Mostrar las fotos">📷 fotos</div><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span><button class="plegar" id="pPlegar" title="Esconder el panel para ver más mapa">Ocultar</button></div><div class="rejilla" id="panelRej"></div></aside></div></section>
   <section class="vista" id="vPersonas"><div class="personas" id="personas"></div></section>
   <section class="vista" id="vFamilia"><div class="familia" id="familia"></div></section>
 </main>
@@ -265,12 +289,15 @@ nav button.on{color:var(--verde)}
 
 <div id="entrada">
   <form id="fEntrada" autocomplete="on">
-    <h2>Catálogo de Fotos</h2>
-    <p>Entra con tu cuenta de pCloud. La llave se guarda solo en este aparato; tu contraseña no se guarda.</p>
-    <input id="eMail" type="email" placeholder="Correo de pCloud" autocomplete="username" required>
+    <h2>Mapa de fotos</h2>
+    <p><b>Este aparato todavía no tiene el acceso a tus fotos.</b></p>
+    <p>En el PC abre <b>«Publicar Mapas.bat»</b> (carpeta App Mapas), elige la <b>opción 7</b> y escanea el código QR con este aparato.</p>
+    <details><summary style="cursor:pointer;color:var(--gris);font-size:13px">Entrar con correo y contraseña de pCloud (hoy no funciona)</summary>
+    <input id="eMail" type="email" placeholder="Correo de pCloud" autocomplete="username" required style="margin-top:8px">
     <input id="ePass" type="password" placeholder="Contraseña" autocomplete="current-password" required>
     <input id="eCode" type="text" inputmode="numeric" placeholder="Código de verificación (si te lo pide)" style="display:none" autocomplete="one-time-code">
     <button class="boton" type="submit" id="eBtn">Entrar</button>
+    </details>
     <div id="eMsg"></div>
   </form>
 </div>
@@ -331,7 +358,7 @@ function api(metodo, params){
 function cargaScript(url){ return new Promise((ok,mal)=>{ const s=document.createElement("script"); s.src=url; s.onload=ok; s.onerror=()=>mal(new Error("no se pudo descargar "+url)); document.head.appendChild(s); }); }
 function msgEntrada(t){ $("eMsg").textContent=t||""; }
 let tfaToken=null;
-function pideEntrada(t){ $("cargandoIdx").style.display="none"; $("entrada").classList.add("on"); msgEntrada(t); setTimeout(()=>$("eMail").focus(),50); }
+function pideEntrada(t){ $("cargandoIdx").style.display="none"; $("entrada").classList.add("on"); msgEntrada(t); }
 function guardaLlave(auth){ NUBE.auth=auth; NUBE.param="auth"; try{ localStorage.setItem("pcAuth",auth); localStorage.setItem("pcParam","auth"); localStorage.setItem("pcHost",NUBE.host); }catch(e){} }
 async function entrar(ev){
   ev.preventDefault(); $("eBtn").disabled=true; msgEntrada("Entrando…");
@@ -392,7 +419,7 @@ async function arrancaNube(){
   try{
     await leeIndiceNube();
     $("cargandoIdx").style.display="none";
-    $("bSalir").style.display="";
+    /* «Salir» queda oculto siempre (Carlos, 14-10-2026): se pulsaba por error y borraba el acceso */
     iniciar(window.INDICE);
   }catch(e){
     if(e.codigo===1000||e.codigo===2000||e.codigo===2094||e.codigo===2095){ try{localStorage.removeItem("pcAuth");localStorage.removeItem("pcParam");}catch(_){} NUBE.auth=""; NUBE.param="auth"; pideEntrada("El acceso a pCloud ya no vale. Vuelve a pasarlo desde el PC con «Pasar acceso al móvil.bat»."); }
@@ -401,7 +428,7 @@ async function arrancaNube(){
   }
 }
 // Salir solo borra el acceso de ESTE móvil. Con el acceso de rclone no se llama a «logout»: lo anularía también en el PC.
-$("bSalir").onclick=()=>{ if(NUBE.param==="auth") api("logout").catch(()=>{}); try{ localStorage.removeItem("pcAuth"); localStorage.removeItem("pcParam"); }catch(e){} location.reload(); };
+$("bSalir").onclick=()=>{ if(!confirm("¿Quitar el acceso a tus fotos en este aparato?\n\nPara volver a verlas tendrás que escanear otra vez el código QR desde el PC (Publicar Mapas, opción 7).")) return; if(NUBE.param==="auth") api("logout").catch(()=>{}); try{ localStorage.removeItem("pcAuth"); localStorage.removeItem("pcParam"); }catch(e){} location.reload(); };
 $("fEntrada").addEventListener("submit", entrar);
 
 if(MODO==="pc"){
@@ -438,6 +465,17 @@ $("fModo").querySelectorAll("button").forEach(b=>b.onclick=()=>{ E.modo=b.datase
 $("cuenta").textContent = FOTOS.length.toLocaleString("es-ES")+" elementos · "+ORIGEN.nombre;
 
 function norm(s){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+/* En el mapa, los filtros van recogidos en un botón: dice cuántos hay puestos */
+function botonFiltros(){
+  const n=(E.ano?1:0)+(E.texto?1:0)+(E.cinco?1:0)+E.personas.size;
+  const ab=$("filtros").classList.contains("abierto");
+  $("fBoton").textContent="Filtros"+(n?" ("+n+")":"")+(ab?" ▴":" ▾");
+}
+function altoFiltros(){
+  document.documentElement.style.setProperty("--hfiltros", $("filtros").offsetHeight+"px");
+  if(typeof mapa!=="undefined" && mapa) setTimeout(()=>mapa.invalidateSize(),60);
+}
+$("fBoton").onclick=()=>{ $("filtros").classList.toggle("abierto"); botonFiltros(); altoFiltros(); };
 function aplicar(){
   const t = norm(E.texto);
   visibles = FOTOS.filter(f =>
@@ -447,6 +485,7 @@ function aplicar(){
     (!E.personas.size || (E.modo==="o" ? f.pers.some(p=>E.personas.has(p)) : [...E.personas].every(p=>f.pers.includes(p))))
   );
   pintaChips();
+  botonFiltros();
   const conGps = visibles.filter(f=>f.lat!=null).length;
   $("resumen").textContent = visibles.length.toLocaleString("es-ES")+" fotos y vídeos · "+conGps.toLocaleString("es-ES")+" en el mapa";
   pintaRejilla();
@@ -546,6 +585,7 @@ function iniciaMapa(){
   preparaRutas();
   preparaMezcla(DEF_FONDOS);
   preparaMasMapa();
+  preparaAsa();
   setTimeout(()=>{ mapa.invalidateSize(); pintaMapa(true); },60);
 }
 /* --- un mapa ENCIMA del fondo, con su transparencia (como la App Mapas) --- */
@@ -585,6 +625,26 @@ function preparaMasMapa(){
   $("pPlegar").onclick=e=>{ e.stopPropagation(); panelMin(true); };
   $("panel").addEventListener("click",()=>{ if($("mapaZona").classList.contains("panelMin")) panelMin(false); });
   tras();
+}
+/* El asa del panel: arrastrar para ver más o menos fotos. Empieza con UNA fila (o una columna en el PC). */
+function preparaAsa(){
+  const zona=$("mapaZona"), asa=$("asa"), raiz=document.documentElement.style;
+  const movil=()=>matchMedia("(max-width:799px)").matches;
+  // una fila (móvil) o una columna (PC) de fotos, medida con lo que hay de verdad en pantalla
+  const minimo=()=>{ const c=$("panelRej").firstElementChild, lado=c? (movil()?c.offsetHeight:c.offsetWidth) : TAMS[tamP];
+    return movil() ? $("panelRej").offsetTop + lado + 10 : lado + 40; };
+  const pon=(v,guarda)=>{ const r=zona.getBoundingClientRect(), max=(movil()?r.height:r.width)*0.85;
+    v=Math.max(minimo(), Math.min(max, v)); raiz.setProperty(movil()?"--panelAlto":"--panelAncho", Math.round(v)+"px");
+    if(guarda){ try{ localStorage.setItem(movil()?"visorPanelAlto":"visorPanelAncho", Math.round(v)); }catch(e){} } };
+  let g=null; try{ g=+localStorage.getItem(movil()?"visorPanelAlto":"visorPanelAncho"); }catch(e){}
+  pon(g||0,false);
+  if(!g) window.ajustaPanelMinimo=()=>pon(0,false);   // sin tamaño guardado: una fila, cuando ya hay fotos pintadas
+  let tirando=false;
+  asa.addEventListener("pointerdown",e=>{ tirando=true; asa.setPointerCapture(e.pointerId); e.preventDefault(); });
+  asa.addEventListener("pointermove",e=>{ if(!tirando) return; const r=zona.getBoundingClientRect(); pon(movil()? r.bottom-e.clientY : r.right-e.clientX, false); });
+  const suelta=e=>{ if(!tirando) return; tirando=false; window.ajustaPanelMinimo=null; const r=zona.getBoundingClientRect(); pon(movil()? r.bottom-e.clientY : r.right-e.clientX, true); if(mapa) mapa.invalidateSize(); };
+  asa.addEventListener("pointerup",suelta); asa.addEventListener("pointercancel",suelta);
+  asa.addEventListener("click",e=>e.stopPropagation());
 }
 function panelMin(on){
   $("mapaZona").classList.toggle("panelMin",on);
@@ -745,6 +805,7 @@ function masPanel(){
   const fin=Math.min(enZona.length, panelPintadas+150);
   for(let k=panelPintadas;k<fin;k++) $("panelRej").appendChild(celda(enZona[k],k,enZona));
   panelPintadas=fin;
+  if(window.ajustaPanelMinimo) requestAnimationFrame(window.ajustaPanelMinimo);
 }
 $("panel").addEventListener("scroll",()=>{ const p=$("panel"); if(p.scrollTop+p.clientHeight>p.scrollHeight-600 && panelPintadas<enZona.length) masPanel(); });
 function ajustaCapas(){
@@ -976,6 +1037,7 @@ function cambia(v){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
   $("filtros").style.display = (v==="vPersonas"||v==="vFamilia") ? "none" : "";
   document.body.classList.toggle("enMapa", v==="vMapa");
+  if(v==="vMapa") setTimeout(altoFiltros,0);
   if(v==="vFamilia" && !$("familia").children.length) pintaFamilia();
   if(v==="vMapa") setTimeout(iniciaMapa,30);
   if(v==="vPersonas" && !$("personas").children.length) pintaPersonas();
