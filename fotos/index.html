@@ -79,41 +79,31 @@ main{padding-bottom:calc(var(--barra) + env(safe-area-inset-bottom))}
   #panel{width:auto;flex:1 1 auto;border-left:0;border-top:1px solid var(--linea)}
 }
 /* --- filtros recogidos en el mapa y panel con asa (14-10-2026) --- */
-#fBoton{display:none;background:var(--papel);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:5px 12px;font:inherit;font-size:13.5px;cursor:pointer}
-body.enMapa #fBoton{display:inline-block}
-body.enMapa #filtros{padding:6px 12px}
-body.enMapa #filtros:not(.abierto)>*:not(#fBoton):not(#resumen){display:none}
-body.enMapa #filtros:not(.abierto) #resumen{flex:1;margin:0;font-size:12px}
+#fBoton{background:var(--papel);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:5px 12px;font:inherit;font-size:13.5px;cursor:pointer}
+#fBoton{display:inline-block}
+#filtros{padding:6px 12px}
+#filtros:not(.abierto)>*:not(#fBoton):not(#resumen){display:none}
+#filtros:not(.abierto) #resumen{flex:1;margin:0;font-size:12px}
 #panel{position:relative}
 #asa{position:absolute;z-index:3;touch-action:none;display:flex;align-items:center;justify-content:center}
 #asa::after{content:"";background:var(--linea);border-radius:3px}
-@media (min-width:800px){
-  #panel{width:var(--panelAncho,440px);flex:0 0 var(--panelAncho,440px);padding-left:16px}
-  #asa{left:0;top:0;bottom:0;width:12px;cursor:col-resize}
-  #asa::after{width:4px;height:44px}
-}
-@media (max-width:799px){
-  #mapa{flex:1 1 auto!important}
-  #panel{flex:0 0 var(--panelAlto,170px)!important;padding-top:18px}
-  #asa{left:0;right:0;top:0;height:18px;cursor:row-resize}
-  #asa::after{width:48px;height:5px}
-  #panel .ph{font-size:12px;margin-bottom:4px}
-  #panel .ph span{display:none}
-}
+/* Panel de fotos SIEMPRE abajo (también en el PC, Carlos 14-10): una fila y se sube con el asa */
+#mapaZona{flex-direction:column}
+#mapa{flex:1 1 auto!important}
+#panel{width:auto!important;flex:0 0 var(--panelAlto,170px)!important;padding-top:18px;border-left:0!important;border-top:1px solid var(--linea)}
+#asa{left:0;right:0;top:0;height:18px;cursor:row-resize}
+#asa::after{width:48px;height:5px}
+#panel .ph{font-size:12px;margin-bottom:4px}
+#panel .ph span{display:none}
 #mapaZona.panelMin #asa{display:none}
 /* --- más mapa: esconder barras y plegar el panel (14-10-2026) --- */
 body.enMapa.mapaGrande header, body.enMapa.mapaGrande #filtros{display:none}
 body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-area-inset-bottom))}
 #panel .plegar{flex:0 0 auto;background:var(--papel);border:1px solid var(--linea);border-radius:8px;height:30px;padding:0 9px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--tinta)}
 #panelMini{display:none;font-size:13px;font-weight:600;color:var(--verde);white-space:nowrap;cursor:pointer;user-select:none}
-#mapaZona.panelMin #panel{flex:0 0 42px!important;width:42px;padding:10px 0;overflow:hidden;cursor:pointer;display:flex;justify-content:center}
+#mapaZona.panelMin #panel{flex:0 0 40px!important;padding:0 12px;overflow:hidden;cursor:pointer;display:flex;justify-content:center;align-items:center}
 #mapaZona.panelMin #panel>*{display:none}
-#mapaZona.panelMin #panelMini{display:block;writing-mode:vertical-rl;transform:rotate(180deg)}
-@media (max-width:799px){
-  #mapaZona.panelMin #mapa{flex:1 1 auto}
-  #mapaZona.panelMin #panel{flex:0 0 40px!important;width:auto;padding:0 12px;align-items:center}
-  #mapaZona.panelMin #panelMini{writing-mode:horizontal-tb;transform:none}
-}
+#mapaZona.panelMin #panelMini{display:block}
 .ctlMapa{background:var(--papel,#fff);border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.3);font:13px system-ui,sans-serif;color:#222}
 .ctlMapa button{width:34px;height:34px;border:0;background:none;font-size:18px;cursor:pointer;color:#222}
 .ctlMezcla{padding:6px 8px;display:flex;flex-direction:column;gap:5px;min-width:150px}
@@ -629,7 +619,7 @@ function preparaMasMapa(){
 /* El asa del panel: arrastrar para ver más o menos fotos. Empieza con UNA fila (o una columna en el PC). */
 function preparaAsa(){
   const zona=$("mapaZona"), asa=$("asa"), raiz=document.documentElement.style;
-  const movil=()=>matchMedia("(max-width:799px)").matches;
+  const movil=()=>true;   // el panel va abajo en todos los aparatos
   // una fila (móvil) o una columna (PC) de fotos, medida con lo que hay de verdad en pantalla
   const minimo=()=>{ const c=$("panelRej").firstElementChild, lado=c? (movil()?c.offsetHeight:c.offsetWidth) : TAMS[tamP];
     return movil() ? $("panelRej").offsetTop + lado + 10 : lado + 40; };
