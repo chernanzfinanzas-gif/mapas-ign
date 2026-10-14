@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6b47">
+<title>Catálogo de Fotos</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
+<style>
+:root{
+  --verde:#2f6b47; --verde2:#3f8a5d; --verde-claro:#e6f0ea;
+  --fondo:#f6f4ef; --papel:#ffffff; --tinta:#1f2a24; --gris:#6b736e; --linea:#e2ded5;
+  --dorado:#c99a2e; --sombra:0 1px 3px rgba(0,0,0,.08),0 4px 14px rgba(0,0,0,.06);
+  --barra:62px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#151a17; --papel:#1e2521; --tinta:#e8ece9; --gris:#9aa49e; --linea:#2c3530;
+    --verde-claro:#23342a; --sombra:0 1px 3px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#151a17; --papel:#1e2521; --tinta:#e8ece9; --gris:#9aa49e; --linea:#2c3530;
+  --verde-claro:#23342a; --sombra:0 1px 3px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--fondo);color:var(--tinta);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:20;background:var(--verde);color:#fff;padding:10px 16px calc(10px) 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .cuenta{font-size:12.5px;opacity:.85;white-space:nowrap}
+main{padding-bottom:calc(var(--barra) + env(safe-area-inset-bottom))}
+.vista{display:none}
+.vista.activa{display:block}
+
+/* Filtros */
+.filtros{position:sticky;top:44px;z-index:15;background:var(--fondo);padding:10px 16px 8px;border-bottom:1px solid var(--linea);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filtros select,.filtros input[type=search],.filtros #fAdd{background:var(--papel);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:7px 10px;font:inherit;min-width:0}
+.filtros input[type=search]{flex:1 1 160px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--verde-claro);color:var(--verde);border:1px solid transparent;border-radius:999px;padding:5px 10px;font-size:13.5px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--verde);color:#fff}
+.chip .x{font-weight:700;opacity:.8}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--gris);cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--verde)}
+.resumen{width:100%;font-size:12.5px;color:var(--gris)}
+
+/* Rejilla */
+.mes{padding:4px 12px 2px}
+.mes h2{font-size:15px;margin:14px 4px 2px;font-weight:650}
+.mes .sub{font-size:12.5px;color:var(--gris);margin:0 4px 8px}
+.rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--celda,112px),1fr));gap:4px}
+.celda{position:relative;aspect-ratio:1;background:var(--linea);border-radius:6px;overflow:hidden;cursor:pointer;border:0;padding:0}
+.celda img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .25s}
+.celda .est{position:absolute;right:4px;bottom:3px;font-size:12px;color:#ffd970;text-shadow:0 0 3px rgba(0,0,0,.8)}
+.celda .vid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#2b332e;color:#cfd8d2;font-size:12px;flex-direction:column;gap:4px}
+.celda .vid b{font-size:26px;line-height:1}
+.centinela{height:40px}
+.vacio{padding:40px 20px;text-align:center;color:var(--gris)}
+
+/* Mapa */
+#mapaZona{display:flex;height:calc(100vh - 44px - var(--barra) - env(safe-area-inset-bottom) - var(--hfiltros,52px));min-height:360px}
+#mapa{flex:1;min-width:0;min-height:0;isolation:isolate;position:relative}
+#panel{width:440px;flex:0 0 440px;overflow-y:auto;background:var(--fondo);border-left:1px solid var(--linea);padding:8px 10px 16px}
+#panel .ph{font-size:13px;color:var(--gris);margin:2px 2px 8px;line-height:1.35}
+#panel .ph b{color:var(--tinta);font-size:14px}
+#panel .rejilla{grid-template-columns:repeat(auto-fill,minmax(var(--celdaP,96px),1fr));gap:3px}
+#panel .cab{display:flex;align-items:flex-start;gap:8px}
+#panel .ph{flex:1}
+.tam{display:inline-flex;border:1px solid var(--linea);border-radius:8px;overflow:hidden;flex:0 0 auto}
+.tam button{background:var(--papel);border:0;width:30px;height:28px;cursor:pointer;font-size:16px;color:var(--tinta)}
+.tam button+button{border-left:1px solid var(--linea)}
+@media (max-width:799px){
+  #mapaZona{flex-direction:column}
+  #mapa{flex:0 0 56%}
+  #panel{width:auto;flex:1 1 auto;border-left:0;border-top:1px solid var(--linea)}
+}
+.pin{width:44px;height:44px;border-radius:8px;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4);background-size:cover;background-position:center;background-color:#ccc}
+.pila{position:relative;width:58px;height:58px}
+.pila i{position:absolute;inset:0;border-radius:8px;border:2px solid #fff;background:#ccc center/cover no-repeat;box-shadow:0 1px 5px rgba(0,0,0,.45)}
+.pila i:nth-child(1){transform:rotate(-9deg) translate(-5px,3px)}
+.pila i:nth-child(2){transform:rotate(7deg) translate(5px,2px)}
+.pila b{position:absolute;right:-8px;top:-8px;background:var(--verde);color:#fff;border-radius:999px;font:600 11.5px/1.5 system-ui,sans-serif;padding:0 6px;border:2px solid #fff;min-width:22px;text-align:center}
+.pila.sel i{border-color:#ffd970}
+#panel .acc{display:flex;gap:6px;margin:0 2px 8px}
+#panel .acc button{font-size:12.5px;padding:5px 10px}
+.leaflet-popup-content{margin:10px}
+.popup{width:220px}
+.popup .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:6px}
+.popup .mini img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer}
+.popup b{display:block;font-size:13px}
+.popup a{color:var(--verde2);font-size:12.5px;cursor:pointer}
+
+.busca{position:absolute;top:10px;left:56px;z-index:1000;width:min(340px,calc(100% - 120px))}
+.busca input{width:100%;background:var(--papel);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:8px 11px;font:inherit;box-shadow:var(--sombra)}
+.busca ul{list-style:none;margin:4px 0 0;padding:4px;background:var(--papel);border-radius:10px;box-shadow:var(--sombra);max-height:300px;overflow:auto}
+.busca ul:empty{display:none}
+.busca li{padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13.5px;line-height:1.3}
+.busca li:hover,.busca li.on{background:var(--verde-claro)}
+.busca li small{display:block;color:var(--gris);font-size:12px}
+.busca li.nota{cursor:default;color:var(--gris)}
+
+/* Personas */
+.personas{padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.persona{background:var(--papel);border-radius:12px;box-shadow:var(--sombra);overflow:hidden;cursor:pointer;border:0;padding:0;text-align:left}
+.persona .cara{aspect-ratio:1.2;background:var(--linea) center/cover no-repeat}
+.persona .txt{padding:8px 10px}
+.persona .nom{font-weight:600;font-size:14px}
+.persona .grp{font-size:12px;color:var(--gris)}
+.grupo-t{grid-column:1/-1;font-size:13px;font-weight:650;color:var(--gris);margin:10px 2px 0;text-transform:uppercase;letter-spacing:.6px}
+
+.modo{display:inline-flex;border:1px solid var(--linea);border-radius:999px;overflow:hidden}
+.modo button{background:var(--papel);border:0;padding:5px 10px;font-size:13px;cursor:pointer;color:var(--gris)}
+.modo button.on{background:var(--verde);color:#fff}
+#fAdd{flex:0 1 170px}
+.persona.sel{outline:3px solid var(--verde);outline-offset:-3px}
+.persona .marca{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.9);border:2px solid var(--verde);display:flex;align-items:center;justify-content:center;color:var(--verde);font-weight:700;font-size:15px}
+.persona{position:relative}
+.persona.sel .marca{background:var(--verde);color:#fff}
+#barraSel{position:fixed;left:0;right:0;bottom:calc(var(--barra) + env(safe-area-inset-bottom));z-index:25;background:var(--papel);border-top:1px solid var(--linea);padding:10px 16px;display:none;align-items:center;gap:10px;box-shadow:0 -4px 12px rgba(0,0,0,.08)}
+#barraSel.on{display:flex}
+#barraSel .t{flex:1;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.boton{background:var(--verde);color:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:600;cursor:pointer}
+.boton.sec{background:var(--verde-claro);color:var(--verde)}
+#vPersonas,#vFamilia{padding-bottom:70px}
+.familia{padding:8px 12px 20px;max-width:1100px;margin:0 auto}
+.lados{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:0;background:var(--papel);border-radius:16px;box-shadow:var(--sombra);padding:12px 0 16px}
+.lados>.lado{background:none;box-shadow:none;border-radius:0;padding:0 4px}
+.gen.alDer{justify-content:flex-end}.gen.alIzq{justify-content:flex-start}
+.gen.alDer>.unidad:last-child .pareja{border-radius:14px 0 0 14px;margin-right:-4px;padding-right:14px}
+.gen.alIzq>.unidad:first-child .pareja{border-radius:0 14px 14px 0;margin-left:-4px;padding-left:14px;position:relative}
+.gen.alIzq>.unidad:first-child .pareja::before{content:"♥";position:absolute;left:-7px;top:50%;margin-top:-28px;color:var(--gris);font-size:14px}
+.lados>.lado{display:grid;grid-template-rows:subgrid;grid-row:span var(--filas,4)}
+@media (max-width:820px){.lados{display:flex;flex-direction:column;gap:18px}.lados>.lado{display:block}.gen.vacia{display:none}.gen.alDer,.gen.alIzq{justify-content:center}.gen.alDer>.unidad .pareja,.gen.alIzq>.unidad .pareja{border-radius:14px!important;margin:0!important;padding:6px 8px!important}.gen.alIzq>.unidad .pareja::before{display:none}}
+.gen.vacia::before,.gen.tras-vacia::before{display:none}
+.gen{align-items:flex-start}
+.fper.grande{width:118px}.fper.grande .cara{width:98px;height:98px}.fper.grande .nom{font-size:15px}
+.unidad .hijos{width:100%}
+.lado{background:var(--papel);border-radius:16px;box-shadow:var(--sombra);padding:12px 10px 16px}
+.lado h3,.rama h3{margin:4px 6px 10px;font-size:15px;color:var(--verde)}
+.gen{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;position:relative;margin:0 0 22px}
+.gen:not(:first-of-type)::before{content:"";position:absolute;top:-20px;left:50%;height:16px;border-left:2px solid var(--linea)}
+.unidad{display:flex;flex-direction:column;align-items:center;gap:4px}
+.unidad .nota{font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.5px}
+.pareja{display:flex;gap:4px;align-items:flex-start;background:var(--fondo);padding:6px 8px;border-radius:14px}
+.pareja .y{align-self:center;color:var(--gris);font-size:14px;margin-top:-18px}
+.fper{width:88px;border:0;background:none;cursor:pointer;text-align:center;padding:2px;color:inherit}
+.fper .cara{width:66px;height:66px;border-radius:50%;margin:0 auto 4px;background:var(--linea) center/cover no-repeat;border:3px solid transparent;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.fper.sel .cara{border-color:var(--verde)}
+.fper .nom{font-size:12.5px;font-weight:600;line-height:1.2}
+.fper .rel{font-size:11px;color:var(--gris);line-height:1.2}
+.fper.peq{width:74px}.fper.peq .cara{width:50px;height:50px}
+.rama{margin:22px 0 0}
+.rama h4{margin:10px 6px 6px;font-size:12px;color:var(--gris);text-transform:uppercase;letter-spacing:.5px}
+.rama .lista{display:flex;flex-wrap:wrap;gap:6px}
+.arbolRama{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.fam1{background:var(--papel);border-radius:14px;box-shadow:var(--sombra);padding:10px 8px;flex:1 1 300px}
+.fam{display:flex;flex-direction:column;align-items:center}
+.hijos{display:flex;flex-wrap:wrap;gap:8px 10px;justify-content:center;border-top:2px solid var(--linea);padding-top:8px;margin-top:6px;position:relative}
+.hijos::before{content:"";position:absolute;top:-10px;left:50%;height:8px;border-left:2px solid var(--linea)}
+.fam .hijos .pareja{background:var(--fondo)}
+.fper.libre .cara{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--gris);border:2px dashed var(--linea);box-shadow:none}
+.fper.libre{cursor:default}
+.leaflet-control-layers{font:13px system-ui,sans-serif}
+
+#entrada{position:fixed;inset:0;z-index:20000;background:var(--fondo);display:none;align-items:center;justify-content:center;padding:16px}
+#entrada.on{display:flex}
+#entrada form{background:var(--papel);border-radius:16px;box-shadow:var(--sombra);padding:22px;width:min(380px,100%);display:flex;flex-direction:column;gap:10px}
+#entrada h2{margin:0;color:var(--verde)}
+#entrada p{margin:0 0 4px;color:var(--gris);font-size:13.5px}
+#entrada input{background:var(--fondo);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:10px 12px;font:inherit}
+#eMsg{font-size:13px;color:#b3412e;min-height:1em}
+#cargandoIdx{position:fixed;inset:0;z-index:19000;background:var(--fondo);display:flex;align-items:center;justify-content:center}
+.salir{background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:4px 9px;font-size:12.5px;cursor:pointer}
+
+/* Barra inferior */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--papel);border-top:1px solid var(--linea);display:flex;padding-bottom:env(safe-area-inset-bottom);height:calc(var(--barra) + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--gris);font-size:12px;cursor:pointer}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--verde)}
+
+/* Visor a pantalla completa */
+#lb{position:fixed;inset:0;z-index:10000;background:#0b0d0c;color:#eee;display:none;flex-direction:column}
+#lb.on{display:flex}
+#lb .top{display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+#lb .top .t{flex:1;font-size:13.5px;line-height:1.3;min-width:0}
+#lb .top .t b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lb .btn{background:rgba(255,255,255,.12);border:0;border-radius:10px;padding:8px 11px;cursor:pointer;color:#fff}
+#lb .foto{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in}
+#lb .foto.zoom{cursor:grab}
+#lb .foto.zoom.arrastra{cursor:grabbing}
+#lb .lienzo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:50% 50%;will-change:transform}
+#lb .lienzo.suave{transition:transform .18s ease-out}
+#lb .nav{z-index:3}
+#lb .zoomBtns{display:inline-flex;gap:4px}
+@media (max-width:520px){#lb .zoomBtns{display:none}}
+#lb .foto img,#lb .foto video{max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none}
+#lb .foto .baja{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:blur(1.5px)}
+#lb .foto img:not(.baja){position:relative;z-index:1;transition:opacity .2s}
+#lb .nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.35);border:0;color:#fff;font-size:28px;width:44px;height:64px;cursor:pointer;border-radius:8px}
+#lb .ant{left:6px} #lb .sig{right:6px}
+#lb .pie{padding:10px 14px calc(12px + env(safe-area-inset-bottom));font-size:13.5px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#lb .pie .chip{background:rgba(255,255,255,.12);color:#fff}
+#lb .cargando{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12px;opacity:.7}
+@media (hover:none){#lb .nav{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <a id="aRutas" href="../" title="Volver al mapa de rutas" style="display:none;color:#fff;text-decoration:none;font-size:14px;font-weight:600;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:3px 9px;white-space:nowrap">&larr; Rutas</a>
+  <h1 id="titulo">Catálogo de Fotos</h1>
+  <span class="cuenta" id="cuenta"></span>
+  <button class="salir" id="bSalir" style="display:none" title="Cerrar la sesión de pCloud en este aparato">Salir</button>
+</header>
+
+<main>
+  <div class="filtros" id="filtros">
+    <select id="fAno" aria-label="Año"><option value="">Todos los años</option></select>
+    <input type="search" id="fTexto" placeholder="Buscar evento o lugar…" aria-label="Buscar">
+    <label class="toggle"><input type="checkbox" id="fCinco"> Solo ★★★★★</label>
+    <input id="fAdd" list="dlPers" placeholder="+ Añadir persona" aria-label="Añadir persona" autocomplete="off">
+    <datalist id="dlPers"></datalist>
+    <span id="fPersonas"></span>
+    <span class="modo" id="fModo" style="display:none"><button data-m="y" class="on" title="Salen todas en la misma foto">Juntas</button><button data-m="o" title="Sale al menos una">Cualquiera</button></span>
+    <span class="tam" id="tamFotos" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span>
+    <div class="resumen" id="resumen"></div>
+  </div>
+
+  <section class="vista activa" id="vFotos"><div id="lista"></div><div class="centinela" id="centinela"></div></section>
+  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span></div><div class="rejilla" id="panelRej"></div></aside></div></section>
+  <section class="vista" id="vPersonas"><div class="personas" id="personas"></div></section>
+  <section class="vista" id="vFamilia"><div class="familia" id="familia"></div></section>
+</main>
+
+<div id="barraSel"><span class="t" id="selTxt"></span><button class="boton sec" id="selLimpia">Limpiar</button><button class="boton" id="selVer">Ver fotos</button></div>
+
+<nav>
+  <button data-v="vFotos" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Fotos</button>
+  <button data-v="vMapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Mapa</button>
+  <button data-v="vPersonas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c3 .2 5.5 2.6 5.5 5.8"/></svg>Personas</button>
+  <button data-v="vFamilia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="4.5" r="2.2"/><circle cx="5" cy="19" r="2.2"/><circle cx="12" cy="19" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M12 6.7v5.3M5 16.8V12h14v4.8M12 12v4.8"/></svg>Familia</button>
+</nav>
+
+<div id="entrada">
+  <form id="fEntrada" autocomplete="on">
+    <h2>Catálogo de Fotos</h2>
+    <p>Entra con tu cuenta de pCloud. La llave se guarda solo en este aparato; tu contraseña no se guarda.</p>
+    <input id="eMail" type="email" placeholder="Correo de pCloud" autocomplete="username" required>
+    <input id="ePass" type="password" placeholder="Contraseña" autocomplete="current-password" required>
+    <input id="eCode" type="text" inputmode="numeric" placeholder="Código de verificación (si te lo pide)" style="display:none" autocomplete="one-time-code">
+    <button class="boton" type="submit" id="eBtn">Entrar</button>
+    <div id="eMsg"></div>
+  </form>
+</div>
+<div id="cargandoIdx" class="vacio" style="display:none">Cargando el índice desde pCloud…</div>
+
+<div id="lb" role="dialog" aria-modal="true">
+  <div class="top">
+    <div class="t" id="lbTit"></div>
+    <span class="zoomBtns"><button class="btn" id="lbMenos" title="Alejar (tecla −)">−</button><button class="btn" id="lbMas" title="Acercar (tecla +)">＋</button><button class="btn" id="lbAjusta" title="Ajustar a la pantalla (tecla 0)">⤢</button></span>
+    <button class="btn" id="lbMapa" title="Ver en el mapa">Mapa</button>
+    <button class="btn" id="lbCerrar" title="Cerrar">✕</button>
+  </div>
+  <div class="foto" id="lbFoto">
+    <button class="nav ant" id="lbAnt" aria-label="Anterior">‹</button>
+    <button class="nav sig" id="lbSig" aria-label="Siguiente">›</button>
+  </div>
+  <div class="pie" id="lbPie"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+"use strict";
+/* ============ ORIGEN DE LAS FOTOS ============
+   - Abierta desde el PC (file://): miniaturas en ./miniaturas, originales en C:\Fotos\30_BIBLIOTECA.
+   - Abierta desde internet (GitHub): todo se pide a pCloud con la llave de este aparato. */
+const MODO = location.protocol==="file:" ? "pc" : "nube";
+// Dentro de la App Mapas IGN (mapas-ign/fotos/): botón para volver a la parte de rutas
+if(/\/mapas-ign\//.test(location.pathname)){ const a=document.getElementById("aRutas"); if(a) a.style.display=""; document.title="Mapa de fotos"; }
+function enc(r){ return r.split("/").map(encodeURIComponent).join("/"); }
+const NUBE = { host:"eapi.pcloud.com", auth:"", param:"auth", raiz:"/Catalogo Fotos/30_BIBLIOTECA/", indice:"/Catalogo Fotos/visor/indice.js" };
+try{ NUBE.host=localStorage.getItem("pcHost")||NUBE.host; NUBE.auth=localStorage.getItem("pcAuth")||""; NUBE.param=localStorage.getItem("pcParam")||"auth"; NUBE.clave=localStorage.getItem("pcClave")||""; }catch(e){}
+// Acceso traído del PC con el código QR («Pasar acceso al móvil.bat»): va detrás de la #, que nunca sale del móvil.
+(function(){ const h=new URLSearchParams(location.hash.slice(1)); const t=h.get("acceso"); if(!t) return;
+  NUBE.auth=t; NUBE.param="access_token"; NUBE.host=h.get("host")||"eapi.pcloud.com"; NUBE.clave=h.get("clave")||"";
+  try{ localStorage.setItem("pcAuth",t); localStorage.setItem("pcParam","access_token"); localStorage.setItem("pcHost",NUBE.host); if(NUBE.clave) localStorage.setItem("pcClave",NUBE.clave); }catch(e){}
+  history.replaceState(null,"",location.pathname+location.search); })();
+function miniaturaNube(r,tam){ return "https://"+NUBE.host+"/getthumb?"+NUBE.param+"="+encodeURIComponent(NUBE.auth)+"&path="+encodeURIComponent(NUBE.raiz+r)+"&size="+tam+"&crop=0&type=jpeg"; }
+const ORIGEN = MODO==="pc" ? {
+  nombre:"este PC",
+  mini: r => "miniaturas/" + enc(r),
+  grande: r => "../../30_BIBLIOTECA/" + enc(r),
+  video: r => Promise.resolve("../../30_BIBLIOTECA/" + enc(r))
+} : {
+  nombre:"pCloud",
+  mini: r => miniaturaNube(r,"400x400"),
+  grande: r => miniaturaNube(r,"2048x1024"),
+  video: r => api("getfilelink",{path:NUBE.raiz+r}).then(j=>"https://"+j.hosts[0]+j.path)
+};
+const $ = id => document.getElementById(id);
+
+function api(metodo, params){
+  const cuerpo=new URLSearchParams(params||{}); if(NUBE.auth && !cuerpo.has("auth") && !cuerpo.has("access_token")) cuerpo.set(NUBE.param,NUBE.auth);
+  return fetch("https://"+NUBE.host+"/"+metodo,{method:"POST",body:cuerpo})
+    .then(r=>r.json()).then(j=>{ if(j.result!==0){ const e=new Error(j.error||("código "+j.result)); e.codigo=j.result; e.datos=j; throw e; } return j; });
+}
+function cargaScript(url){ return new Promise((ok,mal)=>{ const s=document.createElement("script"); s.src=url; s.onload=ok; s.onerror=()=>mal(new Error("no se pudo descargar "+url)); document.head.appendChild(s); }); }
+function msgEntrada(t){ $("eMsg").textContent=t||""; }
+let tfaToken=null;
+function pideEntrada(t){ $("cargandoIdx").style.display="none"; $("entrada").classList.add("on"); msgEntrada(t); setTimeout(()=>$("eMail").focus(),50); }
+function guardaLlave(auth){ NUBE.auth=auth; NUBE.param="auth"; try{ localStorage.setItem("pcAuth",auth); localStorage.setItem("pcParam","auth"); localStorage.setItem("pcHost",NUBE.host); }catch(e){} }
+async function entrar(ev){
+  ev.preventDefault(); $("eBtn").disabled=true; msgEntrada("Entrando…");
+  const email=$("eMail").value.trim(), pass=$("ePass").value, codigo=$("eCode").value.trim();
+  try{
+    let j;
+    if(tfaToken && codigo){ j=await api("tfa_login",{token:tfaToken, code:codigo, trustdevice:1}); }
+    else{
+      const datos={getauth:1, logout:1, username:email, password:pass, device:"Visor Catalogo Fotos"};
+      if(codigo) datos.code=codigo;
+      try{ NUBE.auth=""; j=await api("userinfo",datos); }
+      catch(e){
+        if(e.codigo===1022){ $("eCode").style.display=""; $("eCode").value=""; $("eCode").focus(); msgEntrada("pCloud pide un código de verificación (mira tu correo; si usas verificación en dos pasos, la app o el SMS). Escríbelo y pulsa Entrar."); $("eBtn").disabled=false; return; }
+        if(e.codigo===2297 && e.datos && e.datos.token){ tfaToken=e.datos.token; $("eCode").style.display=""; $("eCode").focus(); msgEntrada("pCloud pide el código de verificación. Escríbelo y pulsa Entrar."); $("eBtn").disabled=false; return; }
+        // 2321 = la cuenta está en el otro centro de datos (EE. UU.). Cualquier otro error es el de verdad.
+        if(e.codigo===2321 && NUBE.host==="eapi.pcloud.com"){ NUBE.host="api.pcloud.com"; j=await api("userinfo",datos); } else throw e;
+      }
+    }
+    guardaLlave(j.auth); $("ePass").value=""; $("entrada").classList.remove("on"); arrancaNube();
+  }catch(e){
+    if(e instanceof TypeError) msgEntrada("No se pudo hablar con pCloud desde esta página ("+e.message+"). Avisa a Claude: hay que usar la otra vía de acceso.");
+    else msgEntrada("pCloud no ha aceptado la entrada: "+e.message+" (código "+(e.codigo||"?")+", servidor "+NUBE.host+")");
+    NUBE.host="eapi.pcloud.com";
+  }finally{ $("eBtn").disabled=false; }
+}
+// El índice se lee DIRECTO («gettextfile»), sin pedir un enlace: con el acceso de rclone,
+// pCloud no da enlaces a una página web (código 7010), pero sí el contenido.
+// Índice cifrado publicado junto a la página (indice.bin). Solo se puede leer con la clave que trae el QR.
+// Formato: "FKHB1" | iv(16) | AES-256-CTR(gzip(indice.js)) | HMAC-SHA256(32). Ver cifrar_indice.py.
+async function leeIndiceCifrado(){
+  const b64=s=>{ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); };
+  const maestra=await crypto.subtle.importKey("raw",b64(NUBE.clave),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const deriva=async t=>new Uint8Array(await crypto.subtle.sign("HMAC",maestra,new TextEncoder().encode(t)));
+  const ke=await deriva("enc"), km=await deriva("mac");
+  const r=await fetch("indice.bin",{cache:"no-cache"}); if(!r.ok) throw new Error("no encuentro el índice cifrado (indice.bin)");
+  const blob=new Uint8Array(await r.arrayBuffer());
+  if(new TextDecoder().decode(blob.slice(0,5))!=="FKHB1") throw new Error("el índice cifrado no tiene el formato esperado");
+  const cuerpo=blob.slice(0,blob.length-32), etiqueta=blob.slice(blob.length-32);
+  const kmac=await crypto.subtle.importKey("raw",km,{name:"HMAC",hash:"SHA-256"},false,["verify"]);
+  if(!await crypto.subtle.verify("HMAC",kmac,etiqueta,cuerpo)){ const e=new Error("la clave del índice no corresponde: vuelve a pasar el acceso con el QR"); e.clave=true; throw e; }
+  const kaes=await crypto.subtle.importKey("raw",ke,{name:"AES-CTR"},false,["decrypt"]);
+  const gz=await crypto.subtle.decrypt({name:"AES-CTR",counter:cuerpo.slice(5,21),length:32},kaes,cuerpo.slice(21));
+  const txt=await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  window.INDICE=JSON.parse(txt.slice(14).replace(/;\s*$/,""));
+}
+async function leeIndiceNube(){
+  if(NUBE.clave) return leeIndiceCifrado();
+  const cuerpo=new URLSearchParams({path:NUBE.indice}); cuerpo.set(NUBE.param,NUBE.auth);
+  const t=await fetch("https://"+NUBE.host+"/gettextfile",{method:"POST",body:cuerpo}).then(r=>r.text());
+  if(t.startsWith("window.INDICE=")){ window.INDICE=JSON.parse(t.slice(14).replace(/;\s*$/,"")); return; }
+  let j={}; try{ j=JSON.parse(t); }catch(e){}
+  if(j.result===7010||j.result===undefined||j.result===0){
+    const k=await api("getfilelink",{path:NUBE.indice}); await cargaScript("https://"+k.hosts[0]+k.path); return; }
+  const e=new Error(j.error||("código "+j.result)); e.codigo=j.result; throw e;
+}
+async function arrancaNube(){
+  $("cargandoIdx").style.display="flex";
+  try{
+    await leeIndiceNube();
+    $("cargandoIdx").style.display="none";
+    $("bSalir").style.display="";
+    iniciar(window.INDICE);
+  }catch(e){
+    if(e.codigo===1000||e.codigo===2000||e.codigo===2094||e.codigo===2095){ try{localStorage.removeItem("pcAuth");localStorage.removeItem("pcParam");}catch(_){} NUBE.auth=""; NUBE.param="auth"; pideEntrada("El acceso a pCloud ya no vale. Vuelve a pasarlo desde el PC con «Pasar acceso al móvil.bat»."); }
+    else if(e instanceof TypeError) pideEntrada("No se pudo hablar con pCloud ("+e.message+").");
+    else { $("cargandoIdx").textContent="No se pudo cargar el índice: "+e.message; }
+  }
+}
+// Salir solo borra el acceso de ESTE móvil. Con el acceso de rclone no se llama a «logout»: lo anularía también en el PC.
+$("bSalir").onclick=()=>{ if(NUBE.param==="auth") api("logout").catch(()=>{}); try{ localStorage.removeItem("pcAuth"); localStorage.removeItem("pcParam"); }catch(e){} location.reload(); };
+$("fEntrada").addEventListener("submit", entrar);
+
+if(MODO==="pc"){
+  cargaScript("indice.js").then(()=>iniciar(window.INDICE)).catch(()=>{ document.body.innerHTML='<div class="vacio">No encuentro <b>indice.js</b> junto a esta página.<br>Lanza «Generar indice del visor.bat».</div>'; });
+}else if(NUBE.auth){ arrancaNube(); } else { pideEntrada(); }
+
+/* ============ EL VISOR ============ */
+function iniciar(D){
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const PERS = D.personas.map((p,i)=>{ const s=p.split("/"); return {i, ruta:p, nombre:s[s.length-1], grupo:s.slice(0,-1).join(" › ")}; });
+const FOTOS = D.fotos.map((f,i)=>{
+  const ruta=f[0], partes=ruta.split("/");
+  const carpeta = partes.length>2 ? partes[partes.length-2] : partes[0];
+  return {i, ruta, fecha:f[1]||"", lat:f[2], lon:f[3], est:f[4], pers:f[5], video:f[6]==="v",
+          ano:partes[0], evento:limpiaEvento(carpeta), carpeta};
+});
+function limpiaEvento(c){ return c.replace(/^\d{6}\s+\d{2}\s+/,"").replace(/^\d{4}[-_]\d{2}[-_]\d{2}\s*/,""); }
+FOTOS.sort((a,b)=> (b.fecha||"").localeCompare(a.fecha||"") || a.ruta.localeCompare(b.ruta));
+const fotosDePersona = new Map();
+FOTOS.forEach(f=>f.pers.forEach(p=>{ if(!fotosDePersona.has(p)) fotosDePersona.set(p,[]); fotosDePersona.get(p).push(f); }));
+
+/* ============ ESTADO Y FILTROS ============ */
+const E = { ano:"", texto:"", cinco:false, personas:new Set(), modo:"y" };
+let visibles = [];
+
+const anos=[...new Set(FOTOS.map(f=>f.ano))].sort().reverse();
+anos.forEach(a=>{ const o=document.createElement("option"); o.value=a; o.textContent=a; $("fAno").appendChild(o); });
+$("fAno").onchange = e => { E.ano=e.target.value; aplicar(); };
+let tTexto; $("fTexto").oninput = e => { clearTimeout(tTexto); tTexto=setTimeout(()=>{E.texto=e.target.value.trim(); aplicar();},180); };
+$("fCinco").onchange = e => { E.cinco=e.target.checked; aplicar(); };
+PERS.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,"es")).forEach(p=>{ const o=document.createElement("option"); o.value=p.nombre; $("dlPers").appendChild(o); });
+$("fAdd").addEventListener("change", e=>{ const n=norm(e.target.value.trim()); const p=PERS.find(x=>norm(x.nombre)===n); if(p){ E.personas.add(p.i); e.target.value=""; aplicar(); } });
+$("fModo").querySelectorAll("button").forEach(b=>b.onclick=()=>{ E.modo=b.dataset.m; aplicar(); });
+$("cuenta").textContent = FOTOS.length.toLocaleString("es-ES")+" elementos · "+ORIGEN.nombre;
+
+function norm(s){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+function aplicar(){
+  const t = norm(E.texto);
+  visibles = FOTOS.filter(f =>
+    (!E.ano || f.ano===E.ano) &&
+    (!E.cinco || f.est===5) &&
+    (!t || norm(f.evento+" "+f.carpeta+" "+f.ano).includes(t)) &&
+    (!E.personas.size || (E.modo==="o" ? f.pers.some(p=>E.personas.has(p)) : [...E.personas].every(p=>f.pers.includes(p))))
+  );
+  pintaChips();
+  const conGps = visibles.filter(f=>f.lat!=null).length;
+  $("resumen").textContent = visibles.length.toLocaleString("es-ES")+" fotos y vídeos · "+conGps.toLocaleString("es-ES")+" en el mapa";
+  pintaRejilla();
+  if(mapaListo) pintaMapa(!!document.querySelector("#vMapa.activa"));
+  guarda();
+}
+function pintaChips(){
+  $("fModo").style.display = E.personas.size>1 ? "" : "none";
+  $("fModo").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.m===E.modo));
+  marcaPersonas();
+  const c=$("fPersonas"); c.innerHTML="";
+  E.personas.forEach(p=>{
+    const b=document.createElement("button"); b.className="chip on";
+    b.innerHTML=PERS[p].nombre+' <span class="x">✕</span>';
+    b.onclick=()=>{E.personas.delete(p); aplicar();};
+    c.appendChild(b);
+  });
+}
+function guarda(){ try{ localStorage.setItem("visorFiltros", JSON.stringify({ano:E.ano,cinco:E.cinco,p:[...E.personas],m:E.modo})); }catch(e){} }
+function recupera(){ try{ const g=JSON.parse(localStorage.getItem("visorFiltros")||"null"); if(g){ E.ano=g.ano||""; E.cinco=!!g.cinco; E.modo=g.m==="o"?"o":"y"; (g.p||[]).forEach(p=>{ if(PERS[p]) E.personas.add(p); }); $("fAno").value=E.ano; $("fCinco").checked=E.cinco; } }catch(e){} }
+
+/* ============ REJILLA (se pinta por tandas al bajar) ============ */
+let pintadas=0, grupoActual=null, rejillaActual=null;
+const TANDA=240;
+function pintaRejilla(){
+  $("lista").innerHTML=""; pintadas=0; grupoActual=null;
+  if(!visibles.length){ $("lista").innerHTML='<div class="vacio">Ninguna foto cumple los filtros.</div>'; return; }
+  masRejilla();
+}
+function claveMes(f){ return f.fecha ? f.fecha.slice(0,7) : "sin fecha"; }
+function tituloMes(k){ if(k==="sin fecha") return "Sin fecha"; const [a,m]=k.split("-"); return MESES[+m-1].replace(/^./,c=>c.toUpperCase())+" de "+a; }
+function masRejilla(){
+  const fin=Math.min(visibles.length, pintadas+TANDA);
+  for(let k=pintadas;k<fin;k++){
+    const f=visibles[k], g=claveMes(f);
+    if(g!==grupoActual){
+      grupoActual=g;
+      const sec=document.createElement("div"); sec.className="mes";
+      const eventos=[...new Set(visibles.filter(x=>claveMes(x)===g).map(x=>x.evento))].slice(0,4).join(" · ");
+      sec.innerHTML='<h2>'+tituloMes(g)+'</h2><div class="sub"></div><div class="rejilla"></div>';
+      sec.querySelector(".sub").textContent=eventos;
+      $("lista").appendChild(sec); rejillaActual=sec.querySelector(".rejilla");
+    }
+    rejillaActual.appendChild(celda(f,k));
+  }
+  pintadas=fin;
+}
+function celda(f,k,lista){
+  const b=document.createElement("button"); b.className="celda"; b.title=f.evento;
+  if(f.video){ b.innerHTML='<div class="vid"><b>▶</b>vídeo</div>'; }
+  else{
+    const im=new Image(); im.loading="lazy"; im.decoding="async"; im.alt=""; im.src=ORIGEN.mini(f.ruta);
+    im.onerror=()=>{ im.style.opacity=.15; };
+    b.appendChild(im);
+    if(f.est===5){ const s=document.createElement("span"); s.className="est"; s.textContent="★"; b.appendChild(s); }
+  }
+  b.onclick=()=>abre(k, lista||visibles);
+  return b;
+}
+new IntersectionObserver(es=>{ if(es[0].isIntersecting && pintadas<visibles.length) masRejilla(); },{rootMargin:"1200px"}).observe($("centinela"));
+
+/* ============ MAPA ============ */
+let mapa=null, capa=null, calor=null, calorOn=true, mapaListo=false, controlCapas=null;
+const UMBRAL=10; // por debajo de este zoom: solo calor
+function iniciaMapa(){
+  if(mapaListo) { mapa.invalidateSize(); pintaMapa(true); return; }
+  if(!window.L){ $("mapa").innerHTML='<div class="vacio">El mapa necesita conexión a internet.</div>'; return; }
+  document.documentElement.style.setProperty("--hfiltros", $("filtros").offsetHeight+"px");
+  mapa=L.map("mapa",{zoomControl:true, worldCopyJump:true, maxZoom:19}).setView([40.4,-3.7],6);
+  const ESRI="https://server.arcgisonline.com/ArcGIS/rest/services/";
+  /* Mapas del IGN pedidos EXACTAMENTE como los pide la App Mapas: así, dentro de esa app,
+     el móvil usa también las zonas que ya tienes descargadas para ir sin cobertura. */
+  const IGN=(srv,capa)=>"https://www.ign.es/wmts/"+srv+"?layer="+capa+"&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}";
+  const AIGN='&copy; <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
+  const fondos={
+    "IGN Topográfico": L.tileLayer(IGN("mapa-raster","MTN"),{maxZoom:19, maxNativeZoom:17, attribution:AIGN}),
+    "IGN Ortofoto": L.tileLayer(IGN("pnoa-ma","OI.OrthoimageCoverage"),{maxZoom:19, attribution:AIGN}),
+    "IGN Base": L.tileLayer(IGN("ign-base","IGNBaseTodo"),{maxZoom:19, attribution:AIGN}),
+    "Calles": L.tileLayer(ESRI+"World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19, attribution:"Tiles &copy; Esri"}),
+    "Satélite": L.tileLayer(ESRI+"World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19, attribution:"Tiles &copy; Esri"}),
+    "Topográfico": L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:17, subdomains:"abc", attribution:'&copy; <a href="https://opentopomap.org">OpenTopoMap</a> &copy; OpenStreetMap'}),
+    "OpenStreetMap": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'})
+  };
+  let elegido="Calles"; try{ const g=localStorage.getItem("visorFondo"); if(fondos[g]) elegido=g; }catch(e){}
+  fondos[elegido].addTo(mapa);
+  controlCapas=L.control.layers(fondos,null,{position:"topright"}).addTo(mapa);
+  try{ calorOn = localStorage.getItem("visorCalor")!=="0"; }catch(e){}
+  mapa.on("overlayadd",e=>{ if(e.layer===calor){ calorOn=true; try{localStorage.setItem("visorCalor","1");}catch(_){} ajustaCapas(); } });
+  mapa.on("overlayremove",e=>{ if(e.layer===calor){ calorOn=false; try{localStorage.setItem("visorCalor","0");}catch(_){} ajustaCapas(); } });
+  mapa.on("zoomend",ajustaCapas);
+  mapa.on("moveend",()=>{ clearTimeout(tPanel); tPanel=setTimeout(pintaPanel,150); });
+  mapa.on("click",e=>{ if(mapa.getZoom()<UMBRAL) mapa.setView(e.latlng, Math.min(mapa.getZoom()+3, UMBRAL+1)); });
+  mapa.on("baselayerchange",e=>{ try{ localStorage.setItem("visorFondo", e.name); }catch(_){} });
+  mapaListo=true;
+  preparaBusca();
+  preparaRutas();
+  setTimeout(()=>{ mapa.invalidateSize(); pintaMapa(true); },60);
+}
+/* --- capa «Mis rutas»: los tracks de la App Mapas (repo público mapas-ign) ---
+   Mismo formato que usa la App Mapas: rutas/index.json (nombre, fecha, km, desnivel,
+   rectángulo y celda de cada ruta) y la geometría repartida en rutas/geo-<celda>.json.
+   Solo se cargan y dibujan las rutas que cruzan lo que estás viendo.
+   Al tocar una ruta, el panel enseña las fotos de ese día. */
+const RUTAS_WEB="https://chernanzfinanzas-gif.github.io/mapas-ign/rutas/";
+const COLOR_RUTA={sen:"#6d28d9", bici:"#8f1d1d"};
+let capaRutas=null, idxRutas=null, rutasOn=false, tRutas=null;
+const geoRutas=new Map(), rutasDib=new Map();
+let letreroRutas=null;
+function avisoRutas(t){
+  if(!letreroRutas){
+    const C=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","letreroRutas"); d.style.cssText="background:#fff;padding:4px 9px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.25);font:12.5px system-ui,sans-serif;color:#4c1d95"; return d; }});
+    letreroRutas=new C({position:"bottomleft"}).addTo(mapa);
+  }
+  const d=letreroRutas.getContainer(); d.textContent=t||""; d.style.display=t?"":"none";
+}
+function preparaRutas(){
+  capaRutas=L.layerGroup();
+  controlCapas.addOverlay(capaRutas,"Mis rutas (App Mapas)");
+  try{ rutasOn=localStorage.getItem("visorRutas")==="1"; }catch(e){}
+  mapa.on("overlayadd",e=>{ if(e.layer===capaRutas){ rutasOn=true; try{localStorage.setItem("visorRutas","1");}catch(_){} dibujaRutas(); } });
+  mapa.on("overlayremove",e=>{ if(e.layer===capaRutas){ rutasOn=false; avisoRutas(""); try{localStorage.setItem("visorRutas","0");}catch(_){} } });
+  mapa.on("moveend",()=>{ if(rutasOn){ clearTimeout(tRutas); tRutas=setTimeout(dibujaRutas,200); } });
+  if(rutasOn){ capaRutas.addTo(mapa); dibujaRutas(); }
+}
+function cargaIdxRutas(){
+  if(!idxRutas) idxRutas=fetch(RUTAS_WEB+"index.json",{cache:"no-cache"}).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(j=>j.rutas||[]).catch(e=>{ idxRutas=null; throw e; });
+  return idxRutas;
+}
+function geoCelda(c){
+  if(!geoRutas.has(c)) geoRutas.set(c, fetch(RUTAS_WEB+"geo-"+c+".json").then(r=>r.ok?r.json():{}).catch(()=>({})));
+  return geoRutas.get(c);
+}
+async function dibujaRutas(){
+  if(!rutasOn||!mapa) return;
+  if(!idxRutas) avisoRutas("Cargando tus rutas…");
+  let idx; try{ idx=await cargaIdxRutas(); }catch(e){ avisoRutas("No se pudieron cargar las rutas de la App Mapas ("+(e.message||e)+")"); return; }
+  const z=mapa.getZoom();
+  if(z<7){ capaRutas.clearLayers(); rutasDib.clear(); avisoRutas("Acércate para ver tus rutas ("+idx.length+" en total)"); return; }   // más lejos, la mancha no ayuda
+  const b=mapa.getBounds(), peso=z<9?2:4;
+  const vis=idx.filter(r=>r.b && b.intersects([[r.b[0],r.b[1]],[r.b[2],r.b[3]]]));
+  const ids=new Set(vis.map(r=>r.id));
+  for(const [id,l] of rutasDib) if(!ids.has(id)){ capaRutas.removeLayer(l); rutasDib.delete(id); }
+  for(const r of vis){
+    if(rutasDib.has(r.id)){ rutasDib.get(r.id).setStyle({weight:peso}); continue; }
+    const g=await geoCelda(r.c), tr=g[r.id];
+    if(!tr||!rutasOn||rutasDib.has(r.id)) continue;
+    const l=L.polyline(tr,{color:COLOR_RUTA[r.a]||"#555", weight:peso, opacity:.85});
+    const fch=r.f&&r.f.length>=8? r.f.slice(6,8)+"-"+r.f.slice(4,6)+"-"+r.f.slice(0,4) : "";
+    l.bindTooltip((r.n||r.id)+(fch?" · "+fch:"")+(r.km?" · "+String(r.km).replace(".",",")+" km":""),{sticky:true});
+    l.on("click",ev=>{ L.DomEvent.stop(ev); fotosDeRuta(r,l,fch); });
+    capaRutas.addLayer(l); rutasDib.set(r.id,l);
+  }
+  if(rutasOn) avisoRutas(vis.length? vis.length+(vis.length===1?" ruta":" rutas")+" en esta zona · toca una para ver sus fotos" : "Ninguna ruta tuya en esta zona");
+}
+let rutaMarcada=null;
+function fotosDeRuta(r,l,fch){
+  if(rutaMarcada && rutaMarcada!==l) rutaMarcada.setStyle({color:rutaMarcada.options.colorBase||rutaMarcada.options.color, opacity:.85});
+  if(!l.options.colorBase) l.options.colorBase=l.options.color;
+  l.setStyle({color:"#e8590c", opacity:1}); l.bringToFront(); rutaMarcada=l;
+  const dia=r.f&&r.f.length>=8? r.f.slice(0,4)+"-"+r.f.slice(4,6)+"-"+r.f.slice(6,8) : null;
+  const lista=dia? FOTOS.filter(f=>f.fecha.startsWith(dia)) : [];
+  panelGrupo(lista, l.getBounds());
+  $("panelTit").querySelector("b").textContent=(lista.length? lista.length.toLocaleString("es-ES")+(lista.length===1?" foto":" fotos") : "Ninguna foto")+" del "+(fch||"día de la ruta");
+  $("panelTit").querySelector("span").textContent="Ruta: "+(r.n||r.id)+(r.km?" · "+String(r.km).replace(".",",")+" km":"")+(r.d?" · "+r.d+" m de desnivel":"");
+  $("pAcercar").textContent="Ver la ruta entera";
+}
+/* --- buscador del mapa: tus eventos + lugares de OpenStreetMap --- */
+const EVENTOS=(()=>{ const m=new Map(); FOTOS.forEach(f=>{ if(f.lat==null) return; const k=f.ano+"|"+f.carpeta; if(!m.has(k)) m.set(k,{nombre:f.evento, ano:f.ano, pts:[]}); m.get(k).pts.push([f.lat,f.lon]); }); return [...m.values()]; })();
+let tBusca=null, resBusca=[], selBusca=-1;
+function buscaLugares(q){
+  const u1="https://photon.komoot.io/api/?limit=6&lang=default&lat=40.4&lon=-3.7&location_bias_scale=0.3&q="+encodeURIComponent(q);
+  return fetch(u1).then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(j=>j.features.map(f=>{ const p=f.properties, c=f.geometry.coordinates;
+      const sub=[p.city,p.county,p.state,p.country].filter((x,i,a)=>x&&x!==p.name&&a.indexOf(x)===i).join(", ");
+      return {tipo:"lugar", nombre:p.name, sub, lat:c[1], lon:c[0], ext:p.extent?[[p.extent[3],p.extent[0]],[p.extent[1],p.extent[2]]]:null}; }))
+    .catch(()=>fetch("https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=es&q="+encodeURIComponent(q))
+      .then(r=>r.json()).then(j=>j.map(x=>({tipo:"lugar", nombre:x.display_name.split(",")[0], sub:x.display_name.split(",").slice(1,4).join(",").trim(),
+        lat:+x.lat, lon:+x.lon, ext:x.boundingbox?[[+x.boundingbox[0],+x.boundingbox[2]],[+x.boundingbox[1],+x.boundingbox[3]]]:null}))));
+}
+function pintaBusca(nota){
+  const ul=$("buscaRes"); ul.innerHTML="";
+  resBusca.forEach((r,i)=>{ const li=document.createElement("li"); if(i===selBusca) li.className="on";
+    li.innerHTML="<span></span><small></small>";
+    li.firstChild.textContent=(r.tipo==="evento"?"📷 ":"📍 ")+r.nombre;
+    li.lastChild.textContent=r.sub||"";
+    li.onmousedown=e=>{ e.preventDefault(); irA(r); };
+    ul.appendChild(li); });
+  if(nota){ const li=document.createElement("li"); li.className="nota"; li.textContent=nota; ul.appendChild(li); }
+}
+function irA(r){
+  $("buscaRes").innerHTML=""; $("buscaTxt").blur();
+  if(r.tipo==="evento"){ mapa.fitBounds(L.latLngBounds(r.pts),{padding:[40,40],maxZoom:15}); return; }
+  if(r.ext) mapa.fitBounds(r.ext,{maxZoom:15}); else mapa.setView([r.lat,r.lon],13);
+}
+function preparaBusca(){
+  const caja=$("busca"); L.DomEvent.disableClickPropagation(caja); L.DomEvent.disableScrollPropagation(caja);
+  $("buscaTxt").addEventListener("input",e=>{
+    const q=e.target.value.trim(); clearTimeout(tBusca); selBusca=-1;
+    if(q.length<2){ resBusca=[]; pintaBusca(); return; }
+    const n=norm(q);
+    const ev=EVENTOS.filter(x=>norm(x.nombre).includes(n)).sort((a,b)=>b.pts.length-a.pts.length).slice(0,5)
+      .map(x=>({tipo:"evento", nombre:x.nombre, sub:x.ano+" · "+x.pts.length+" fotos", pts:x.pts}));
+    resBusca=ev; pintaBusca("buscando lugares…");
+    tBusca=setTimeout(()=>{ buscaLugares(q).then(l=>{ if($("buscaTxt").value.trim()!==q) return; resBusca=ev.concat(l); pintaBusca(l.length?"":"sin lugares con ese nombre"); })
+      .catch(()=>{ resBusca=ev; pintaBusca("no hay conexión para buscar lugares"); }); },350);
+  });
+  $("buscaTxt").addEventListener("keydown",e=>{
+    if(e.key==="ArrowDown"){ selBusca=Math.min(selBusca+1,resBusca.length-1); pintaBusca(); e.preventDefault(); }
+    else if(e.key==="ArrowUp"){ selBusca=Math.max(selBusca-1,0); pintaBusca(); e.preventDefault(); }
+    else if(e.key==="Enter"){ const r=resBusca[selBusca<0?0:selBusca]; if(r) irA(r); }
+    else if(e.key==="Escape"){ $("buscaRes").innerHTML=""; }
+  });
+  $("buscaTxt").addEventListener("blur",()=>setTimeout(()=>{ $("buscaRes").innerHTML=""; },150));
+}
+
+/* --- tamaño de miniaturas --- */
+const TAMS=[64,80,96,112,140,180];
+let tamF=3, tamP=2;
+try{ const g=JSON.parse(localStorage.getItem("visorTam")||"null"); if(g){ tamF=g.f; tamP=g.p; } }catch(e){}
+function aplicaTam(){ document.documentElement.style.setProperty("--celda",TAMS[tamF]+"px"); document.documentElement.style.setProperty("--celdaP",TAMS[tamP]+"px");
+  try{ localStorage.setItem("visorTam",JSON.stringify({f:tamF,p:tamP})); }catch(e){} }
+$("tamFotos").querySelectorAll("button").forEach(b=>b.onclick=()=>{ tamF=Math.max(0,Math.min(TAMS.length-1,tamF+ +b.dataset.d)); aplicaTam(); });
+document.querySelectorAll("#panel .tam button").forEach(b=>b.onclick=()=>{ tamP=Math.max(0,Math.min(TAMS.length-1,tamP+ +b.dataset.d)); aplicaTam(); });
+aplicaTam();
+
+let enZona=[], panelPintadas=0, tPanel=null, ignoraMov=false;
+function panelGrupo(lista, limites){
+  enZona=lista;
+  const eventos=[...new Set(lista.map(f=>f.evento))];
+  $("panelTit").innerHTML="<b></b><br><span></span><div class='acc'><button class='boton sec' id='pAcercar'>Acercar</button><button class='boton sec' id='pZona'>Ver toda la zona</button></div>";
+  $("panelTit").querySelector("b").textContent=lista.length.toLocaleString("es-ES")+(lista.length===1?" foto en este grupo":" fotos en este grupo");
+  $("panelTit").querySelector("span").textContent=eventos.slice(0,3).join(" · ")+(eventos.length>3?" y "+(eventos.length-3)+" más":"");
+  $("pAcercar").onclick=()=>{ mapa.fitBounds(limites.pad(0.3),{maxZoom:18}); };
+  $("pZona").onclick=()=>pintaPanel();
+  $("panelRej").innerHTML=""; panelPintadas=0; $("panel").scrollTop=0; masPanel();
+}
+function pintaPanel(){
+  if(!mapa) return;
+  const b=mapa.getBounds();
+  enZona=visibles.filter(f=>f.lat!=null && !f.video && b.contains([f.lat,f.lon]));
+  const eventos=[...new Set(enZona.map(f=>f.evento))];
+  $("panelTit").innerHTML="<b></b><br><span></span>";
+  $("panelTit").querySelector("b").textContent=enZona.length.toLocaleString("es-ES")+(enZona.length===1?" foto en esta zona":" fotos en esta zona");
+  $("panelTit").querySelector("span").textContent=eventos.length? eventos.slice(0,3).join(" · ")+(eventos.length>3?" y "+(eventos.length-3)+" más":"") : "Mueve o aleja el mapa para ver fotos.";
+  $("panelRej").innerHTML=""; panelPintadas=0; $("panel").scrollTop=0; masPanel();
+}
+function masPanel(){
+  const fin=Math.min(enZona.length, panelPintadas+150);
+  for(let k=panelPintadas;k<fin;k++) $("panelRej").appendChild(celda(enZona[k],k,enZona));
+  panelPintadas=fin;
+}
+$("panel").addEventListener("scroll",()=>{ const p=$("panel"); if(p.scrollTop+p.clientHeight>p.scrollHeight-600 && panelPintadas<enZona.length) masPanel(); });
+function ajustaCapas(){
+  if(!mapa||!capa) return;
+  const z=mapa.getZoom(), lejos = z<UMBRAL;
+  if(lejos){ if(mapa.hasLayer(capa)) mapa.removeLayer(capa); }
+  else if(!mapa.hasLayer(capa)) mapa.addLayer(capa);
+  if(calor){
+    if(calorOn && !mapa.hasLayer(calor)) mapa.addLayer(calor);
+    if(!calorOn && mapa.hasLayer(calor)) mapa.removeLayer(calor);
+    if(calor._canvas) calor._canvas.style.opacity = lejos ? "0.9" : "0.45";
+  }
+  // si el calor está apagado, de lejos se ven las burbujas
+  if(lejos && !calorOn && !mapa.hasLayer(capa)) mapa.addLayer(capa);
+  $("mapa").style.cursor = lejos && calorOn ? "zoom-in" : "";
+}
+function pintaMapa(encuadra){
+  if(capa) mapa.removeLayer(capa);
+  if(calor){ if(controlCapas) controlCapas.removeLayer(calor); mapa.removeLayer(calor); calor=null; }
+  capa=L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:60, spiderfyOnMaxZoom:false, zoomToBoundsOnClick:false,
+    iconCreateFunction:c=>{
+      const ms=c.getAllChildMarkers(), n=ms.length;
+      const fs=ms.map(m=>visibles[m.k]).filter(Boolean);
+      const top=fs.filter(f=>f.est===5).concat(fs.filter(f=>f.est!==5)).slice(0,3).reverse();
+      const im=top.map(f=>'<i style="background-image:url(\''+ORIGEN.mini(f.ruta).replace(/'/g,"%27")+'\')"></i>').join("");
+      return L.divIcon({className:"", html:'<div class="pila">'+im+'<b>'+n.toLocaleString("es-ES")+'</b></div>', iconSize:[58,58], iconAnchor:[29,29]});
+    }});
+  const pts=[];
+  visibles.forEach((f,k)=>{
+    if(f.lat==null||f.video) return;
+    const ic=L.divIcon({className:"", html:'<div class="pin" style="background-image:url(\''+ORIGEN.mini(f.ruta).replace(/'/g,"%27")+'\')"></div>', iconSize:[44,44], iconAnchor:[22,22]});
+    const m=L.marker([f.lat,f.lon],{icon:ic}); m.k=k; m.on("click",()=>abre(k,visibles));
+    capa.addLayer(m); pts.push([f.lat,f.lon]);
+  });
+  // al pulsar un grupo: el panel enseña solo sus fotos (el mapa no se mueve)
+  capa.on("clusterclick", e=>{
+    const lista=e.layer.getAllChildMarkers().map(m=>visibles[m.k]).filter(Boolean);
+    panelGrupo(lista, e.layer.getBounds());
+  });
+  if(L.heatLayer){
+    calor=L.heatLayer(pts.map(p=>[p[0],p[1],1]),{radius:16, blur:20, maxZoom:13, minOpacity:0.35,
+      gradient:{0.2:"#2c7bb6",0.4:"#00a6ca",0.6:"#90eb9d",0.8:"#f9d057",1:"#d7191c"}});
+    controlCapas.addOverlay(calor,"Mapa de calor");
+  }
+  if(encuadra!==false && pts.length){ mapa.invalidateSize(); mapa.fitBounds(L.latLngBounds(pts),{padding:[30,30], maxZoom:14}); }
+  ajustaCapas(); pintaPanel();
+}
+
+/* ============ PERSONAS ============ */
+function repDe(i){
+  const fs=(fotosDePersona.get(i)||[]).filter(f=>!f.video);
+  return fs.find(f=>f.est===5 && f.pers.length===1) || fs.find(f=>f.pers.length===1) || fs[0];
+}
+function pintaPersonas(){
+  const c=$("personas"); c.innerHTML="";
+  const grupos=new Map();
+  PERS.forEach(p=>{ const g=p.ruta.split("/")[0]; if(!grupos.has(g)) grupos.set(g,[]); grupos.get(g).push(p); });
+  ["Familia","Amigos","Mascotas",...[...grupos.keys()].filter(g=>!["Familia","Amigos","Mascotas"].includes(g))].forEach(g=>{
+    if(!grupos.has(g)) return;
+    const t=document.createElement("div"); t.className="grupo-t"; t.textContent=g; c.appendChild(t);
+    grupos.get(g).map(p=>({p, n:(fotosDePersona.get(p.i)||[]).length})).sort((a,b)=>b.n-a.n).forEach(({p,n})=>{
+      const fs=(fotosDePersona.get(p.i)||[]).filter(f=>!f.video);
+      const rep = fs.find(f=>f.est===5 && f.pers.length===1) || fs.find(f=>f.pers.length===1) || fs[0];
+      const b=document.createElement("button"); b.className="persona";
+      b.innerHTML='<div class="cara"></div><span class="marca">✓</span><div class="txt"><div class="nom"></div><div class="grp"></div></div>'; b.dataset.p=p.i;
+      if(rep) b.querySelector(".cara").style.backgroundImage="url('"+ORIGEN.mini(rep.ruta).replace(/'/g,"%27")+"')";
+      b.querySelector(".nom").textContent=p.nombre;
+      b.querySelector(".grp").textContent=n.toLocaleString("es-ES")+" fotos · "+p.grupo.split(" › ").slice(1).join(" › ");
+      b.onclick=()=>{ if(E.personas.has(p.i)) E.personas.delete(p.i); else E.personas.add(p.i); aplicar(); };
+      c.appendChild(b);
+    });
+  });
+}
+
+function marcaPersonas(){
+  document.querySelectorAll(".persona,.fper").forEach(b=>b.classList.toggle("sel", E.personas.has(+b.dataset.p)));
+  const n=E.personas.size, enP=document.querySelector("#vPersonas.activa,#vFamilia.activa");
+  $("barraSel").classList.toggle("on", !!(n && enP));
+  if(n) $("selTxt").textContent=[...E.personas].map(p=>PERS[p].nombre).join(", ")+" · "+visibles.length.toLocaleString("es-ES")+" fotos";
+}
+$("selLimpia").onclick=()=>{ E.personas.clear(); aplicar(); };
+$("selVer").onclick=()=>{ E.ano=""; $("fAno").value=""; aplicar(); cambia("vFotos"); window.scrollTo(0,0); };
+
+/* ============ FAMILIA ============ */
+function pintaFamilia(){
+  const c=$("familia"); c.innerHTML="";
+  const F=D.familia;
+  if(!F){ c.innerHTML='<div class="vacio">Todavía no hay árbol familiar en el índice.</div>'; return; }
+  const idx0=new Map(PERS.map(p=>[p.ruta,p.i]));
+  // si una etiqueta cambia de rama en digiKam, se encuentra igual por el nombre (si es único)
+  const porNombre=new Map(); PERS.forEach(p=>{ const k=p.ruta.split("/").pop(); porNombre.set(k, porNombre.has(k)?-1:p.i); });
+  const idx={ get:r=>{ if(idx0.has(r)) return idx0.get(r); const k=porNombre.get(String(r).split("/").pop()); return (k==null||k<0)?undefined:k; } };
+  const resuelve=r=>{ const i=idx.get(r); return i==null? r : PERS[i].ruta; };
+  const enArbol=new Set();
+  const rel=F.parentesco||{};
+  const limpio=n=>n.replace(/^(primo|prima|tío|tía|tio|tia|abuelo|abuela)\s+/i,"");
+  function tarjeta(ruta, peq){
+    if(ruta.startsWith("nombre:")){ // persona sin etiqueta (sin fotos)
+      const [nom,r]=ruta.slice(7).split("|");
+      const b=document.createElement("div"); b.className="fper libre"+(peq?" peq":"");
+      b.innerHTML='<div class="cara"></div><div class="nom"></div><div class="rel"></div>';
+      b.querySelector(".cara").textContent=nom.charAt(0);
+      b.querySelector(".nom").textContent=nom;
+      b.querySelector(".rel").textContent=(r?r+" · ":"")+"sin fotos etiquetadas";
+      return b;
+    }
+    const i=idx.get(ruta); if(i==null) return null;
+    enArbol.add(PERS[i].ruta);
+    const p=PERS[i], n=(fotosDePersona.get(i)||[]).length, r=repDe(i);
+    if(!rel[p.ruta] && rel[ruta]) rel[p.ruta]=rel[ruta];
+    ruta=p.ruta;
+    const b=document.createElement("button"); b.className="fper"+(peq?" peq":""); b.dataset.p=i;
+    b.innerHTML='<div class="cara"></div><div class="nom"></div><div class="rel"></div>';
+    if(r) b.querySelector(".cara").style.backgroundImage="url('"+ORIGEN.mini(r.ruta).replace(/'/g,"%27")+"')";
+    b.querySelector(".nom").textContent=(F.mostrar||{})[p.ruta]||limpio(p.nombre);
+    b.querySelector(".rel").textContent=(rel[ruta]? rel[ruta]+" · " : "")+n.toLocaleString("es-ES")+(n===1?" foto":" fotos");
+    b.title=p.nombre+(rel[ruta]?" — "+rel[ruta]:"");
+    b.onclick=()=>{ if(E.personas.has(i)) E.personas.delete(i); else E.personas.add(i); aplicar(); };
+    return b;
+  }
+  // 1. el árbol del núcleo
+  const lados=document.createElement("div"); lados.className="lados"; c.appendChild(lados);
+  const nGen=Math.max(0,...(F.arbol||[]).map(L=>(L.generaciones||[]).length));
+  lados.style.setProperty("--filas", nGen+1);
+  (F.arbol||[]).forEach((L,li)=>{
+    const lado=document.createElement("div"); lado.className="lado";
+    const h=document.createElement("h3"); h.textContent=L.titulo; lado.appendChild(h);
+    const gens=(L.generaciones||[]).slice(); while(gens.length<nGen) gens.push([]);
+    gens.forEach((g,gi)=>{
+      const fila=document.createElement("div"); fila.className="gen"+(g.length?"":" vacia")+(gi>0&&!gens[gi-1].length?" tras-vacia":"");
+      if(g.some(u=>u.grande)) fila.classList.add(li===0?"alDer":"alIzq");
+      g.forEach(u=>{
+        const un=document.createElement("div"); un.className="unidad";
+        const caja=document.createElement("div"); caja.className="pareja";
+        const lista=u.pareja||u.grupo||[];
+        lista.forEach((ruta,k)=>{
+          if(k>0 && u.pareja){ const y=document.createElement("span"); y.className="y"; y.textContent="♥"; caja.appendChild(y); }
+          const t=tarjeta(ruta); if(t){ if(u.grande) t.classList.add("grande"); caja.appendChild(t); }
+        });
+        un.appendChild(caja);
+        if((u.hijos||[]).length){
+          const hj=document.createElement("div"); hj.className="hijos";
+          u.hijos.forEach(x=>{ const t=tarjeta(x); if(t) hj.appendChild(t); });
+          un.appendChild(hj);
+        }
+        if(u.nota){ const no=document.createElement("div"); no.className="nota"; no.textContent=u.nota; un.appendChild(no); }
+        fila.appendChild(un);
+      });
+      lado.appendChild(fila);
+    });
+    lados.appendChild(lado);
+  });
+  // 2. las ramas, ordenadas solas por la etiqueta
+  const tipo=n=>{ const w=norm(n.split(" ")[0]); if(w==="abuelo"||w==="abuela") return "Abuelos"; if(w==="tio"||w==="tia") return "Tíos"; if(w==="primo"||w==="prima") return "Primos"; return "Otros"; };
+  const ramas=(F.ramas||[]).slice();
+  const conocidas=new Set(ramas.map(r=>r[0]));
+  [...new Set(PERS.filter(p=>p.ruta.startsWith("Familia/")).map(p=>p.ruta.split("/")[1]))].forEach(r=>{ if(!conocidas.has(r)) ramas.push([r,"Familia "+r]); });
+  function pintaNodo(n){
+    const caja=document.createElement("div"); caja.className="fam";
+    const par=document.createElement("div"); par.className="pareja";
+    (n.pareja||[]).forEach((ruta,k)=>{
+      if(k>0){ const y=document.createElement("span"); y.className="y"; y.textContent="♥"; par.appendChild(y); }
+      const t=tarjeta(ruta,true); if(t) par.appendChild(t);
+    });
+    caja.appendChild(par);
+    if((n.hijos||[]).length){
+      const hj=document.createElement("div"); hj.className="hijos";
+      n.hijos.forEach(h=>{ if(typeof h==="string"){ const t=tarjeta(h,true); if(t) hj.appendChild(t); } else hj.appendChild(pintaNodo(h)); });
+      caja.appendChild(hj);
+    }
+    return caja;
+  }
+  // quien esté en cualquier árbol no se repite en las listas de «Otros» (p. ej. Isabel, etiquetada en Pérez y colocada en Pardillo)
+  const enAlgunArbol=new Set();
+  (function junta(ns){ (ns||[]).forEach(n=>{ if(typeof n==="string"){ enAlgunArbol.add(resuelve(n)); return; } (n.pareja||[]).forEach(x=>enAlgunArbol.add(resuelve(x))); junta(n.hijos); }); })(Object.values(F.descendencia||{}).flat());
+  ramas.forEach(([clave,titulo])=>{
+    const desc=(F.descendencia||{})[clave];
+    const sec=document.createElement("div"); sec.className="rama";
+    const h=document.createElement("h3"); h.textContent=titulo+" ("+clave+")"; sec.appendChild(h);
+    if(desc && desc.length){
+      const ar=document.createElement("div"); ar.className="arbolRama";
+      desc.forEach(n=>{ const b=document.createElement("div"); b.className="fam1"; b.appendChild(pintaNodo(n)); ar.appendChild(b); });
+      sec.appendChild(ar);
+    }
+    const gente=PERS.filter(p=>p.ruta.startsWith("Familia/"+clave+"/") && !enArbol.has(p.ruta) && !enAlgunArbol.has(p.ruta));
+    if(!gente.length && !(desc&&desc.length)) return;
+    ["Abuelos","Tíos","Primos","Otros"].forEach(t=>{
+      const g=gente.filter(p=>((F.categoria||{})[p.ruta]||tipo(p.nombre))===t).sort((a,b)=>(fotosDePersona.get(b.i)||[]).length-(fotosDePersona.get(a.i)||[]).length);
+      if(!g.length) return;
+      const h4=document.createElement("h4"); h4.textContent=t+" · "+g.length; sec.appendChild(h4);
+      const l=document.createElement("div"); l.className="lista";
+      g.forEach(p=>{ const tj=tarjeta(p.ruta,true); if(tj) l.appendChild(tj); });
+      sec.appendChild(l);
+    });
+    c.appendChild(sec);
+  });
+  // 3. mascotas
+  const masc=PERS.filter(p=>p.ruta.startsWith("Mascotas/"));
+  if(masc.length){
+    const sec=document.createElement("div"); sec.className="rama";
+    sec.innerHTML='<h3>Mascotas</h3><div class="lista"></div>';
+    masc.forEach(p=>{ const tj=tarjeta(p.ruta,true); if(tj) sec.querySelector(".lista").appendChild(tj); });
+    c.appendChild(sec);
+  }
+  marcaPersonas();
+  requestAnimationFrame(ajustaPadres);
+}
+// la caja de los padres se ensancha hasta cubrir a todos sus hijos (de Helena a Carlos, de Susana a Belén)
+function ajustaPadres(){
+  document.querySelectorAll(".lados .gen.alDer, .lados .gen.alIzq").forEach(f=>{
+    const prev=f.previousElementSibling; if(!prev||!prev.classList.contains("gen")) return;
+    const un=prev.querySelector(".unidad"), caja=un&&un.querySelector(".pareja"); if(!caja) return;
+    un.style.marginLeft=""; caja.style.width=""; caja.style.justifyContent=""; prev.style.justifyContent="";
+    const R=prev.getBoundingClientRect(); if(!R.width || window.innerWidth<=820) return;
+    let a=Infinity,b=-Infinity;
+    f.querySelectorAll(".unidad>.pareja, .unidad>.hijos").forEach(e=>{ const q=e.getBoundingClientRect(); a=Math.min(a,q.left); b=Math.max(b,q.right); });
+    if(!isFinite(a)) return;
+    prev.style.justifyContent="flex-start";
+    const der=f.classList.contains("alDer"); if(der) b-=5; else a+=5; // un hueco entre las dos familias
+    un.style.marginLeft=(a-R.left)+"px";
+    caja.style.boxSizing="border-box"; caja.style.width=(b-a)+"px"; caja.style.justifyContent="space-around";
+  });
+}
+addEventListener("resize",()=>{ if($("familia").children.length) ajustaPadres(); });
+
+/* ============ PESTAÑAS ============ */
+function cambia(v){
+  document.querySelectorAll(".vista").forEach(s=>s.classList.toggle("activa", s.id===v));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
+  $("filtros").style.display = (v==="vPersonas"||v==="vFamilia") ? "none" : "";
+  if(v==="vFamilia" && !$("familia").children.length) pintaFamilia();
+  if(v==="vMapa") setTimeout(iniciaMapa,30);
+  if(v==="vPersonas" && !$("personas").children.length) pintaPersonas();
+  marcaPersonas();
+  try{ localStorage.setItem("visorVista", v); }catch(e){}
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>cambia(b.dataset.v));
+
+/* ============ FOTO A PANTALLA COMPLETA ============ */
+let lbLista=[], lbK=0; const Z={s:1,x:0,y:0};
+function abre(k, lista){ lbLista=lista; lbK=k; $("lb").classList.add("on"); muestra(); }
+function cierra(){ $("lb").classList.remove("on"); const z=$("lbFoto"); z.querySelectorAll(".lienzo,video,.cargando").forEach(e=>e.remove()); }
+function fechaLarga(f){ if(!f) return "Sin fecha"; const d=new Date(f); if(isNaN(d)) return f; return d.toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"long",year:"numeric"})+(f.slice(11,16)!=="00:00"?" · "+f.slice(11,16):""); }
+function muestra(){
+  const f=lbLista[lbK]; if(!f) return;
+  const zona=$("lbFoto"); zona.querySelectorAll(".lienzo,video,.cargando").forEach(e=>e.remove());
+  Z.s=1; Z.x=0; Z.y=0;
+  const z=document.createElement("div"); z.className="lienzo"; zona.appendChild(z); aplicaZ();
+  $("lbTit").innerHTML="<b></b><span></span>";
+  $("lbTit").querySelector("b").textContent=f.evento;
+  $("lbTit").querySelector("span").textContent=fechaLarga(f.fecha)+"  ·  "+(lbK+1)+" de "+lbLista.length;
+  $("lbMapa").style.display = f.lat!=null ? "" : "none";
+  if(f.video){
+    z.remove();
+    const v=document.createElement("video"); v.controls=true; zona.appendChild(v);
+    const c=document.createElement("div"); c.className="cargando"; c.textContent="cargando vídeo…"; zona.appendChild(c);
+    ORIGEN.video(f.ruta).then(u=>{ v.src=u; c.remove(); }).catch(e=>{ c.textContent="no se pudo abrir el vídeo"; });
+  }else{
+    const baja=new Image(); baja.className="baja"; baja.src=ORIGEN.mini(f.ruta); z.appendChild(baja);
+    const c=document.createElement("div"); c.className="cargando"; c.textContent="cargando original…"; zona.appendChild(c);
+    const alta=new Image(); alta.style.opacity=0;
+    alta.onload=()=>{ alta.style.opacity=1; baja.remove(); c.remove(); };
+    alta.onerror=()=>{ c.textContent="no se pudo abrir el original"; };
+    alta.src=ORIGEN.grande(f.ruta); z.appendChild(alta);
+  }
+  const pie=$("lbPie"); pie.innerHTML="";
+  if(f.est){ const s=document.createElement("span"); s.textContent="★".repeat(f.est); s.style.color="#ffd970"; pie.appendChild(s); }
+  f.pers.forEach(p=>{ const b=document.createElement("button"); b.className="chip"; b.textContent=PERS[p].nombre;
+    b.title="Añadir a la búsqueda";
+    b.onclick=()=>{ cierra(); E.personas.add(p); aplicar(); cambia("vFotos"); window.scrollTo(0,0); };
+    pie.appendChild(b); });
+  // precarga la siguiente
+  const sig=lbLista[lbK+1]; if(sig && !sig.video){ const p=new Image(); p.src=ORIGEN.mini(sig.ruta); }
+}
+function paso(d){ const n=lbK+d; if(n>=0 && n<lbLista.length){ lbK=n; muestra(); } }
+$("lbAnt").onclick=()=>paso(-1); $("lbSig").onclick=()=>paso(1); $("lbCerrar").onclick=cierra;
+$("lbMapa").onclick=()=>{ const f=lbLista[lbK]; cierra(); cambia("vMapa"); setTimeout(()=>{ if(mapa) mapa.setView([f.lat,f.lon],16); },120); };
+document.addEventListener("keydown",e=>{ if(!$("lb").classList.contains("on")) return;
+  if(e.key==="Escape") cierra();
+  if(e.key==="ArrowLeft" && Z.s===1) paso(-1);
+  if(e.key==="ArrowRight" && Z.s===1) paso(1);
+  if(e.key==="+"||e.key==="=") zoomEn(1.5,0,0,true);
+  if(e.key==="-") zoomEn(1/1.5,0,0,true);
+  if(e.key==="0") ajusta();
+});
+
+/* --- zoom y desplazamiento de la foto grande --- */
+function aplicaZ(suave){
+  const l=$("lbFoto").querySelector(".lienzo"); if(!l) return;
+  limitaZ();
+  l.classList.toggle("suave",!!suave);
+  l.style.transform="translate("+Z.x+"px,"+Z.y+"px) scale("+Z.s+")";
+  $("lbFoto").classList.toggle("zoom",Z.s>1.01);
+}
+function limitaZ(){ // que la foto no se vaya fuera de la pantalla
+  const r=$("lbFoto").getBoundingClientRect();
+  const mx=r.width*(Z.s-1)/2, my=r.height*(Z.s-1)/2;
+  Z.x=Math.max(-mx,Math.min(mx,Z.x)); Z.y=Math.max(-my,Math.min(my,Z.y));
+}
+function zoomEn(f,cx,cy,suave){ // cx,cy: punto respecto al centro de la zona
+  const ns=Math.min(8,Math.max(1,Z.s*f)), k=ns/Z.s;
+  Z.x=cx-(cx-Z.x)*k; Z.y=cy-(cy-Z.y)*k; Z.s=ns;
+  if(Z.s<=1.01){ Z.s=1; Z.x=0; Z.y=0; }
+  aplicaZ(suave);
+}
+function ajusta(){ Z.s=1; Z.x=0; Z.y=0; aplicaZ(true); }
+function relCentro(x,y){ const r=$("lbFoto").getBoundingClientRect(); return [x-r.left-r.width/2, y-r.top-r.height/2]; }
+$("lbMas").onclick=()=>zoomEn(1.5,0,0,true);
+$("lbMenos").onclick=()=>zoomEn(1/1.5,0,0,true);
+$("lbAjusta").onclick=ajusta;
+const zonaFoto=$("lbFoto");
+zonaFoto.addEventListener("wheel",e=>{ if(!zonaFoto.querySelector(".lienzo")) return; e.preventDefault(); const [cx,cy]=relCentro(e.clientX,e.clientY); zoomEn(e.deltaY<0?1.2:1/1.2,cx,cy); },{passive:false});
+let ultimoTipo="mouse";
+zonaFoto.addEventListener("pointerdown",e=>{ ultimoTipo=e.pointerType; },true);
+zonaFoto.addEventListener("dblclick",e=>{ if(e.target.closest(".nav")||ultimoTipo==="touch") return; const [cx,cy]=relCentro(e.clientX,e.clientY); if(Z.s>1.01) ajusta(); else zoomEn(2.5,cx,cy,true); });
+// punteros: ratón y dedos
+const dedos=new Map(); let gesto=null, ultimoToque=null;
+zonaFoto.addEventListener("pointerdown",e=>{
+  if(e.target.closest(".nav")||!zonaFoto.querySelector(".lienzo")) return;
+  zonaFoto.setPointerCapture(e.pointerId);
+  dedos.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(dedos.size===1){
+    gesto={tipo:"uno", x0:e.clientX, y0:e.clientY, zx:Z.x, zy:Z.y, t0:Date.now(), toque:e.pointerType==="touch"};
+    if(Z.s>1.01) zonaFoto.classList.add("arrastra");
+  }else if(dedos.size===2){
+    const [a,b]=[...dedos.values()];
+    const [mx,my]=relCentro((a.x+b.x)/2,(a.y+b.y)/2);
+    gesto={tipo:"pinza", d0:Math.hypot(a.x-b.x,a.y-b.y), s0:Z.s, zx:Z.x, zy:Z.y, mx, my};
+  }
+});
+zonaFoto.addEventListener("pointermove",e=>{
+  if(!dedos.has(e.pointerId)||!gesto) return;
+  dedos.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(gesto.tipo==="uno" && Z.s>1.01){
+    Z.x=gesto.zx+(e.clientX-gesto.x0); Z.y=gesto.zy+(e.clientY-gesto.y0); aplicaZ();
+  }else if(gesto.tipo==="pinza" && dedos.size===2){
+    const [a,b]=[...dedos.values()];
+    const ns=Math.min(8,Math.max(1,gesto.s0*Math.hypot(a.x-b.x,a.y-b.y)/gesto.d0)), k=ns/gesto.s0;
+    const [mx,my]=relCentro((a.x+b.x)/2,(a.y+b.y)/2);
+    Z.s=ns; Z.x=mx-(gesto.mx-gesto.zx)*k; Z.y=my-(gesto.my-gesto.zy)*k;
+    if(Z.s<=1.01){ Z.s=1; Z.x=0; Z.y=0; }
+    aplicaZ();
+  }
+});
+function sueltaDedo(e){
+  if(!dedos.has(e.pointerId)) return;
+  const g=gesto; dedos.delete(e.pointerId); zonaFoto.classList.remove("arrastra");
+  // doble toque (móvil): dos toques cortos, quietos y en el mismo sitio
+  if(g && g.tipo==="uno" && g.toque && dedos.size===0 && Date.now()-g.t0<250 && Math.hypot(e.clientX-g.x0,e.clientY-g.y0)<12){
+    const ahora=Date.now();
+    if(ultimoToque && ahora-ultimoToque.t<320 && Math.hypot(e.clientX-ultimoToque.x,e.clientY-ultimoToque.y)<40){
+      const [cx,cy]=relCentro(e.clientX,e.clientY); if(Z.s>1.01) ajusta(); else zoomEn(2.5,cx,cy,true); ultimoToque=0; gesto=null; return;
+    }
+    ultimoToque={t:ahora,x:e.clientX,y:e.clientY};
+  }
+  // deslizar sin zoom = foto siguiente / anterior
+  if(g && g.tipo==="uno" && Z.s===1 && dedos.size===0){
+    const dx=e.clientX-g.x0, dy=e.clientY-g.y0;
+    if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5) paso(dx<0?1:-1);
+  }
+  if(dedos.size===1){ const [p]=[...dedos.values()]; gesto={tipo:"uno", x0:p.x, y0:p.y, zx:Z.x, zy:Z.y}; }
+  else if(dedos.size===0) gesto=null;
+}
+zonaFoto.addEventListener("pointerup",sueltaDedo);
+zonaFoto.addEventListener("pointercancel",sueltaDedo);
+
+/* ============ ARRANQUE ============ */
+recupera();
+aplicar();
+try{ const v=localStorage.getItem("visorVista"); if(v && v!=="vFotos" && $(v)) cambia(v); }catch(e){}
+} // fin de iniciar
+</script>
+</body>
+</html>
