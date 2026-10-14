@@ -78,6 +78,25 @@ main{padding-bottom:calc(var(--barra) + env(safe-area-inset-bottom))}
   #mapa{flex:0 0 56%}
   #panel{width:auto;flex:1 1 auto;border-left:0;border-top:1px solid var(--linea)}
 }
+/* --- más mapa: esconder barras y plegar el panel (14-10-2026) --- */
+body.enMapa.mapaGrande header, body.enMapa.mapaGrande #filtros{display:none}
+body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-area-inset-bottom))}
+#panel .plegar{flex:0 0 auto;background:var(--papel);border:1px solid var(--linea);border-radius:8px;height:30px;padding:0 9px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--tinta)}
+#panelMini{display:none;font-size:13px;font-weight:600;color:var(--verde);white-space:nowrap;cursor:pointer;user-select:none}
+#mapaZona.panelMin #panel{flex:0 0 42px;width:42px;padding:10px 0;overflow:hidden;cursor:pointer;display:flex;justify-content:center}
+#mapaZona.panelMin #panel>*{display:none}
+#mapaZona.panelMin #panelMini{display:block;writing-mode:vertical-rl;transform:rotate(180deg)}
+@media (max-width:799px){
+  #mapaZona.panelMin #mapa{flex:1 1 auto}
+  #mapaZona.panelMin #panel{flex:0 0 40px;width:auto;padding:0 12px;align-items:center}
+  #mapaZona.panelMin #panelMini{writing-mode:horizontal-tb;transform:none}
+}
+.ctlMapa{background:var(--papel,#fff);border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.3);font:13px system-ui,sans-serif;color:#222}
+.ctlMapa button{width:34px;height:34px;border:0;background:none;font-size:18px;cursor:pointer;color:#222}
+.ctlMezcla{padding:6px 8px;display:flex;flex-direction:column;gap:5px;min-width:150px}
+.ctlMezcla select{font:inherit;font-size:12.5px;padding:3px 4px;border-radius:6px;border:1px solid #ccc;background:#fff;color:#222}
+.ctlMezcla input[type=range]{width:100%;margin:0}
+.ctlMezcla .fila{display:flex;align-items:center;gap:6px;font-size:12px;color:#555}
 .pin{width:44px;height:44px;border-radius:8px;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4);background-size:cover;background-position:center;background-color:#ccc}
 .pila{position:relative;width:58px;height:58px}
 .pila i{position:absolute;inset:0;border-radius:8px;border:2px solid #fff;background:#ccc center/cover no-repeat;box-shadow:0 1px 5px rgba(0,0,0,.45)}
@@ -230,7 +249,7 @@ nav button.on{color:var(--verde)}
   </div>
 
   <section class="vista activa" id="vFotos"><div id="lista"></div><div class="centinela" id="centinela"></div></section>
-  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span></div><div class="rejilla" id="panelRej"></div></aside></div></section>
+  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div id="panelMini" title="Mostrar las fotos">📷 fotos</div><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span><button class="plegar" id="pPlegar" title="Esconder el panel para ver más mapa">Ocultar</button></div><div class="rejilla" id="panelRej"></div></aside></div></section>
   <section class="vista" id="vPersonas"><div class="personas" id="personas"></div></section>
   <section class="vista" id="vFamilia"><div class="familia" id="familia"></div></section>
 </main>
@@ -502,15 +521,16 @@ function iniciaMapa(){
      el móvil usa también las zonas que ya tienes descargadas para ir sin cobertura. */
   const IGN=(srv,capa)=>"https://www.ign.es/wmts/"+srv+"?layer="+capa+"&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}";
   const AIGN='&copy; <a href="https://www.ign.es" target="_blank" rel="noopener">IGN</a> · CC BY 4.0';
-  const fondos={
-    "IGN Topográfico": L.tileLayer(IGN("mapa-raster","MTN"),{maxZoom:19, maxNativeZoom:17, attribution:AIGN}),
-    "IGN Ortofoto": L.tileLayer(IGN("pnoa-ma","OI.OrthoimageCoverage"),{maxZoom:19, attribution:AIGN}),
-    "IGN Base": L.tileLayer(IGN("ign-base","IGNBaseTodo"),{maxZoom:19, attribution:AIGN}),
-    "Calles": L.tileLayer(ESRI+"World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19, attribution:"Tiles &copy; Esri"}),
-    "Satélite": L.tileLayer(ESRI+"World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19, attribution:"Tiles &copy; Esri"}),
-    "Topográfico": L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:17, subdomains:"abc", attribution:'&copy; <a href="https://opentopomap.org">OpenTopoMap</a> &copy; OpenStreetMap'}),
-    "OpenStreetMap": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'})
+  const DEF_FONDOS={
+    "IGN Topográfico": o=>L.tileLayer(IGN("mapa-raster","MTN"),Object.assign({maxZoom:19, maxNativeZoom:17, attribution:AIGN},o)),
+    "IGN Ortofoto": o=>L.tileLayer(IGN("pnoa-ma","OI.OrthoimageCoverage"),Object.assign({maxZoom:19, attribution:AIGN},o)),
+    "IGN Base": o=>L.tileLayer(IGN("ign-base","IGNBaseTodo"),Object.assign({maxZoom:19, attribution:AIGN},o)),
+    "Calles": o=>L.tileLayer(ESRI+"World_Street_Map/MapServer/tile/{z}/{y}/{x}",Object.assign({maxZoom:19, attribution:"Tiles &copy; Esri"},o)),
+    "Satélite": o=>L.tileLayer(ESRI+"World_Imagery/MapServer/tile/{z}/{y}/{x}",Object.assign({maxZoom:19, attribution:"Tiles &copy; Esri"},o)),
+    "Topográfico": o=>L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",Object.assign({maxZoom:19, maxNativeZoom:17, subdomains:"abc", attribution:'&copy; <a href="https://opentopomap.org">OpenTopoMap</a> &copy; OpenStreetMap'},o)),
+    "OpenStreetMap": o=>L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",Object.assign({maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'},o))
   };
+  const fondos={}; Object.keys(DEF_FONDOS).forEach(k=>fondos[k]=DEF_FONDOS[k]());
   let elegido="Calles"; try{ const g=localStorage.getItem("visorFondo"); if(fondos[g]) elegido=g; }catch(e){}
   fondos[elegido].addTo(mapa);
   controlCapas=L.control.layers(fondos,null,{position:"topright"}).addTo(mapa);
@@ -524,7 +544,52 @@ function iniciaMapa(){
   mapaListo=true;
   preparaBusca();
   preparaRutas();
+  preparaMezcla(DEF_FONDOS);
+  preparaMasMapa();
   setTimeout(()=>{ mapa.invalidateSize(); pintaMapa(true); },60);
+}
+/* --- un mapa ENCIMA del fondo, con su transparencia (como la App Mapas) --- */
+let capaEncima=null;
+function preparaMezcla(DEF){
+  let nom="", op=50; try{ nom=localStorage.getItem("visorEncima")||""; op=+(localStorage.getItem("visorOpac")||50); }catch(e){}
+  const C=L.Control.extend({onAdd(){
+    const d=L.DomUtil.create("div","ctlMapa ctlMezcla");
+    d.innerHTML='<div class="fila">Encima <select id="mzSel"><option value="">ninguno</option>'+Object.keys(DEF).map(k=>'<option>'+k+'</option>').join("")+'</select></div><input type="range" id="mzOp" min="0" max="100" step="5" title="Transparencia del mapa de encima">';
+    L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+    return d; }});
+  new C({position:"topright"}).addTo(mapa);
+  const sel=$("mzSel"), rng=$("mzOp");
+  sel.value=DEF[nom]?nom:""; rng.value=op; rng.style.display=sel.value?"":"none";
+  const pon=()=>{
+    if(capaEncima){ mapa.removeLayer(capaEncima); capaEncima=null; }
+    if(sel.value){ capaEncima=DEF[sel.value]({zIndex:5, opacity:rng.value/100}).addTo(mapa); }
+    rng.style.display=sel.value?"":"none";
+    try{ localStorage.setItem("visorEncima",sel.value); }catch(e){}
+  };
+  sel.onchange=pon;
+  rng.oninput=()=>{ if(capaEncima) capaEncima.setOpacity(rng.value/100); try{ localStorage.setItem("visorOpac",rng.value); }catch(e){} };
+  pon();
+}
+/* --- más mapa: botón ⛶ (esconde las barras de arriba) y panel plegable --- */
+function preparaMasMapa(){
+  const C=L.Control.extend({onAdd(){
+    const d=L.DomUtil.create("div","ctlMapa");
+    d.innerHTML='<button id="bGrande" title="Más mapa: esconder las barras de arriba">⛶</button>';
+    L.DomEvent.disableClickPropagation(d); return d; }});
+  new C({position:"topleft"}).addTo(mapa);
+  const tras=()=>setTimeout(()=>{ mapa.invalidateSize(); },60);
+  $("bGrande").onclick=()=>{ const on=!document.body.classList.contains("mapaGrande"); document.body.classList.toggle("mapaGrande",on);
+    $("bGrande").title=on?"Volver a enseñar las barras de arriba":"Más mapa: esconder las barras de arriba";
+    try{ localStorage.setItem("visorGrande",on?"1":"0"); }catch(e){} tras(); };
+  try{ if(localStorage.getItem("visorGrande")==="1") document.body.classList.add("mapaGrande"); if(localStorage.getItem("visorPanelMin")==="1") $("mapaZona").classList.add("panelMin"); }catch(e){}
+  $("pPlegar").onclick=e=>{ e.stopPropagation(); panelMin(true); };
+  $("panel").addEventListener("click",()=>{ if($("mapaZona").classList.contains("panelMin")) panelMin(false); });
+  tras();
+}
+function panelMin(on){
+  $("mapaZona").classList.toggle("panelMin",on);
+  try{ localStorage.setItem("visorPanelMin",on?"1":"0"); }catch(e){}
+  setTimeout(()=>{ if(mapa) mapa.invalidateSize(); },60);
 }
 /* --- capa «Mis rutas»: los tracks de la App Mapas (repo público mapas-ign) ---
    Mismo formato que usa la App Mapas: rutas/index.json (nombre, fecha, km, desnivel,
@@ -655,6 +720,7 @@ aplicaTam();
 
 let enZona=[], panelPintadas=0, tPanel=null, ignoraMov=false;
 function panelGrupo(lista, limites){
+  if($("mapaZona").classList.contains("panelMin")) panelMin(false);
   enZona=lista;
   const eventos=[...new Set(lista.map(f=>f.evento))];
   $("panelTit").innerHTML="<b></b><br><span></span><div class='acc'><button class='boton sec' id='pAcercar'>Acercar</button><button class='boton sec' id='pZona'>Ver toda la zona</button></div>";
@@ -675,6 +741,7 @@ function pintaPanel(){
   $("panelRej").innerHTML=""; panelPintadas=0; $("panel").scrollTop=0; masPanel();
 }
 function masPanel(){
+  $("panelMini").textContent="📷 "+enZona.length.toLocaleString("es-ES")+(enZona.length===1?" foto":" fotos");
   const fin=Math.min(enZona.length, panelPintadas+150);
   for(let k=panelPintadas;k<fin;k++) $("panelRej").appendChild(celda(enZona[k],k,enZona));
   panelPintadas=fin;
@@ -908,6 +975,7 @@ function cambia(v){
   document.querySelectorAll(".vista").forEach(s=>s.classList.toggle("activa", s.id===v));
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
   $("filtros").style.display = (v==="vPersonas"||v==="vFamilia") ? "none" : "";
+  document.body.classList.toggle("enMapa", v==="vMapa");
   if(v==="vFamilia" && !$("familia").children.length) pintaFamilia();
   if(v==="vMapa") setTimeout(iniciaMapa,30);
   if(v==="vPersonas" && !$("personas").children.length) pintaPersonas();
