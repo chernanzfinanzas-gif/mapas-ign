@@ -96,6 +96,12 @@ main{padding-bottom:calc(var(--barra) + env(safe-area-inset-bottom))}
 #panel .ph{font-size:12px;margin-bottom:4px}
 #panel .ph span{display:none}
 #mapaZona.panelMin #asa{display:none}
+#rutaInfo{display:none;margin:0 2px 8px;padding:8px 10px;border-radius:10px;background:var(--papel);border:1px solid var(--linea);font-size:12.5px;line-height:1.45}
+#rutaInfo.on{display:block}
+#rutaInfo .nom{font-weight:650;font-size:13.5px;color:#c2410c}
+#rutaInfo .datos b{font-weight:650}
+#rutaInfo svg{display:block;width:100%;height:74px;margin-top:6px}
+#rutaInfo .quita{float:right;border:1px solid var(--linea);background:var(--fondo);color:var(--tinta);border-radius:8px;font:inherit;font-size:12px;padding:2px 8px;cursor:pointer}
 /* --- más mapa: esconder barras y plegar el panel (14-10-2026) --- */
 body.enMapa.mapaGrande header, body.enMapa.mapaGrande #filtros{display:none}
 body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-area-inset-bottom))}
@@ -265,7 +271,7 @@ nav button.on{color:var(--verde)}
   </div>
 
   <section class="vista activa" id="vFotos"><div id="lista"></div><div class="centinela" id="centinela"></div></section>
-  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div id="asa" title="Arrastra para ver más o menos fotos"></div><div id="panelMini" title="Mostrar las fotos">📷 fotos</div><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span><button class="plegar" id="pPlegar" title="Esconder el panel para ver más mapa">Ocultar</button></div><div class="rejilla" id="panelRej"></div></aside></div></section>
+  <section class="vista" id="vMapa"><div id="mapaZona"><div id="mapa"><div class="busca" id="busca"><input id="buscaTxt" placeholder="Ir a un lugar o evento…" autocomplete="off" aria-label="Ir a un lugar"><ul id="buscaRes"></ul></div></div><aside id="panel"><div id="asa" title="Arrastra para ver más o menos fotos"></div><div id="panelMini" title="Mostrar las fotos">📷 fotos</div><div class="cab"><div class="ph" id="panelTit"></div><span class="tam" title="Tamaño de las miniaturas"><button data-d="-1">−</button><button data-d="1">+</button></span><button class="plegar" id="pPlegar" title="Esconder el panel para ver más mapa">Ocultar</button></div><div id="rutaInfo"></div><div class="rejilla" id="panelRej"></div></aside></div></section>
   <section class="vista" id="vPersonas"><div class="personas" id="personas"></div></section>
   <section class="vista" id="vFamilia"><div class="familia" id="familia"></div></section>
 </main>
@@ -322,7 +328,7 @@ const MODO = location.protocol==="file:" ? "pc" : "nube";
 function avisoError(e){
   const t=(e&&(e.message||e.reason&&e.reason.message||e.reason))||String(e);
   let d=document.getElementById("avisoError");
-  if(!d){ d=document.createElement("div"); d.id="avisoError"; d.style.cssText="position:fixed;left:8px;right:8px;bottom:calc(var(--barra,62px) + 8px);z-index:30000;background:#b42318;color:#fff;font:13px system-ui,sans-serif;padding:8px 12px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)";
+  if(!d){ d=document.createElement("div"); d.id="avisoError"; d.style.cssText="position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:13px system-ui,sans-serif;padding:8px 12px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)";
     d.onclick=()=>d.remove(); document.body.appendChild(d); }
   d.textContent="Error (pásale una captura a Claude; toca para cerrar): "+t;
 }
@@ -491,7 +497,8 @@ function aplicar(){
   const conGps = visibles.filter(f=>f.lat!=null).length;
   $("resumen").textContent = visibles.length.toLocaleString("es-ES")+" fotos y vídeos · "+conGps.toLocaleString("es-ES")+" en el mapa";
   pintaRejilla();
-  if(mapaListo){ try{ pintaMapa(!!document.querySelector("#vMapa.activa")); }catch(e){ avisoError(e); } }
+  // con el mapa escondido no se repinta (el calor fallaba: «source width is 0»); al volver al mapa se repinta solo
+  if(mapaListo && document.querySelector("#vMapa.activa")){ try{ pintaMapa(true); }catch(e){ avisoError(e); } }
   guarda();
 }
 function pintaChips(){
@@ -602,9 +609,13 @@ function iniciaMapa(){
   mapa.on("overlayadd",e=>{ if(e.layer===calor){ calorOn=true; try{localStorage.setItem("visorCalor","1");}catch(_){} ajustaCapas(); } });
   mapa.on("overlayremove",e=>{ if(e.layer===calor){ calorOn=false; try{localStorage.setItem("visorCalor","0");}catch(_){} ajustaCapas(); } });
   mapa.on("zoomend",ajustaCapas);
-  mapa.on("moveend",()=>{ clearTimeout(tPanel); tPanel=setTimeout(pintaPanel,150); });
-  mapa.on("click",e=>{ if(mapa.getZoom()<UMBRAL) mapa.setView(e.latlng, Math.min(mapa.getZoom()+3, UMBRAL+1)); });
+  mapa.on("moveend",()=>{ if(rutaMarcada) return; clearTimeout(tPanel); tPanel=setTimeout(pintaPanel,150); });   // con una ruta elegida, el panel se queda con ella
+  mapa.on("click",e=>{ if(rutaMarcada){ quitaRuta(); return; } if(mapa.getZoom()<UMBRAL) mapa.setView(e.latlng, Math.min(mapa.getZoom()+3, UMBRAL+1)); });
   mapaListo=true;
+  // el mapa de calor no debe intentar dibujarse si el mapa no se ve (tamaño cero)
+  if(L.HeatLayer && !L.HeatLayer.prototype._redrawSeguro){ const o=L.HeatLayer.prototype._redraw;
+    L.HeatLayer.prototype._redraw=function(){ if(!this._map) return; const t=this._map.getSize(); if(!t.x||!t.y) return; return o.apply(this,arguments); };
+    L.HeatLayer.prototype._redrawSeguro=true; }
   preparaBusca();
   preparaRutas();
   preparaMezcla(DEF_FONDOS);
@@ -665,6 +676,10 @@ function preparaAsa(){
   let g=null; try{ g=+localStorage.getItem(movil()?"visorPanelAlto":"visorPanelAncho"); }catch(e){}
   pon(g||0,false);
   if(!g) window.ajustaPanelMinimo=()=>pon(0,false);   // sin tamaño guardado: una fila, cuando ya hay fotos pintadas
+  let antes=null;
+  window.ajustaAltoRuta=()=>requestAnimationFrame(()=>{ const actual=$("panel").getBoundingClientRect().height, hace=minimo();
+    if(actual<hace){ if(antes==null) antes=actual; pon(hace,false); if(mapa) mapa.invalidateSize(); } });
+  window.restauraAltoPanel=()=>{ if(antes!=null){ pon(antes,false); antes=null; if(mapa) setTimeout(()=>mapa.invalidateSize(),30); } };
   let tirando=false;
   asa.addEventListener("pointerdown",e=>{ tirando=true; asa.setPointerCapture(e.pointerId); e.preventDefault(); });
   asa.addEventListener("pointermove",e=>{ if(!tirando) return; const r=zona.getBoundingClientRect(); pon(movil()? r.bottom-e.clientY : r.right-e.clientX, false); });
@@ -732,19 +747,55 @@ async function dibujaRutas(){
     l.on("click",ev=>{ L.DomEvent.stop(ev); fotosDeRuta(r,l,fch); });
     capaRutas.addLayer(l); rutasDib.set(r.id,l);
   }
-  if(rutasOn) avisoRutas(vis.length? vis.length+(vis.length===1?" ruta":" rutas")+" en esta zona · toca una para ver sus fotos" : "Ninguna ruta tuya en esta zona");
+  if(rutasOn) avisoRutas(rutaMarcada? "Ruta elegida en naranja · toca el mapa para quitarla" : vis.length? vis.length+(vis.length===1?" ruta":" rutas")+" en esta zona · toca una para ver sus fotos y datos" : "Ninguna ruta tuya en esta zona");
 }
 let rutaMarcada=null;
+const anaRutas=new Map();
+function anaCelda(c){ if(!anaRutas.has(c)) anaRutas.set(c, fetch(RUTAS_WEB+"ana-"+c+".json").then(r=>r.ok?r.json():{}).catch(()=>({}))); return anaRutas.get(c); }
+const fmtH=h=>{ if(h==null||isNaN(h)) return "—"; const m=Math.round(h*60); return Math.floor(m/60)+" h "+String(m%60).padStart(2,"0"); };
+const fmtN=n=>Math.round(n).toLocaleString("es-ES");
+function perfilSVG(p){
+  const d=p.d, h=p.h; if(!d||!h||d.length<2) return "";
+  const W=600, H=74, mn=Math.min(...h), mx=Math.max(...h), rg=Math.max(mx-mn,20), dm=d[d.length-1]||1;
+  const X=v=>(v/dm*W).toFixed(1), Y=v=>(H-6-(v-mn)/rg*(H-18)).toFixed(1);
+  let pts=d.map((v,i)=>X(v)+","+Y(h[i])).join(" ");
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><polygon points="0,'+H+' '+pts+' '+W+','+H+'" fill="rgba(194,65,12,.18)"/><polyline points="'+pts+'" fill="none" stroke="#c2410c" stroke-width="2" vector-effect="non-scaling-stroke"/>'
+    +'<text x="4" y="11" font-size="11" fill="#888">'+fmtN(mx)+' m</text><text x="4" y="'+(H-2)+'" font-size="11" fill="#888">'+fmtN(mn)+' m</text></svg>';
+}
+async function fichaRuta(r,fch){
+  const box=$("rutaInfo");
+  const base='<button class="quita" id="rQuita">Quitar ruta</button><div class="nom"></div>';
+  box.innerHTML=base+'<div class="datos">'+(r.km?String(r.km).replace(".",",")+" km":"")+(r.d?" · desnivel "+fmtN(r.d)+" m":"")+'</div>';
+  box.querySelector(".nom").textContent=(r.n||r.id)+(fch?" · "+fch:"");
+  box.classList.add("on"); $("rQuita").onclick=e=>{ e.stopPropagation(); quitaRuta(); };
+  const a=(await anaCelda(r.c))[r.id];
+  if(!a || rutaMarcada==null || box.dataset.id!==r.id) return;
+  box.querySelector(".datos").innerHTML=String(+(+a.km).toFixed(1)).replace(".",",")+" km"
+    +' · <b>↑ '+fmtN(a.sube)+' m</b> · <b>↓ '+fmtN(a.baja)+' m</b><br>'
+    +(a.ini&&a.fin? a.ini+' → '+a.fin+' · ':'')+'total <b>'+fmtH(a.dur)+'</b> · andando <b>'+fmtH(a.mov)+'</b> · parado '+fmtH(a.parado)
+    +(a.perfil? perfilSVG(a.perfil):'');
+  if(window.ajustaAltoRuta) window.ajustaAltoRuta();
+}
+function quitaRuta(){
+  if(rutaMarcada) rutaMarcada.setStyle({color:rutaMarcada.options.colorBase||rutaMarcada.options.color, opacity:.85});
+  rutaMarcada=null; const box=$("rutaInfo"); box.classList.remove("on"); box.innerHTML=""; box.dataset.id="";
+  if(window.restauraAltoPanel) window.restauraAltoPanel();
+  pintaPanel(); if(rutasOn) dibujaRutas();
+}
 function fotosDeRuta(r,l,fch){
+  if(rutaMarcada===l){ quitaRuta(); return; }   // tocar otra vez la misma ruta la quita
   if(rutaMarcada && rutaMarcada!==l) rutaMarcada.setStyle({color:rutaMarcada.options.colorBase||rutaMarcada.options.color, opacity:.85});
   if(!l.options.colorBase) l.options.colorBase=l.options.color;
   l.setStyle({color:"#e8590c", opacity:1}); l.bringToFront(); rutaMarcada=l;
   const dia=r.f&&r.f.length>=8? r.f.slice(0,4)+"-"+r.f.slice(4,6)+"-"+r.f.slice(6,8) : null;
   const lista=dia? FOTOS.filter(f=>f.fecha.startsWith(dia)) : [];
-  panelGrupo(lista, l.getBounds());
+  panelGrupo(lista, l.getBounds(), true);
   $("panelTit").querySelector("b").textContent=(lista.length? lista.length.toLocaleString("es-ES")+(lista.length===1?" foto":" fotos") : "Ninguna foto")+" del "+(fch||"día de la ruta");
   $("panelTit").querySelector("span").textContent="Ruta: "+(r.n||r.id)+(r.km?" · "+String(r.km).replace(".",",")+" km":"")+(r.d?" · "+r.d+" m de desnivel":"");
   $("pAcercar").textContent="Ver la ruta entera";
+  $("rutaInfo").dataset.id=r.id; fichaRuta(r,fch);
+  if(rutasOn) avisoRutas("Ruta elegida en naranja · toca el mapa para quitarla");
+  if(window.ajustaAltoRuta) window.ajustaAltoRuta();
 }
 /* --- buscador del mapa: tus eventos + lugares de OpenStreetMap --- */
 const EVENTOS=(()=>{ const m=new Map(); FOTOS.forEach(f=>{ if(f.lat==null) return; const k=f.ano+"|"+f.carpeta; if(!m.has(k)) m.set(k,{nombre:f.evento, ano:f.ano, pts:[]}); m.get(k).pts.push([f.lat,f.lon]); }); return [...m.values()]; })();
@@ -805,8 +856,9 @@ document.querySelectorAll("#panel .tam button").forEach(b=>b.onclick=()=>{ tamP=
 aplicaTam();
 
 let enZona=[], panelPintadas=0, tPanel=null, ignoraMov=false;
-function panelGrupo(lista, limites){
+function panelGrupo(lista, limites, deRuta){
   if($("mapaZona").classList.contains("panelMin")) panelMin(false);
+  if(!deRuta && rutaMarcada){ rutaMarcada.setStyle({color:rutaMarcada.options.colorBase||rutaMarcada.options.color, opacity:.85}); rutaMarcada=null; $("rutaInfo").classList.remove("on"); $("rutaInfo").dataset.id=""; }
   enZona=lista;
   const eventos=[...new Set(lista.map(f=>f.evento))];
   $("panelTit").innerHTML="<b></b><br><span></span><div class='acc'><button class='boton sec' id='pAcercar'>Acercar</button><button class='boton sec' id='pZona'>Ver toda la zona</button></div>";
@@ -818,6 +870,7 @@ function panelGrupo(lista, limites){
 }
 function pintaPanel(){
   if(!mapa) return;
+  if(!rutaMarcada){ $("rutaInfo").classList.remove("on"); }
   const b=mapa.getBounds();
   enZona=visibles.filter(f=>f.lat!=null && !f.video && b.contains([f.lat,f.lon]));
   const eventos=[...new Set(enZona.map(f=>f.evento))];
