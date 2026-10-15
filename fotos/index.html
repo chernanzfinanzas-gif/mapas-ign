@@ -321,7 +321,8 @@ nav button.on{color:var(--verde)}
 <script>
 "use strict";
 /* ============ ORIGEN DE LAS FOTOS ============
-   - Abierta desde el PC (file://): miniaturas en ./miniaturas, originales en C:\Fotos\30_BIBLIOTECA.
+   - Abierta desde el PC (file://): miniaturas en ./miniaturas, originales en C:\Fotos\30_BIBLIOTECA;
+     si el año ya no está en el PC, en el disco externo (F:\FOTOS CATALOGADAS) y, si F: no está, pCloud.
    - Abierta desde internet (GitHub): todo se pide a pCloud con la llave de este aparato. */
 const MODO = location.protocol==="file:" ? "pc" : "nube";
 /* Si algo falla, se ve: aviso rojo abajo con el mensaje (para mandar captura a Claude) */
@@ -349,7 +350,10 @@ const ORIGEN = MODO==="pc" ? {
   nombre:"este PC",
   mini: r => "miniaturas/" + enc(r),
   grande: r => "../../30_BIBLIOTECA/" + enc(r),
-  video: r => Promise.resolve("../../30_BIBLIOTECA/" + enc(r))
+  video: r => Promise.resolve("../../30_BIBLIOTECA/" + enc(r)),
+  // por orden: el PC, el disco externo y, si este PC tiene acceso guardado, pCloud
+  grandes: r => ["../../30_BIBLIOTECA/" + enc(r), "file:///F:/FOTOS%20CATALOGADAS/" + enc(r)].concat(NUBE.auth ? [miniaturaNube(r,"2048x1024")] : []),
+  videos: r => ["../../30_BIBLIOTECA/" + enc(r), "file:///F:/FOTOS%20CATALOGADAS/" + enc(r)]
 } : {
   nombre:"pCloud",
   mini: r => miniaturaNube(r,"400x400"),
@@ -1143,14 +1147,20 @@ function muestra(){
     z.remove();
     const v=document.createElement("video"); v.controls=true; zona.appendChild(v);
     const c=document.createElement("div"); c.className="cargando"; c.textContent="cargando vídeo…"; zona.appendChild(c);
-    ORIGEN.video(f.ruta).then(u=>{ v.src=u; c.remove(); }).catch(e=>{ c.textContent="no se pudo abrir el vídeo"; });
+    if(ORIGEN.videos){
+      const us=ORIGEN.videos(f.ruta); let k=0;
+      v.onloadeddata=()=>c.remove();
+      v.onerror=()=>{ k++; if(k<us.length) v.src=us[k]; else c.textContent="no se pudo abrir el vídeo (¿está F: enchufado?)"; };
+      v.src=us[0];
+    }else ORIGEN.video(f.ruta).then(u=>{ v.src=u; c.remove(); }).catch(e=>{ c.textContent="no se pudo abrir el vídeo"; });
   }else{
     const baja=new Image(); baja.className="baja"; baja.src=ORIGEN.mini(f.ruta); z.appendChild(baja);
     const c=document.createElement("div"); c.className="cargando"; c.textContent="cargando original…"; zona.appendChild(c);
     const alta=new Image(); alta.style.opacity=0;
     alta.onload=()=>{ alta.style.opacity=1; baja.remove(); c.remove(); };
-    alta.onerror=()=>{ c.textContent="no se pudo abrir el original"; };
-    alta.src=ORIGEN.grande(f.ruta); z.appendChild(alta);
+    const us=ORIGEN.grandes ? ORIGEN.grandes(f.ruta) : [ORIGEN.grande(f.ruta)]; let k=0;
+    alta.onerror=()=>{ k++; if(k<us.length) alta.src=us[k]; else c.textContent="no se pudo abrir el original"; };
+    alta.src=us[0]; z.appendChild(alta);
   }
   const pie=$("lbPie"); pie.innerHTML="";
   if(f.est){ const s=document.createElement("span"); s.textContent="★".repeat(f.est); s.style.color="#ffd970"; pie.appendChild(s); }
