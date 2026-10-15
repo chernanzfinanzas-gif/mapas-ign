@@ -407,20 +407,24 @@ async function pruebaVideos(){
 // pCloud no deja reproducir vídeos dentro de una página web (error 7010, 15-10-2026).
 // Mientras tanto: botón que abre la carpeta del vídeo en pCloud (app o web), donde sí se ve.
 function botonPCloud(c,f){
-  c.style.cssText="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-size:15px;opacity:1;color:#fff;z-index:5;background:rgba(0,0,0,.55);padding:16px 20px;border-radius:12px";
-  c.innerHTML='Este vídeo no se puede ver aquí todavía.<br><button style="margin-top:12px;padding:10px 18px;border:0;border-radius:10px;background:#17bed0;color:#fff;font-weight:600;font-size:15px">Ver en pCloud</button><div style="font-size:12px;opacity:.8;margin-top:8px">Se abre su carpeta: toca el vídeo allí.</div>';
-  c.querySelector("button").onclick=async ()=>{
-    const w=window.open("about:blank","_blank");          // se abre ya, para que el navegador no la bloquee
+  const zona=c.parentNode;
+  // la miniatura grande del vídeo, de fondo
+  const fondo=new Image(); fondo.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.55"; fondo.alt="";
+  fondo.onerror=()=>fondo.remove(); fondo.src=miniaturaNube(f.ruta,"1024x768"); zona.insertBefore(fondo,c);
+  c.style.cssText="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-size:15px;opacity:1;color:#fff;z-index:5;background:rgba(0,0,0,.6);padding:16px 20px;border-radius:12px;max-width:90%";
+  const B='padding:10px 16px;border:0;border-radius:10px;color:#fff;font-weight:600;font-size:15px;margin:10px 4px 0;background:';
+  c.innerHTML='Para reproducirlo:<br><button data-a="fuera" style="'+B+'#17bed0">Abrir en pCloud</button><div style="font-size:12px;opacity:.85;margin-top:8px">Se abre su carpeta: toca el vídeo allí.</div>';
+  const aviso=c.querySelector("div");
+  const urlCarpeta=async()=>{
     const carpeta=NUBE.raiz+f.ruta.split("/").slice(0,-1).join("/");
     const web=/^eapi/.test(NUBE.host) ? "https://e.pcloud.com" : "https://my.pcloud.com";
-    try{
-      const j=await api("listfolder",{path:carpeta,nofiles:1});
-      const url=web+"/#page=filemanager&folder="+j.metadata.folderid;
-      if(w) w.location.href=url; else location.href=url;
-    }catch(e){
-      if(w) w.close();
-      c.querySelector("div").textContent="No he podido encontrar la carpeta en pCloud ("+e.message+").";
-    }
+    const j=await api("listfolder",{path:carpeta,nofiles:1});
+    return web+"/#page=filemanager&folder="+j.metadata.folderid;
+  };
+  c.querySelector('[data-a="fuera"]').onclick=async ()=>{
+    const w=window.open("about:blank","_blank");          // se abre ya, para que el navegador no la bloquee
+    try{ const url=await urlCarpeta(); if(w) w.location.href=url; else location.href=url; }
+    catch(e){ if(w) w.close(); aviso.textContent="No he podido encontrar la carpeta en pCloud ("+e.message+")."; }
   };
 }
 async function pruebaApp(){
@@ -669,7 +673,8 @@ function masRejilla(){
 }
 function celda(f,k,lista){
   const b=document.createElement("button"); b.className="celda"; b.title=f.evento;
-  if(f.video){ b.innerHTML='<div class="vid"><b>▶</b>vídeo</div>'; }
+  if(f.video){ b.innerHTML='<div class="vid"><b>▶</b>vídeo</div>';
+    if(MODO==="nube"){ const im=new Image(); im.onload=()=>{ const d=b.querySelector(".vid"); d.style.background="#2b332e url('"+im.src.replace(/'/g,"%27")+"') center/cover"; d.style.textShadow="0 1px 4px #000"; d.lastChild.textContent=""; }; im.src=miniaturaNube(f.ruta,"400x400"); } }
   else{
     const im=new Image(); im.loading="lazy"; im.decoding="async"; im.alt=""; im.src=ORIGEN.mini(f.ruta);
     im.onerror=()=>{ im.style.opacity=.15; };
