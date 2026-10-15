@@ -404,6 +404,25 @@ async function pruebaVideos(){
   }
   const c=caja.querySelector("#pvCerrar"); c.style.display="block"; c.onclick=()=>caja.remove();
 }
+// pCloud no deja reproducir vídeos dentro de una página web (error 7010, 15-10-2026).
+// Mientras tanto: botón que abre la carpeta del vídeo en pCloud (app o web), donde sí se ve.
+function botonPCloud(c,f){
+  c.style.cssText="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-size:15px;opacity:1;color:#fff;z-index:5;background:rgba(0,0,0,.55);padding:16px 20px;border-radius:12px";
+  c.innerHTML='Este vídeo no se puede ver aquí todavía.<br><button style="margin-top:12px;padding:10px 18px;border:0;border-radius:10px;background:#17bed0;color:#fff;font-weight:600;font-size:15px">Ver en pCloud</button><div style="font-size:12px;opacity:.8;margin-top:8px">Se abre su carpeta: toca el vídeo allí.</div>';
+  c.querySelector("button").onclick=async ()=>{
+    const w=window.open("about:blank","_blank");          // se abre ya, para que el navegador no la bloquee
+    const carpeta=NUBE.raiz+f.ruta.split("/").slice(0,-1).join("/");
+    const web=/^eapi/.test(NUBE.host) ? "https://e.pcloud.com" : "https://my.pcloud.com";
+    try{
+      const j=await api("listfolder",{path:carpeta,nofiles:1});
+      const url=web+"/#page=filemanager&folder="+j.metadata.folderid;
+      if(w) w.location.href=url; else location.href=url;
+    }catch(e){
+      if(w) w.close();
+      c.querySelector("div").textContent="No he podido encontrar la carpeta en pCloud ("+e.message+").";
+    }
+  };
+}
 async function pruebaApp(){
   const P=window.__pruebaApp; if(!P) return;
   const caja=document.createElement("div");
@@ -1254,7 +1273,7 @@ function muestra(){
       v.onloadeddata=()=>c.remove();
       v.onerror=()=>{ k++; if(k<us.length) v.src=us[k]; else c.textContent="no se pudo abrir el vídeo (¿está F: enchufado?)"; };
       v.src=us[0];
-    }else ORIGEN.video(f.ruta).then(u=>{ v.src=u; c.remove(); }).catch(e=>{ c.textContent="no se pudo abrir el vídeo"; });
+    }else ORIGEN.video(f.ruta).then(u=>{ v.src=u; c.remove(); }).catch(e=>{ v.remove(); botonPCloud(c,f); });
   }else{
     const baja=new Image(); baja.className="baja"; baja.src=ORIGEN.mini(f.ruta); z.appendChild(baja);
     const c=document.createElement("div"); c.className="cargando"; c.textContent="cargando original…"; zona.appendChild(c);
