@@ -409,11 +409,12 @@ async function pruebaVideos(){
 function botonPCloud(c,f){
   const zona=c.parentNode;
   // la miniatura grande del vídeo, de fondo
-  const fondo=new Image(); fondo.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.55"; fondo.alt="";
+  const fondo=new Image(); fondo.className="fondoVid"; fondo.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.55"; fondo.alt="";
   fondo.onerror=()=>fondo.remove(); fondo.src=miniaturaNube(f.ruta,"1024x768"); zona.insertBefore(fondo,c);
-  c.style.cssText="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-size:15px;opacity:1;color:#fff;z-index:5;background:rgba(0,0,0,.6);padding:16px 20px;border-radius:12px;max-width:90%";
+  c.style.cssText="position:absolute;top:50%;bottom:auto;height:auto;left:50%;transform:translate(-50%,-50%);text-align:center;font-size:15px;opacity:1;color:#fff;z-index:5;background:rgba(0,0,0,.6);padding:16px 20px;border-radius:12px;max-width:90%";
   const B='padding:10px 16px;border:0;border-radius:10px;color:#fff;font-weight:600;font-size:15px;margin:10px 4px 0;background:';
-  c.innerHTML='Para reproducirlo:<br><button data-a="fuera" style="'+B+'#17bed0">Abrir en pCloud</button><div style="font-size:12px;opacity:.85;margin-top:8px">Se abre su carpeta: toca el vídeo allí.</div>';
+  c.innerHTML='Para reproducirlo:<br><button data-a="fuera" style="'+B+'#17bed0">Abrir en pCloud</button><div style="font-size:12px;opacity:.85;margin-top:8px">Se abre su carpeta: toca allí el vídeo</div><div class="nomVid" style="font-size:13px;font-weight:600;margin-top:4px;word-break:break-word"></div>';
+  c.querySelector(".nomVid").textContent=f.ruta.split("/").pop();
   const aviso=c.querySelector("div");
   const urlCarpeta=async()=>{
     const carpeta=NUBE.raiz+f.ruta.split("/").slice(0,-1).join("/");
@@ -1262,7 +1263,7 @@ function cierra(){ $("lb").classList.remove("on"); const z=$("lbFoto"); z.queryS
 function fechaLarga(f){ if(!f) return "Sin fecha"; const d=new Date(f); if(isNaN(d)) return f; return d.toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"long",year:"numeric"})+(f.slice(11,16)!=="00:00"?" · "+f.slice(11,16):""); }
 function muestra(){
   const f=lbLista[lbK]; if(!f) return;
-  const zona=$("lbFoto"); zona.querySelectorAll(".lienzo,video,.cargando").forEach(e=>e.remove());
+  const zona=$("lbFoto"); zona.querySelectorAll(".lienzo,video,.cargando,.fondoVid").forEach(e=>e.remove());
   Z.s=1; Z.x=0; Z.y=0;
   const z=document.createElement("div"); z.className="lienzo"; zona.appendChild(z); aplicaZ();
   $("lbTit").innerHTML="<b></b><span></span>";
