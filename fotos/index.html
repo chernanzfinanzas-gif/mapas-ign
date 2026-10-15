@@ -358,6 +358,52 @@ const PC_APP={ cliente:"RpUGHAV8yAh", vuelta:"https://chernanzfinanzas-gif.githu
   history.replaceState(null,"",location.pathname+location.search);
   window.__pruebaApp={ t, host: h.get("hostname") || (h.get("locationid")==="2" ? "eapi.pcloud.com" : "api.pcloud.com") };
 })();
+// Prueba de VÍDEOS (abrir .../fotos/#pcloud-videos con el acceso ya guardado).
+// pCloud rechaza los enlaces con «Invalid link referer» (7010). Se prueban varias formas de
+// pedirlos —con y sin decir desde qué web se llama, y los métodos de vídeo de pCloud— y se
+// enseña cuál deja reproducir.
+async function pruebaVideos(){
+  const caja=document.createElement("div");
+  caja.style.cssText="position:fixed;inset:0;z-index:40000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font:15px system-ui,sans-serif";
+  caja.innerHTML='<div style="background:#fff;color:#222;max-width:520px;width:94%;border-radius:14px;padding:18px 20px;box-shadow:0 4px 20px rgba(0,0,0,.4)"><b style="font-size:17px">Prueba de vídeos</b><div id="pvFilas" style="margin:12px 0;line-height:1.8;font-size:14px"></div><div id="pvFin" style="color:#555;font-size:13px">Probando… (hasta 2 minutos)</div><button id="pvCerrar" style="display:none;margin-top:12px;width:100%;padding:10px;border:0;border-radius:10px;background:#666;color:#fff;font-weight:600">Cerrar</button></div>';
+  document.body.appendChild(caja);
+  const filas=caja.querySelector("#pvFilas");
+  const fila=(txt,ok,det)=>{ const d=document.createElement("div"); d.innerHTML=(ok?"✅ ":"❌ ")+txt+(det?' <span style="color:#888;font-size:12px">('+det+')</span>':""); filas.appendChild(d); return ok; };
+  if(!NUBE.auth){ fila("No hay acceso guardado en este aparato",false); caja.querySelector("#pvCerrar").style.display="block"; caja.querySelector("#pvCerrar").onclick=()=>caja.remove(); return; }
+  const pide=async(m,p,pol)=>{ const b=new URLSearchParams(p||{}); b.set(NUBE.param,NUBE.auth);
+    const o={method:"POST",body:b}; if(pol) o.referrerPolicy=pol;
+    const j=await fetch("https://"+NUBE.host+"/"+m,o).then(r=>r.json()); if(j.result!==0){ const e=new Error(j.error||("código "+j.result)); e.codigo=j.result; throw e; } return j; };
+  const reproduce=(url,pol)=>new Promise(res0=>{ let h=false; const res=x=>{ if(!h){ h=true; res0(x);} };
+    const v=document.createElement("video"); v.preload="metadata"; v.muted=true; v.playsInline=true; if(pol) v.referrerPolicy=pol;
+    v.onloadedmetadata=()=>res([true,Math.round(v.duration)+" s"]); v.onerror=()=>res([false,"no carga"]); v.src=url; setTimeout(()=>res([false,"no responde"]),20000); });
+  // un vídeo de 2026
+  let video=null;
+  try{ const j=await pide("listfolder",{path:"/Catalogo Fotos/30_BIBLIOTECA/2026",recursive:1});
+    const camina=n=>{ (n.contents||[]).forEach(c=>{ if(video) return; if(c.isfolder) camina(c); else if(/\.(mp4|mov)$/i.test(c.name)) video=c; }); }; camina(j.metadata);
+  }catch(e){ fila("Buscar un vídeo",false,e.message); }
+  if(!video){ fila("No encontré ningún vídeo en 2026",false); }
+  else{
+    const ruta={fileid:video.fileid};
+    const pruebas=[
+      ["Enlace normal, sin decir la web","getfilelink",{},null],
+      ["Enlace normal, diciendo la web","getfilelink",{},"strict-origin-when-cross-origin"],
+      ["Enlace normal, con la dirección completa","getfilelink",{},"unsafe-url"],
+      ["Vídeo convertido por pCloud","getvideolink",{},"strict-origin-when-cross-origin"],
+      ["Vídeo convertido, sin decir la web","getvideolink",{},null],
+      ["Vídeo por trozos (HLS)","gethlslink",{},"strict-origin-when-cross-origin"],
+    ];
+    const ok=[];
+    for(const [nom,m,extra,pol] of pruebas){
+      try{ const k=await pide(m,Object.assign({},ruta,extra),pol);
+        const url=k.path&&k.hosts?"https://"+k.hosts[0]+k.path:(k.link||"");
+        const [bien,det]=await reproduce(url,pol);
+        if(fila(nom,bien,det)) ok.push(nom);
+      }catch(e){ fila(nom,false,e.message); }
+    }
+    caja.querySelector("#pvFin").textContent=ok.length?"Funciona: «"+ok[0]+"». Haz una captura y mándasela a Claude.":"Ninguna ha funcionado. Haz una captura y mándasela a Claude.";
+  }
+  const c=caja.querySelector("#pvCerrar"); c.style.display="block"; c.onclick=()=>caja.remove();
+}
 async function pruebaApp(){
   const P=window.__pruebaApp; if(!P) return;
   const caja=document.createElement("div");
@@ -501,6 +547,7 @@ if(MODO==="pc"){
   cargaScript("indice.js").then(()=>iniciar(window.INDICE)).catch(()=>{ document.body.innerHTML='<div class="vacio">No encuentro <b>indice.js</b> junto a esta página.<br>Lanza «Generar indice del visor.bat».</div>'; });
 }else if(NUBE.auth){ arrancaNube(); } else { pideEntrada(); }
 if(window.__pruebaApp) pruebaApp();
+if(location.hash==="#pcloud-videos"){ history.replaceState(null,"",location.pathname+location.search); pruebaVideos(); }
 
 /* ============ EL VISOR ============ */
 function iniciar(D){
