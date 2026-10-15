@@ -345,6 +345,60 @@ try{ NUBE.host=localStorage.getItem("pcHost")||NUBE.host; NUBE.auth=localStorage
   NUBE.auth=t; NUBE.param="access_token"; NUBE.host=h.get("host")||"eapi.pcloud.com"; NUBE.clave=h.get("clave")||"";
   try{ localStorage.setItem("pcAuth",t); localStorage.setItem("pcParam","access_token"); localStorage.setItem("pcHost",NUBE.host); if(NUBE.clave) localStorage.setItem("pcClave",NUBE.clave); }catch(e){}
   history.replaceState(null,"",location.pathname+location.search); })();
+// App propia de pCloud «Visor Catalogo Fotos» (aprobada el 15-10-2026, solo lectura).
+// Entrada: abrir .../fotos/#pcloud-login -> pCloud pide la contraseña -> vuelve aquí con
+// #access_token=... . De momento es una PRUEBA: enseña qué funciona y deja elegir.
+const PC_APP={ cliente:"RpUGHAV8yAh", vuelta:"https://chernanzfinanzas-gif.github.io/mapas-ign/fotos/" };
+(function(){
+  if(location.hash==="#pcloud-login"){
+    location.replace("https://my.pcloud.com/oauth2/authorize?client_id="+PC_APP.cliente+"&response_type=token&redirect_uri="+encodeURIComponent(PC_APP.vuelta));
+    return;
+  }
+  const h=new URLSearchParams(location.hash.slice(1)); const t=h.get("access_token"); if(!t) return;
+  history.replaceState(null,"",location.pathname+location.search);
+  window.__pruebaApp={ t, host: h.get("hostname") || (h.get("locationid")==="2" ? "eapi.pcloud.com" : "api.pcloud.com") };
+})();
+async function pruebaApp(){
+  const P=window.__pruebaApp; if(!P) return;
+  const caja=document.createElement("div");
+  caja.style.cssText="position:fixed;inset:0;z-index:40000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font:15px system-ui,sans-serif";
+  caja.innerHTML='<div style="background:#fff;color:#222;max-width:460px;width:92%;border-radius:14px;padding:18px 20px;box-shadow:0 4px 20px rgba(0,0,0,.4)"><b style="font-size:17px">Prueba de la app de pCloud</b><div id="paFilas" style="margin:12px 0;line-height:1.9"></div><div id="paFin" style="color:#555;font-size:13px">Probando…</div><div id="paBot" style="display:none;margin-top:14px;gap:8px;flex-wrap:wrap"></div></div>';
+  document.body.appendChild(caja);
+  const filas=caja.querySelector("#paFilas");
+  const fila=(txt,ok,det)=>{ const d=document.createElement("div"); d.innerHTML=(ok?"✅ ":"❌ ")+txt+(det?' <span style="color:#888;font-size:12px">('+det+')</span>':""); filas.appendChild(d); return ok; };
+  const llama=async(m,p)=>{ const b=new URLSearchParams(p||{}); b.set("access_token",P.t);
+    const j=await fetch("https://"+P.host+"/"+m,{method:"POST",body:b}).then(r=>r.json()); if(j.result!==0){ const e=new Error(j.error||("código "+j.result)); e.codigo=j.result; throw e; } return j; };
+  const R={};
+  try{ const u=await llama("userinfo"); R.entrar=fila("Entrar en pCloud",true,u.email||""); }catch(e){ R.entrar=fila("Entrar en pCloud",false,e.message); }
+  let foto=null, video=null;
+  try{
+    const j=await llama("listfolder",{path:"/Catalogo Fotos/30_BIBLIOTECA/2026",recursive:1,nofiles:0});
+    const camina=(n,ruta)=>{ (n.contents||[]).forEach(c=>{ const r=ruta+"/"+c.name; if(c.isfolder) camina(c,r); else { if(!foto&&/\.jpe?g$/i.test(c.name)) foto=r; if(!video&&/\.(mp4|mov)$/i.test(c.name)) video=r; } }); };
+    camina(j.metadata,"/Catalogo Fotos/30_BIBLIOTECA/2026");
+    R.listar=fila("Ver las carpetas",true,"");
+  }catch(e){ R.listar=fila("Ver las carpetas",false,e.message); }
+  if(foto){
+    R.foto=await new Promise(res0=>{ let hecho=false; const res=v=>{ if(!hecho){ hecho=true; res0(v);} }; const im=new Image(); im.referrerPolicy="no-referrer";
+      im.onload=()=>res(fila("Ver una foto",true,im.naturalWidth+"×"+im.naturalHeight)); im.onerror=()=>res(fila("Ver una foto",false,"no carga"));
+      im.src="https://"+P.host+"/getthumb?access_token="+encodeURIComponent(P.t)+"&path="+encodeURIComponent(foto)+"&size=400x400&crop=0&type=jpeg"; setTimeout(()=>{ if(!hecho) res(fila("Ver una foto",false,"no responde")); },20000); });
+  }
+  if(video){
+    try{ const k=await llama("getfilelink",{path:video});
+      R.video=await new Promise(res0=>{ let hecho=false; const res=x=>{ if(!hecho){ hecho=true; res0(x);} }; const v=document.createElement("video"); v.preload="metadata"; v.muted=true;
+        v.onloadedmetadata=()=>res(fila("Reproducir un vídeo",true,Math.round(v.duration)+" s")); v.onerror=()=>res(fila("Reproducir un vídeo",false,"no carga"));
+        v.src="https://"+k.hosts[0]+k.path; setTimeout(()=>{ if(!hecho) res(fila("Reproducir un vídeo",false,"no responde")); },25000); });
+    }catch(e){ R.video=fila("Reproducir un vídeo",false,e.message); }
+  }else fila("Reproducir un vídeo",false,"no encontré vídeos en 2026");
+  try{ const k=await llama("getfilelink",{path:NUBE.indice});
+    const t=await fetch("https://"+k.hosts[0]+k.path).then(r=>r.text());
+    R.indice=fila("Leer el índice desde pCloud",t.startsWith("window.INDICE="),Math.round(t.length/1024)+" KB");
+  }catch(e){ R.indice=fila("Leer el índice desde pCloud",false,e.message); }
+  const fin=caja.querySelector("#paFin"), bot=caja.querySelector("#paBot"); bot.style.display="flex";
+  fin.textContent=(R.entrar&&R.foto)?"Haz una captura y mándasela a Claude. Puedes usar ya este acceso (solo lectura) o seguir con el de antes.":"Haz una captura y mándasela a Claude. Mejor seguir con el acceso de antes.";
+  const b=(txt,col,fn)=>{ const x=document.createElement("button"); x.textContent=txt; x.style.cssText="flex:1;padding:10px;border:0;border-radius:10px;font-weight:600;color:#fff;background:"+col; x.onclick=fn; bot.appendChild(x); };
+  if(R.entrar&&R.foto) b("Usar este acceso","#2f7d32",()=>{ try{ localStorage.setItem("pcAuth",P.t); localStorage.setItem("pcParam","access_token"); localStorage.setItem("pcHost",P.host); localStorage.setItem("pcApp","1"); }catch(e){} location.reload(); });
+  b("Seguir como estaba","#666",()=>caja.remove());
+}
 function miniaturaNube(r,tam){ return "https://"+NUBE.host+"/getthumb?"+NUBE.param+"="+encodeURIComponent(NUBE.auth)+"&path="+encodeURIComponent(NUBE.raiz+r)+"&size="+tam+"&crop=0&type=jpeg"; }
 const ORIGEN = MODO==="pc" ? {
   nombre:"este PC",
@@ -446,6 +500,7 @@ $("fEntrada").addEventListener("submit", entrar);
 if(MODO==="pc"){
   cargaScript("indice.js").then(()=>iniciar(window.INDICE)).catch(()=>{ document.body.innerHTML='<div class="vacio">No encuentro <b>indice.js</b> junto a esta página.<br>Lanza «Generar indice del visor.bat».</div>'; });
 }else if(NUBE.auth){ arrancaNube(); } else { pideEntrada(); }
+if(window.__pruebaApp) pruebaApp();
 
 /* ============ EL VISOR ============ */
 function iniciar(D){
