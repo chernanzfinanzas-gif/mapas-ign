@@ -122,6 +122,9 @@ body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-are
 .ctlMezcla select{font:inherit;font-size:12.5px;padding:3px 4px;border-radius:6px;border:1px solid #ccc;background:#fff;color:#222}
 .ctlMezcla input[type=range]{width:100%;margin:0}
 .ctlMezcla .fila{display:flex;align-items:center;gap:6px;font-size:12px;color:#555}
+.pin.prov{border:2px dashed #f59e0b}
+.celda.prov{box-shadow:inset 0 0 0 3px #f59e0b}
+.celda .provTag{position:absolute;left:4px;bottom:4px;background:#f59e0b;color:#1b1b1b;font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;pointer-events:none}
 .pin{width:44px;height:44px;border-radius:8px;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4);background-size:cover;background-position:center;background-color:#ccc}
 .pila{position:relative;width:58px;height:58px}
 .pila i{position:absolute;inset:0;border-radius:8px;border:2px solid #fff;background:#ccc center/cover no-repeat;box-shadow:0 1px 5px rgba(0,0,0,.45)}
@@ -266,6 +269,7 @@ nav button.on{color:var(--verde)}
     <select id="fAno" aria-label="Año"><option value="">Todos los años</option></select>
     <input type="search" id="fTexto" placeholder="Buscar evento o lugar…" aria-label="Buscar">
     <label class="toggle"><input type="checkbox" id="fCinco"> Solo ★★★★★</label>
+    <label class="toggle" id="fProvL" style="display:none" title="Años aún sin catalogar: salen provisionales (borde naranja)"><input type="checkbox" id="fProv" checked> Sin catalogar</label>
     <input id="fAdd" list="dlPers" placeholder="+ Añadir persona" aria-label="Añadir persona" autocomplete="off">
     <datalist id="dlPers"></datalist>
     <span id="fPersonas"></span>
@@ -343,6 +347,11 @@ window.addEventListener("unhandledrejection",e=>avisoError(e));
 if(/\/mapas-ign\//.test(location.pathname)){ const a=document.getElementById("aRutas"); if(a) a.style.display=""; document.title="Mapa de fotos"; }
 function enc(r){ return r.split("/").map(encodeURIComponent).join("/"); }
 const NUBE = { host:"eapi.pcloud.com", auth:"", param:"auth", raiz:"/Catalogo Fotos/30_BIBLIOTECA/", indice:"/Catalogo Fotos/visor/indice.js" };
+/* 16-10-2026: años SIN CATALOGAR («provisionales»). Están en pCloud en otra carpeta
+   (FOTOS POR CATALOGAR) y en F:\FOTOS POR CATALOGAR. Al cerrar el año pasan a la normal. */
+const PROVY = new Set(), RAIZ_PROV = "/Catalogo Fotos/FOTOS POR CATALOGAR/";
+function esProv(r){ return PROVY.has(r.split("/")[0]); }
+function raizDe(r){ return esProv(r) ? RAIZ_PROV : NUBE.raiz; }
 try{ NUBE.host=localStorage.getItem("pcHost")||NUBE.host; NUBE.auth=localStorage.getItem("pcAuth")||""; NUBE.param=localStorage.getItem("pcParam")||"auth"; NUBE.clave=localStorage.getItem("pcClave")||""; }catch(e){}
 // Acceso traído del PC con el código QR («Pasar acceso al móvil.bat»): va detrás de la #, que nunca sale del móvil.
 (function(){ const h=new URLSearchParams(location.hash.slice(1)); const t=h.get("acceso"); if(!t) return;
@@ -421,7 +430,7 @@ function botonPCloud(c,f){
   c.querySelector(".nomVid").textContent=f.ruta.split("/").pop();
   const aviso=c.querySelector("div");
   const urlCarpeta=async()=>{
-    const carpeta=NUBE.raiz+f.ruta.split("/").slice(0,-1).join("/");
+    const carpeta=raizDe(f.ruta)+f.ruta.split("/").slice(0,-1).join("/");
     const web=/^eapi/.test(NUBE.host) ? "https://e.pcloud.com" : "https://my.pcloud.com";
     const j=await api("listfolder",{path:carpeta,nofiles:1});
     return web+"/#page=filemanager&folder="+j.metadata.folderid;
@@ -473,20 +482,23 @@ async function pruebaApp(){
   if(R.entrar&&R.foto) b("Usar este acceso","#2f7d32",()=>{ try{ localStorage.setItem("pcAuth",P.t); localStorage.setItem("pcParam","access_token"); localStorage.setItem("pcHost",P.host); localStorage.setItem("pcApp","1"); }catch(e){} location.reload(); });
   b("Seguir como estaba","#666",()=>caja.remove());
 }
-function miniaturaNube(r,tam){ return "https://"+NUBE.host+"/getthumb?"+NUBE.param+"="+encodeURIComponent(NUBE.auth)+"&path="+encodeURIComponent(NUBE.raiz+r)+"&size="+tam+"&crop=0&type=jpeg"; }
+function miniaturaNube(r,tam){ return "https://"+NUBE.host+"/getthumb?"+NUBE.param+"="+encodeURIComponent(NUBE.auth)+"&path="+encodeURIComponent(raizDe(r)+r)+"&size="+tam+"&crop=0&type=jpeg"; }
 const ORIGEN = MODO==="pc" ? {
   nombre:"este PC",
   mini: r => "miniaturas/" + enc(r),
   grande: r => "../../30_BIBLIOTECA/" + enc(r),
   video: r => Promise.resolve("../../30_BIBLIOTECA/" + enc(r)),
   // por orden: el PC, el disco externo y, si este PC tiene acceso guardado, pCloud
-  grandes: r => ["../../30_BIBLIOTECA/" + enc(r), "file:///F:/FOTOS%20CATALOGADAS/" + enc(r)].concat(NUBE.auth ? [miniaturaNube(r,"2048x1024")] : []),
-  videos: r => ["../../30_BIBLIOTECA/" + enc(r), "file:///F:/FOTOS%20CATALOGADAS/" + enc(r)]
+  // los provisionales, primero de F:\FOTOS POR CATALOGAR (en el PC puede estar ya renombrado)
+  grandes: r => (esProv(r) ? ["file:///F:/FOTOS%20POR%20CATALOGAR/" + enc(r), "../../30_BIBLIOTECA/" + enc(r)]
+                           : ["../../30_BIBLIOTECA/" + enc(r), "file:///F:/FOTOS%20CATALOGADAS/" + enc(r)]).concat(NUBE.auth ? [miniaturaNube(r,"2048x1024")] : []),
+  videos: r => esProv(r) ? ["file:///F:/FOTOS%20POR%20CATALOGAR/" + enc(r), "../../30_BIBLIOTECA/" + enc(r)]
+                         : ["../../30_BIBLIOTECA/" + enc(r), "file:///F:/FOTOS%20CATALOGADAS/" + enc(r)]
 } : {
   nombre:"pCloud",
   mini: r => miniaturaNube(r,"400x400"),
   grande: r => miniaturaNube(r,"2048x1024"),
-  video: r => api("getfilelink",{path:NUBE.raiz+r}).then(j=>"https://"+j.hosts[0]+j.path)
+  video: r => api("getfilelink",{path:raizDe(r)+r}).then(j=>"https://"+j.hosts[0]+j.path)
 };
 const $ = id => document.getElementById(id);
 
@@ -581,11 +593,12 @@ if(location.hash==="#pcloud-videos"){ history.replaceState(null,"",location.path
 function iniciar(D){
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const PERS = D.personas.map((p,i)=>{ const s=p.split("/"); return {i, ruta:p, nombre:s[s.length-1], grupo:s.slice(0,-1).join(" › ")}; });
+(D.provisionales||[]).forEach(a=>PROVY.add(a));
 const FOTOS = D.fotos.map((f,i)=>{
   const ruta=f[0], partes=ruta.split("/");
   const carpeta = partes.length>2 ? partes[partes.length-2] : partes[0];
   return {i, ruta, fecha:f[1]||"", lat:f[2], lon:f[3], est:f[4], pers:f[5], video:f[6]==="v",
-          ano:partes[0], evento:limpiaEvento(carpeta), carpeta};
+          ano:partes[0], evento:limpiaEvento(carpeta), carpeta, prov:PROVY.has(partes[0])};
 });
 function limpiaEvento(c){ return c.replace(/^\d{6}\s+\d{2}\s+/,"").replace(/^\d{4}[-_]\d{2}[-_]\d{2}\s*/,""); }
 FOTOS.sort((a,b)=> (b.fecha||"").localeCompare(a.fecha||"") || a.ruta.localeCompare(b.ruta));
@@ -593,11 +606,13 @@ const fotosDePersona = new Map();
 FOTOS.forEach(f=>f.pers.forEach(p=>{ if(!fotosDePersona.has(p)) fotosDePersona.set(p,[]); fotosDePersona.get(p).push(f); }));
 
 /* ============ ESTADO Y FILTROS ============ */
-const E = { ano:"", texto:"", cinco:false, personas:new Set(), modo:"y" };
+const E = { ano:"", texto:"", cinco:false, prov:true, personas:new Set(), modo:"y" };
 let visibles = [];
 
 const anos=[...new Set(FOTOS.map(f=>f.ano))].sort().reverse();
-anos.forEach(a=>{ const o=document.createElement("option"); o.value=a; o.textContent=a; $("fAno").appendChild(o); });
+anos.forEach(a=>{ const o=document.createElement("option"); o.value=a; o.textContent=a+(PROVY.has(a)?" · sin catalogar":""); $("fAno").appendChild(o); });
+if(PROVY.size) $("fProvL").style.display="";
+$("fProv").onchange = e => { E.prov=e.target.checked; aplicar(); };
 $("fAno").onchange = e => { E.ano=e.target.value; aplicar(); };
 let tTexto; $("fTexto").oninput = e => { clearTimeout(tTexto); tTexto=setTimeout(()=>{E.texto=e.target.value.trim(); aplicar();},180); };
 $("fCinco").onchange = e => { E.cinco=e.target.checked; aplicar(); };
@@ -609,7 +624,7 @@ $("cuenta").textContent = FOTOS.length.toLocaleString("es-ES")+" elementos · "+
 function norm(s){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
 /* En el mapa, los filtros van recogidos en un botón: dice cuántos hay puestos */
 function botonFiltros(){
-  const n=(E.ano?1:0)+(E.texto?1:0)+(E.cinco?1:0)+E.personas.size;
+  const n=(E.ano?1:0)+(E.texto?1:0)+(E.cinco?1:0)+(PROVY.size&&!E.prov?1:0)+E.personas.size;
   const ab=$("filtros").classList.contains("abierto");
   $("fBoton").textContent="Filtros"+(n?" ("+n+")":"")+(ab?" ▴":" ▾");
 }
@@ -623,6 +638,7 @@ function aplicar(){
   visibles = FOTOS.filter(f =>
     (!E.ano || f.ano===E.ano) &&
     (!E.cinco || f.est===5) &&
+    (E.prov || !f.prov || f.ano===E.ano) &&
     (!t || norm(f.evento+" "+f.carpeta+" "+f.ano).includes(t)) &&
     (!E.personas.size || (E.modo==="o" ? f.pers.some(p=>E.personas.has(p)) : [...E.personas].every(p=>f.pers.includes(p))))
   );
@@ -647,8 +663,8 @@ function pintaChips(){
     c.appendChild(b);
   });
 }
-function guarda(){ try{ localStorage.setItem("visorFiltros", JSON.stringify({ano:E.ano,cinco:E.cinco,p:[...E.personas],m:E.modo})); }catch(e){} }
-function recupera(){ try{ const g=JSON.parse(localStorage.getItem("visorFiltros")||"null"); if(g){ E.ano=g.ano||""; E.cinco=!!g.cinco; E.modo=g.m==="o"?"o":"y"; (g.p||[]).forEach(p=>{ if(PERS[p]) E.personas.add(p); }); $("fAno").value=E.ano; $("fCinco").checked=E.cinco; } }catch(e){} }
+function guarda(){ try{ localStorage.setItem("visorFiltros", JSON.stringify({ano:E.ano,cinco:E.cinco,prov:E.prov,p:[...E.personas],m:E.modo})); }catch(e){} }
+function recupera(){ try{ const g=JSON.parse(localStorage.getItem("visorFiltros")||"null"); if(g){ E.ano=g.ano||""; E.cinco=!!g.cinco; E.prov=g.prov!==false; E.modo=g.m==="o"?"o":"y"; (g.p||[]).forEach(p=>{ if(PERS[p]) E.personas.add(p); }); $("fAno").value=E.ano; $("fCinco").checked=E.cinco; $("fProv").checked=E.prov; } }catch(e){} }
 
 /* ============ REJILLA (se pinta por tandas al bajar) ============ */
 let pintadas=0, grupoActual=null, rejillaActual=null;
@@ -682,10 +698,12 @@ function celda(f,k,lista){
     if(MODO==="nube"){ const im=new Image(); im.onload=()=>{ const d=b.querySelector(".vid"); d.style.background="#2b332e url('"+im.src.replace(/'/g,"%27")+"') center/cover"; d.style.textShadow="0 1px 4px #000"; d.lastChild.textContent=""; }; im.src=miniaturaNube(f.ruta,"400x400"); } }
   else{
     const im=new Image(); im.loading="lazy"; im.decoding="async"; im.alt=""; im.src=ORIGEN.mini(f.ruta);
-    im.onerror=()=>{ im.style.opacity=.15; };
+    // en el PC, si aún no está su miniatura (años sin catalogar: se van haciendo por tandas), se pide a pCloud
+    im.onerror=()=>{ if(MODO==="pc" && NUBE.auth && !im.dataset.n){ im.dataset.n="1"; im.src=miniaturaNube(f.ruta,"400x400"); } else im.style.opacity=.15; };
     b.appendChild(im);
     if(f.est===5){ const s=document.createElement("span"); s.className="est"; s.textContent="★"; b.appendChild(s); }
   }
+  if(f.prov){ b.classList.add("prov"); const s=document.createElement("span"); s.className="provTag"; s.textContent="sin catalogar"; b.appendChild(s); b.title=f.evento+" (sin catalogar)"; }
   b.onclick=()=>abre(k, lista||visibles);
   return b;
 }
@@ -1050,7 +1068,7 @@ function pintaMapa(encuadra){
   const pts=[];
   visibles.forEach((f,k)=>{
     if(f.lat==null||f.video) return;
-    const ic=L.divIcon({className:"", html:'<div class="pin" style="background-image:url(\''+ORIGEN.mini(f.ruta).replace(/'/g,"%27")+'\')"></div>', iconSize:[44,44], iconAnchor:[22,22]});
+    const ic=L.divIcon({className:"", html:'<div class="pin'+(f.prov?' prov':'')+'" style="background-image:url(\''+ORIGEN.mini(f.ruta).replace(/'/g,"%27")+'\')"></div>', iconSize:[44,44], iconAnchor:[22,22]});
     const m=L.marker([f.lat,f.lon],{icon:ic}); m.k=k; m.on("click",()=>abre(k,visibles));
     capa.addLayer(m); pts.push([f.lat,f.lon]);
   });
@@ -1272,7 +1290,7 @@ function muestra(){
   const z=document.createElement("div"); z.className="lienzo"; zona.appendChild(z); aplicaZ();
   $("lbTit").innerHTML="<b></b><span></span>";
   $("lbTit").querySelector("b").textContent=f.evento;
-  $("lbTit").querySelector("span").textContent=fechaLarga(f.fecha)+"  ·  "+(lbK+1)+" de "+lbLista.length;
+  $("lbTit").querySelector("span").textContent=fechaLarga(f.fecha)+"  ·  "+(lbK+1)+" de "+lbLista.length+(f.prov?"  ·  SIN CATALOGAR (provisional)":"");
   $("lbMapa").style.display = f.lat!=null ? "" : "none";
   if(f.video){
     z.remove();
