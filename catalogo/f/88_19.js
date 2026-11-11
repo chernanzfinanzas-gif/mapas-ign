@@ -1,0 +1,1 @@
+zonaCargada('f','88_19',{"r:pie-20140429-monterrosso-a-vernazza-toscana":{"resumen":"Ruta de la colección personal de Carlos: 7,8 km, 225 m de subida. Hecha el 29-abr-2014. Datos medidos con tu GPS.","distancia_km":7.8,"desnivel_positivo_m":225,"tiempo_estimado_horas":2.4,"tipo_recorrido":"lineal","altitud_max_m":176,"veces":1,"fechas":["29-abr-2014"],"esf":1}});

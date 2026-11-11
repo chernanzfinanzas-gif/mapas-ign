@@ -1,0 +1,1 @@
+zonaCargada('f','90_24',{"r:pie-20140727-visita-venecia-veneto":{"resumen":"Ruta de la colección personal de Carlos: 11,9 km. Hecha el 27-jul-2014. Datos medidos con tu GPS.","distancia_km":11.9,"tiempo_estimado_horas":2.98,"tipo_recorrido":"lineal","veces":1,"fechas":["27-jul-2014"],"esf":1}});

@@ -1,0 +1,1 @@
+zonaCargada('f','57_-37',{"t:poris-de-puntagorda-puntagorda":{"municipio":"Puntagorda","resumen":"Pequeño embarcadero y zona de baño en la costa, conocido por sus casetas de hojas de palmera.","visita":"acceso libre","fuentes":["https://visitlapalma.es/en/municipality/puntagorda/","https://www.openstreetmap.org/node/10582572999"]}});

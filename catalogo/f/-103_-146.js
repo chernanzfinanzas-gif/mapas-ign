@@ -1,0 +1,1 @@
+zonaCargada('f','-103_-146',{"r:pie-20171207-mirador-los-cuernos-paine":{"resumen":"Ruta de la colección personal de Carlos: 6,6 km, 1113 m de subida. Hecha el 7-dic-2017. Datos medidos con tu GPS.","distancia_km":6.6,"desnivel_positivo_m":1113,"tiempo_estimado_horas":5.52,"tipo_recorrido":"circular","altitud_max_m":129,"veces":1,"fechas":["7-dic-2017"],"esf":3}});

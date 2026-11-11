@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Catálogo de España</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<style>
+:root{--h:#8a5a2b;--n:#2e8b3e;--r:#e07b00;--t:#1f6fd1;--bg:#fff;--tx:#1d2125;--mu:#5f6670;--li:#e3e6ea}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--tx);background:#eee}
+#map{position:absolute;inset:0;background:#fff}
+#map.suave2 .leaflet-tile-pane{filter:saturate(.55) contrast(.85) brightness(1.08);opacity:.78}
+#map.suave1 .leaflet-tile-pane{filter:saturate(.8) contrast(.93) brightness(1.04);opacity:.9}
+#bar{position:absolute;top:8px;left:8px;right:8px;z-index:1000;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.chip{pointer-events:auto;border:0;border-radius:18px;padding:6px 11px;font:600 13px system-ui;background:#fff;color:var(--tx);box-shadow:0 1px 4px #0004;display:flex;align-items:center;gap:6px;cursor:pointer}
+.chip i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.chip.off{opacity:.45}
+.chip small{font-weight:400;color:var(--mu)}
+#base{position:absolute;bottom:18px;left:8px;z-index:1000;display:flex;gap:4px}
+#base button,#loc{border:0;border-radius:6px;padding:6px 9px;font:600 12px system-ui;background:#fff;box-shadow:0 1px 4px #0004;cursor:pointer}
+#base button.on{background:#1d2125;color:#fff}
+#loc{position:absolute;bottom:18px;right:8px;z-index:1000;font-size:18px;padding:6px 10px}
+#info{position:absolute;bottom:56px;left:8px;z-index:1000;background:#fffd;border-radius:6px;padding:3px 8px;font-size:12px;color:var(--mu)}
+.pt{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px #000d;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;box-sizing:border-box}
+.pt.r{border-radius:8px}
+.pt.sel{width:46px;height:46px;font-size:23px;border:4px solid #fff;box-shadow:0 0 0 4px #4f46e5,0 3px 12px #000c;position:relative;animation:latido 1.6s ease-in-out infinite}
+@keyframes latido{0%,100%{box-shadow:0 0 0 4px #4f46e5,0 0 0 4px #4f46e555,0 3px 12px #000c}50%{box-shadow:0 0 0 4px #4f46e5,0 0 0 14px #4f46e500,0 3px 12px #000c}}
+@media (prefers-reduced-motion:reduce){.pt.sel{animation:none}}
+.pt.ap{border:2.5px dashed #fff;opacity:.8;position:relative}
+.pt.ap::after{content:'?';position:absolute;top:-7px;right:-7px;width:16px;height:16px;border-radius:50%;background:#1d2125;color:#fff;font:700 11px/16px system-ui;text-align:center}
+.pt.fx{border:2.5px solid #fff;position:relative}
+.pt.fx::after{content:'✓';position:absolute;top:-7px;right:-7px;width:16px;height:16px;border-radius:50%;background:#22a447;color:#fff;font:700 11px/16px system-ui;text-align:center}
+#cor{position:absolute;bottom:66px;right:8px;z-index:1000;border:0;border-radius:18px;padding:7px 11px;font:700 13px system-ui;background:#22a447;color:#fff;box-shadow:0 1px 4px #0006;cursor:pointer;display:none}
+#aviso{position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:1200;background:#1d2125;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;box-shadow:0 2px 8px #0006;display:none;max-width:90vw;text-align:center}
+#aviso button{margin-left:8px;border:0;border-radius:6px;padding:4px 8px;font:600 13px system-ui;cursor:pointer}
+textarea.cl2{width:100%;height:180px;font:12px/1.35 ui-monospace,monospace;border:1px solid var(--li);border-radius:6px;padding:6px}
+.ok{background:#e3f5e8;border-radius:6px;padding:6px 8px;font-size:13px;margin:8px 0}
+#ley{position:absolute;bottom:86px;left:8px;z-index:1000;background:#fffe;border-radius:6px;padding:4px 8px;font-size:12px;box-shadow:0 1px 4px #0003;display:none}
+#ley b{display:inline-block;width:14px;height:5px;border-radius:2px;margin:0 3px 2px 6px;vertical-align:middle}
+.cl{border-radius:50%;color:#fff;font:700 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px #0006}
+#sheet{position:absolute;left:0;right:0;bottom:0;z-index:1100;background:var(--bg);border-radius:14px 14px 0 0;box-shadow:0 -2px 12px #0004;max-height:58vh;overflow:auto;padding:12px 16px 18px;transform:translateY(105%);transition:transform .2s}
+#sheet.on{transform:none}
+@media(min-width:760px){#sheet{left:auto;right:12px;bottom:12px;top:60px;width:380px;max-height:none;border-radius:12px}}
+#sheet .x{float:right;border:0;background:var(--li);border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer}
+.tag{display:inline-block;font:700 11px system-ui;color:#fff;border-radius:4px;padding:2px 6px;text-transform:uppercase;letter-spacing:.03em}
+h2{font-size:18px;margin:8px 0 2px}
+.sub{color:var(--mu);font-size:13px}
+.aviso{background:#fff4d6;border-radius:6px;padding:6px 8px;font-size:13px;margin:8px 0}
+.stats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.stats span{background:var(--li);border-radius:6px;padding:4px 8px;font-size:13px}
+.stats .lv{color:#fff;font-weight:700}
+ul{padding-left:18px;margin:6px 0}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btns a,.btns button{border:0;border-radius:8px;padding:9px 12px;font:600 14px system-ui;background:#1d2125;color:#fff;text-decoration:none;cursor:pointer}
+.btns .sec{background:var(--li);color:var(--tx)}
+.src{font-size:12px;color:var(--mu);margin-top:10px;word-break:break-all}
+.src a{color:var(--mu)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="bar"><a class="chip" href="./" title="Volver a la app de mapas" style="text-decoration:none">&#8592; Mapa</a></div>
+<div id="info"></div>
+<div id="ley"></div>
+<div id="base"></div>
+<button id="loc" title="Dónde estoy">◎</button>
+<button id="cor" onclick="lista()"></button>
+<div id="aviso"></div>
+<div id="sheet"></div>
+<script src="catalogo/puntos.js"></script>
+<script>
+const CAPAS = {h:{n:'Historia',c:'#8a5a2b',s:'🏛'}, n:{n:'Naturaleza',c:'#0f766e',s:'🌲'}, r:{n:'Rutas',c:'#3a3f45',s:'🥾'}, m:{n:'Mis rutas',c:'#c0157f',s:'👣'}, t:{n:'Turismo',c:'#7c3aed',s:'⭐'}};
+const NIV = [{n:'Fácil',c:'#22a447',e:'🟢'},{n:'Moderada',c:'#1e6fd9',e:'🔵'},{n:'Difícil',c:'#d32f2f',e:'🔴'},{n:'Muy difícil',c:'#111111',e:'⚫'}];
+const IGN = (u)=>'https://www.ign.es/wmts/'+u+'&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}';
+const BASES = {
+  TOPO: L.tileLayer(IGN('mapa-raster?layer=MTN'),{maxZoom:19,maxNativeZoom:17,attribution:'© IGN'}),
+  FOTO: L.tileLayer(IGN('pnoa-ma?layer=OI.OrthoimageCoverage'),{maxZoom:19,attribution:'© IGN PNOA'}),
+  BASE: L.tileLayer(IGN('ign-base?layer=IGNBaseTodo'),{maxZoom:19,attribution:'© IGN'})
+};
+const map = L.map('map',{zoomControl:false,preferCanvas:true}).setView([40.2,-3.7],6);
+try{ const h=location.hash.slice(1).split(',').map(Number); if(h.length===3&&h.every(isFinite)) map.setView([h[0],h[1]],Math.max(6,Math.min(16,h[2]))); }catch(e){}
+let base = BASES.TOPO.addTo(map);
+const $base = document.getElementById('base');
+for (const k in BASES){ const b=document.createElement('button'); b.textContent=k; b.dataset.b=1; if(k==='TOPO')b.className='on';
+  b.onclick=()=>{map.removeLayer(base); base=BASES[k].addTo(map); [...$base.children].filter(x=>x.dataset.b).forEach(x=>x.className=x===b?'on':'');}; $base.appendChild(b); }
+/* Mapa suave: el fondo más pálido para que destaquen rutas y puntos */
+{ let suave = true; try { suave = localStorage.getItem('mapaSuave') !== '0'; } catch(e) {}
+  const b = document.createElement('button'), $m = document.getElementById('map');
+  // atenuado según el zoom: fuerte de lejos (≤12), suave a 13-14, nada desde 15
+  const pon = () => { const z = map.getZoom(), n = !suave ? 0 : z<=12 ? 2 : z<=14 ? 1 : 0;
+    $m.classList.toggle('suave2', n===2); $m.classList.toggle('suave1', n===1); b.textContent = suave ? '◐ Suave' : '◐ Normal'; b.title = suave ? 'Fondo atenuado: toca para verlo normal' : 'Fondo normal: toca para atenuarlo'; };
+  b.onclick = () => { suave = !suave; try { localStorage.setItem('mapaSuave', suave?'1':'0'); } catch(e) {} pon(); };
+  map.on('zoomend', pon); pon(); $base.appendChild(b); }
+
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const F = {}, T = {};               // fichas y trazados: se cargan por zonas al mirarlas
+/* Zonas de medio grado. La zona de cada sitio se calcula con su posición ORIGINAL
+   (antes de cualquier corrección tuya), que es la que usa la carpeta de datos. */
+const zona = (la,lo) => Math.floor(la*2)+'_'+Math.floor(lo*2);
+const ZP = {}; for (const p of D.p) ZP[p[0]] = zona(p[4],p[5]);
+const IDX = {}; for (const p of D.p) IDX[p[0]] = p;
+const pedidas = {f:{}, t:{}}, esperando = {};
+/* Cada zona es un fichero .js que llama a zonaCargada(). Se carga con <script> y no con
+   fetch para que la página funcione igual publicada que abierta desde la carpeta. */
+function zonaCargada(tipo, z, d){ Object.assign(tipo==='f' ? F : T, d); const r = esperando[tipo+z]; if (r) { delete esperando[tipo+z]; r(d); } }
+function carga(tipo, z){
+  if (!pedidas[tipo][z]) pedidas[tipo][z] = new Promise(res => {
+    esperando[tipo+z] = res;
+    const s = document.createElement('script'); s.src = 'catalogo/'+tipo+'/'+z+'.js';
+    s.onerror = () => { delete esperando[tipo+z]; res({}); }; document.head.appendChild(s);
+  });
+  return pedidas[tipo][z];
+}
+const on = {h:true,n:true,r:true,m:true,t:true}, cuenta = {h:0,n:0,r:0,m:0,t:0}, marcas = {h:[],n:[],r:[],m:[],t:[]};
+const esRuta = c => c==='r' || c==='m';
+const grupo = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:50, disableClusteringAtZoom:14, showCoverageOnHover:false, spiderfyOnMaxZoom:false,
+  iconCreateFunction:cl=>{const ms=cl.getAllChildMarkers(), n=ms.length, s=n<10?30:n<100?36:44, c={h:0,n:0,r:0,m:0,t:0};
+    ms.forEach(m=>c[m.capa]++); let a=0, g=[];
+    for (const k of ['m','r','n','h','t']) if (c[k]){ const b=a+c[k]/n*360; g.push(CAPAS[k].c+' '+a+'deg '+b+'deg'); a=b; }
+    return L.divIcon({className:'',iconSize:[s,s],html:'<div class="cl" style="width:'+s+'px;height:'+s+'px;background:conic-gradient('+g.join(',')+')"><span style="background:#1d2125;border-radius:50%;width:'+(s-12)+'px;height:'+(s-12)+'px;display:flex;align-items:center;justify-content:center">'+n+'</span></div>'});}});
+map.addLayer(grupo);
+let COR = {}; try { COR = JSON.parse(localStorage.getItem('correcciones')||'{}') || {}; } catch(e) { COR = {}; }
+function guardaCOR(){ try { localStorage.setItem('correcciones', JSON.stringify(COR)); } catch(e) { avisa('⚠️ El móvil no deja guardar. Envía la lista ahora para no perderla.'); } botonCor(); }
+const MK = {}, ORIG = {};
+function icono(p){ const [id,c,,,,,ap,esf] = p;
+  const col = c==='r' && esf!=null ? NIV[esf].c : CAPAS[c].c;
+  const marcado = id===selPt;
+  const cls = 'pt '+(esRuta(c)?'r ':'')+(COR[id]?'fx':(ap?'ap':''))+(marcado?' sel':'');
+  const sim = c==='m' && p[3]==='en_bici' ? '🚲' : CAPAS[c].s, t = marcado?46:32;
+  return L.divIcon({className:'',iconSize:[t,t],html:'<div class="'+cls+'" style="background:'+col+'">'+sim+'</div>'}); }
+let selPt = null;
+function marcaPunto(id){ const ant = selPt; selPt = id;
+  if (ant && MK[ant]) { MK[ant].setIcon(icono(busca(ant))); MK[ant].setZIndexOffset(0); }
+  if (id && MK[id]) { MK[id].setIcon(icono(busca(id))); MK[id].setZIndexOffset(1000); } }
+for (const p of D.p){
+  if (p[6]) { ORIG[p[0]] = [p[4],p[5]]; const k = COR[p[0]]; if (k) { p[4]=k.lat; p[5]=k.lon; } }
+  const [id,c,nom,tipo,lat,lon,ap] = p;
+  const m = L.marker([lat,lon],{icon:icono(p), title:nom});
+  m.capa = c; m.on('click',e=>{ if (modo) return marcaAqui(e.latlng); ficha(p); }); MK[id] = m;
+  marcas[c].push(m); cuenta[c]++;
+}
+function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k]).map(k=>marcas[k]))); }
+rellena();
+const $bar = document.getElementById('bar');
+for (const k of ['m','r','n','h','t']){
+  const b=document.createElement('button'); b.className='chip';
+  b.innerHTML='<i style="background:'+CAPAS[k].c+'"></i>'+CAPAS[k].s+' '+CAPAS[k].n+' <small>'+cuenta[k]+'</small>';
+  b.onclick=()=>{on[k]=!on[k]; b.classList.toggle('off',!on[k]); rellena(); pintaTracks();};
+  $bar.appendChild(b);
+}
+
+/* Tracks: solo desde zoom 12 y solo los que se ven */
+const lineas = L.layerGroup().addTo(map), rend = L.canvas({padding:.3, tolerance:14});
+const idxRuta = {}; for (const p of D.p) if (esRuta(p[1])) idxRuta[p[0]] = p;
+const caja = {}; for (const id in D.tb){ const b=D.tb[id]; caja[id]=L.latLngBounds([b[0],b[1]],[b[2],b[3]]); }
+let sel = null, tocado = 0, repinta = null;
+function pintaTracks(){
+  lineas.clearLayers(); const z = map.getZoom(), vis = map.getBounds();
+  let n=0;
+  const dibuja = id => {
+    const p = idxRuta[id], mia = p && p[1]==='m', s = id===sel;
+    const col = mia ? CAPAS.m.c : (p[7]!=null?NIV[p[7]].c:CAPAS.r.c);
+    const g = z>=12 ? 1 : z===11 ? .75 : .55;   // grosor según el zoom
+    // borde negro ancho + filete blanco fino + trazo de color (el filete deja ver también las rutas negras)
+    if (s) {
+      lineas.addLayer(L.polyline(T[id],{renderer:rend,color:'#000',weight:23,opacity:.45,interactive:false,smoothFactor:1.5}));
+      lineas.addLayer(L.polyline(T[id],{renderer:rend,color:'#fff',weight:18,opacity:1,interactive:false,smoothFactor:1.5}));
+    } else {
+      lineas.addLayer(L.polyline(T[id],{renderer:rend,color:'#000',weight:15*g,opacity:1,interactive:false,smoothFactor:1.5}));
+      lineas.addLayer(L.polyline(T[id],{renderer:rend,color:'#fff',weight:11*g,opacity:1,interactive:false,smoothFactor:1.5}));
+    }
+    const pl = L.polyline(T[id],{renderer:rend,color:s?'#4f46e5':col,weight:s?12:8*g,opacity:1,smoothFactor:1.5,dashArray: mia && p[3]==='en_bici' && !s ? (z>=12?'14 8':'9 6') : null});
+    pl.on('click',e=>{ tocado=Date.now(); if (modo) return marcaAqui(e.latlng); ficha(idxRuta[id]); }); lineas.addLayer(pl); n++;
+  };
+  let faltan = 0;
+  if (z>=10) {
+    const pedir = new Set();
+    for (const id in caja){
+      const p = idxRuta[id]; if (!p || !on[p[1]] || id===sel) continue;
+      if (!vis.intersects(caja[id])) continue;
+      if (T[id]) dibuja(id); else { pedir.add(ZP[id]); faltan++; }
+    }
+    if (sel && T[sel]) dibuja(sel);   // la seleccionada, siempre encima
+    if (pedir.size) Promise.all([...pedir].map(z=>carga('t',z))).then(()=>{ clearTimeout(repinta); repinta=setTimeout(pintaTracks,50); });
+  }
+  document.getElementById('info').textContent = z<10 ? 'Acerca el zoom para ver los tracks' : n+' tracks en pantalla'+(faltan?' · cargando…':'');
+  document.getElementById('ley').style.display = n ? 'block' : 'none';
+}
+document.getElementById('ley').innerHTML = NIV.map(v=>'<b style="background:'+v.c+'"></b>'+v.n).join('');
+map.on('moveend zoomend',pintaTracks); pintaTracks();
+
+function horas(h){ if(!h) return ''; const H=Math.floor(h), M=Math.round((h-H)*60/5)*5; return 'unas '+(H?H+' h':'')+(M?(H?' ':'')+M+' min':''); }
+function ficha(p){
+  const [id,c,nom,tipo,lat,lon,ap] = p;
+  if (!(id in F) || (esRuta(c) && D.tb[id] && !T[id])) {
+    const z = ZP[id]; avisa('Cargando…');
+    Promise.all([carga('f',z), esRuta(c) ? carga('t',z) : null]).then(()=>{ avisa(''); if (!(id in F)) F[id] = {}; ficha(p); });
+    return;
+  }
+  const f = F[id]||{};
+  sel = esRuta(c) ? id : null; pintaTracks(); marcaPunto(id);
+  let h = '<button class="x" onclick="cierra()">✕</button>';
+  h += '<span class="tag" style="background:'+CAPAS[c].c+'">'+CAPAS[c].n+'</span>';
+  h += '<h2>'+esc(nom)+'</h2><div class="sub">'+esc((tipo||'').replace(/_/g,' '))+(f.municipio?' · '+esc(f.municipio):'')+(f.epoca?' · '+esc(f.epoca):'')+'</div>';
+  if (ap && COR[id]) h += '<div class="ok">✅ Posición fijada por ti el '+esc(COR[id].fecha)+' ('+(COR[id].como==='gps'?'con el GPS, ±'+COR[id].acc+' m':'tocando el mapa')+'). Pendiente de pasar al catálogo.</div>';
+  else if (!ap && f.posicion_nota) h += '<div class="sub" style="margin:6px 0">📍 '+esc(f.posicion_nota)+'</div>';
+  else if (ap) h += '<div class="aviso">❓ '+esc(f.posicion_nota||'Ubicación sin confirmar: el punto marca el pueblo, no el sitio.')+'</div>';
+  if (ap) h += '<div class="btns" style="margin-top:4px"><button onclick="fijaGPS(\''+id+'\')">📍 Estoy aquí, fijar posición</button><button class="sec" onclick="fijaMapa(\''+id+'\')">📌 Marcarlo en el mapa</button>'+(COR[id]?'<button class="sec" onclick="deshaz(\''+id+'\')">↩ Deshacer</button>':'')+'</div>';
+  if (esRuta(c)){
+    h += '<div class="stats">';
+    if (f.esf!=null) h += '<span class="lv" style="background:'+NIV[f.esf].c+'">'+NIV[f.esf].e+' '+NIV[f.esf].n+'</span>';
+    if (f.distancia_km) h += '<span>'+(+f.distancia_km).toLocaleString('es',{maximumFractionDigits:1})+' km</span>';
+    if (f.desnivel_positivo_m!=null) h += '<span>↗ '+Math.round(f.desnivel_positivo_m)+' m de subida</span>';
+    if (f.tiempo_estimado_horas) h += '<span>⏱ '+horas(f.tiempo_estimado_horas)+'</span>';
+    if (f.tipo_recorrido) h += '<span>'+esc(f.tipo_recorrido)+'</span>';
+    if (f.altitud_max_m) h += '<span>⛰ hasta '+Math.round(f.altitud_max_m)+' m</span>';
+    h += '</div>';
+    if (f.veces>1) h += '<div class="sub">🔁 La has hecho '+f.veces+' veces: '+esc(f.fechas.join(', '))+'</div>';
+  }
+  if (f.resumen) h += '<p>'+esc(f.resumen)+'</p>';
+  if (f.ver_alli && f.ver_alli.length) h += '<b>Qué ver allí</b><ul>'+f.ver_alli.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if (f.visita) h += '<p><b>Visita:</b> '+esc(f.visita)+'</p>';
+  if (f.requiere_reserva) h += '<div class="aviso">Requiere reserva o permiso.</div>';
+  if (f.privado) h += '<div class="aviso">🔒 Track de Wikiloc/Komoot: solo uso personal.</div>';
+  h += '<div class="btns">';
+  if (T[id]) h += '<button onclick="gpx(\''+id+'\')">⬇ Descargar GPX</button>';
+  if (ap) h += '<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(nom+', '+(f.municipio||''))+'">🔎 Buscar en Google Maps</a>';
+  h += '<a class="sec" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='+(ap&&f.lat_pueblo?f.lat_pueblo+','+f.lon_pueblo:lat+','+lon)+'">🚗 Cómo llegar'+(ap?' al pueblo':'')+'</a>';
+  if (f.web) h += '<a class="sec" target="_blank" rel="noopener" href="'+esc(f.web)+'">Web</a>';
+  h += '</div>';
+  if (f.fuentes && f.fuentes.length) h += '<div class="src">Fuentes: '+f.fuentes.map(u=>'<a target="_blank" rel="noopener" href="'+esc(u)+'">'+esc(u.replace(/^https?:\/\/(www\.)?/,'').slice(0,50))+'</a>').join(' · ')+'</div>';
+  const s = document.getElementById('sheet'); s.innerHTML = h; s.scrollTop = 0; s.classList.add('on');
+}
+function cierra(){ document.getElementById('sheet').classList.remove('on'); sel=null; pintaTracks(); marcaPunto(null); }
+function marcaAqui(ll){ const id=modo; modo=null; avisa(''); pon(id,ll.lat,ll.lng,null,'mapa'); }
+map.on('click',e=>{ if (modo) return marcaAqui(e.latlng); if (Date.now()-tocado > 400) cierra(); });
+
+/* Corregir posiciones de sitios con «?» */
+let modo = null, tAviso = null;
+function avisa(t, ms, extra){ const a=document.getElementById('aviso'); clearTimeout(tAviso);
+  if (!t) { a.style.display='none'; return; }
+  a.innerHTML = esc(t)+(extra||''); a.style.display='block'; if (ms) tAviso=setTimeout(()=>a.style.display='none',ms); }
+function busca(id){ return IDX[id]; }
+function pon(id,lat,lon,acc,como){
+  const p = busca(id), f = F[id]||{}, d = new Date();
+  lat = +lat.toFixed(6); lon = +lon.toFixed(6);
+  COR[id] = {lat, lon, acc: acc==null?null:Math.round(acc), como, nombre:p[2], municipio:f.municipio||'', fecha: d.toLocaleDateString('es')+' '+d.toTimeString().slice(0,5)};
+  guardaCOR(); p[4]=lat; p[5]=lon; MK[id].setLatLng([lat,lon]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]);
+  ficha(p); avisa('✅ Guardado: '+p[2], 2500);
+}
+function fijaGPS(id){
+  if (!navigator.geolocation) { avisa('Este móvil no da la posición.', 3000); return; }
+  avisa('Buscando tu posición…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const c = pos.coords;
+    if (c.accuracy > 60) { avisa('La señal es floja (±'+Math.round(c.accuracy)+' m).', 0,
+      '<button onclick="avisa(\'\');pon(\''+id+'\','+c.latitude+','+c.longitude+','+c.accuracy+',\'gps\')">Guardar igual</button><button onclick="avisa(\'\')">Cancelar</button>'); return; }
+    pon(id, c.latitude, c.longitude, c.accuracy, 'gps');
+  }, ()=>avisa('No se pudo saber dónde estás. Mira que el GPS esté encendido.', 4000), {enableHighAccuracy:true, timeout:20000, maximumAge:0});
+}
+function fijaMapa(id){ modo = id; document.getElementById('sheet').classList.remove('on');
+  avisa('Toca en el mapa el sitio exacto (mejor con FOTO y mucho zoom).', 0, '<button onclick="modo=null;avisa(\'\')">Cancelar</button>'); }
+function deshaz(id){ const p = busca(id); delete COR[id]; guardaCOR();
+  p[4]=ORIG[id][0]; p[5]=ORIG[id][1]; MK[id].setLatLng(ORIG[id]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]); ficha(p); }
+function textoCor(){ return Object.entries(COR).map(([id,k])=>[id,k.nombre,k.municipio,k.lat+', '+k.lon,k.acc==null?'mapa':'±'+k.acc+' m',k.fecha].join(' | ')).join('\n'); }
+function botonCor(){ const n = Object.keys(COR).length, b = document.getElementById('cor'); b.style.display = n?'block':'none'; b.textContent = '✉ '+n+(n>1?' correcciones':' corrección'); }
+let vaciarPulsado = 0;
+function lista(){
+  const n = Object.keys(COR).length;
+  let h = '<button class="x" onclick="cierra()">✕</button><h2>Correcciones de posición</h2><div class="sub">'+n+' sitio'+(n>1?'s':'')+'. Cópialas y pégaselas a Claude para pasarlas al catálogo.</div>';
+  h += '<textarea class="cl2" id="tcor" readonly>'+esc(textoCor())+'</textarea><div class="btns">';
+  h += '<button onclick="copia()">📋 Copiar</button>';
+  if (navigator.share) h += '<button class="sec" onclick="navigator.share({title:\'Correcciones mapa\',text:textoCor()}).catch(()=>{})">↗ Compartir</button>';
+  h += '<button class="sec" onclick="vacia(this)">🗑 Vaciar lista</button></div>';
+  const s = document.getElementById('sheet'); s.innerHTML = h; s.scrollTop = 0; s.classList.add('on');
+}
+function copia(){ const t = textoCor();
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(()=>avisa('📋 Copiado', 2000))
+   .catch(()=>{ const a=document.getElementById('tcor'); a.select(); try{document.execCommand('copy'); avisa('📋 Copiado',2000);}catch(e){avisa('Selecciona el texto y cópialo a mano.',3000);} }); }
+function vacia(b){ if (Date.now()-vaciarPulsado > 3000) { vaciarPulsado = Date.now(); b.textContent='¿Seguro? Pulsa otra vez'; return; }
+  for (const id of Object.keys(COR)) { const p=busca(id); delete COR[id]; p[4]=ORIG[id][0]; p[5]=ORIG[id][1]; MK[id].setLatLng(ORIG[id]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]); }
+  guardaCOR(); cierra(); avisa('Lista vaciada. Los puntos vuelven a su sitio aproximado.', 3000); }
+botonCor();
+
+function gpx(id){
+  const p = idxRuta[id], f = F[id]||{}, x = s=>esc(s).replace(/'/g,'&apos;');
+  let g = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Mapas Carlos" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  g += '<metadata><name>'+x(p[2])+'</name></metadata>\n';
+  g += '<wpt lat="'+p[4]+'" lon="'+p[5]+'"><name>Inicio</name></wpt>\n<trk><name>'+x(p[2])+'</name>'+(f.resumen?'<desc>'+x(f.resumen)+'</desc>':'')+'\n';
+  for (const s of T[id]){ g += '<trkseg>\n'; for (const q of s) g += '<trkpt lat="'+q[0]+'" lon="'+q[1]+'"/>\n'; g += '</trkseg>\n'; }
+  g += '</trk>\n</gpx>\n';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'}));
+  a.download = p[2].normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase()+'.gpx';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+}
+
+let yo=null;
+document.getElementById('loc').onclick=()=>map.locate({setView:true,maxZoom:14});
+map.on('locationfound',e=>{ if(yo) map.removeLayer(yo); yo=L.circleMarker(e.latlng,{radius:8,color:'#fff',weight:3,fillColor:'#1a73e8',fillOpacity:1}).addTo(map); });
+map.on('locationerror',()=>alert('No se pudo saber dónde estás.'));
+</script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+zonaCargada('f','92_16',{"r:pie-20160717-glaciar-de-aletsch-suiza":{"resumen":"Ruta de la colección personal de Carlos: 12,6 km, 197 m de subida. Hecha el 17-jul-2016. Datos medidos con tu GPS.","distancia_km":12.6,"desnivel_positivo_m":197,"tiempo_estimado_horas":3.91,"tipo_recorrido":"lineal","altitud_max_m":2650,"veces":1,"fechas":["17-jul-2016"],"esf":2}});

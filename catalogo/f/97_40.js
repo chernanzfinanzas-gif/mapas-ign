@@ -1,0 +1,1 @@
+zonaCargada('f','97_40',{"r:pie-20180815-slovensky-raj-eslovaquia":{"resumen":"Ruta de la colección personal de Carlos: 22,0 km, 603 m de subida. Hecha el 15-ago-2018. Datos medidos con tu GPS.","distancia_km":22.0,"desnivel_positivo_m":603,"tiempo_estimado_horas":6.73,"tipo_recorrido":"lineal","altitud_max_m":987,"veces":1,"fechas":["15-ago-2018"],"esf":3}});

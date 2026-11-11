@@ -1,0 +1,1 @@
+zonaCargada('f','80_-16',{"r:pie-20150320-serra-da-estrela-portugal":{"resumen":"Ruta de la colección personal de Carlos: 10,3 km, 145 m de subida. Hecha el 20-mar-2015. Datos medidos con tu GPS.","distancia_km":10.3,"desnivel_positivo_m":145,"tiempo_estimado_horas":3.14,"tipo_recorrido":"lineal","altitud_max_m":1920,"veces":1,"fechas":["20-mar-2015"],"esf":1}});

@@ -1,0 +1,1 @@
+zonaCargada('f','91_28',{"r:pie-20190716-rakov-skocjan-eslovenia":{"resumen":"Ruta de la colección personal de Carlos: 11,5 km, 113 m de subida. Hecha el 16-jul-2019. Datos medidos con tu GPS.","distancia_km":11.5,"desnivel_positivo_m":113,"tiempo_estimado_horas":3.12,"tipo_recorrido":"lineal","altitud_max_m":616,"veces":1,"fechas":["16-jul-2019"],"esf":1}});
