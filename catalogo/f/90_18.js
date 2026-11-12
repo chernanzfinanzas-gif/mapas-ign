@@ -1,1 +1,1 @@
-zonaCargada('f','90_18',{"r:pie-20140706-milan-dolomitas":{"resumen":"Ruta de la colección personal de Carlos: 4,7 km. Hecha el 6-jul-2014. Datos medidos con tu GPS.","distancia_km":4.7,"tiempo_estimado_horas":1.18,"veces":1,"fechas":["6-jul-2014"],"esf":0,"fo":["c",0.0,"",4.7]}});
+zonaCargada('f','90_18',{"r:app-20140706-milan-dolomitas":{"resumen":"Ruta de la colección personal de Carlos: 4,7 km, 0 m de subida. Hecha el 6-jul-2014. Datos medidos con tu GPS.","distancia_km":4.7,"tiempo_estimado_horas":1.18,"veces":1,"fechas":["6-jul-2014"],"esf":0,"fo":["c",0.0,"",4.7]}});

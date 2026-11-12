@@ -141,7 +141,8 @@ const grupo = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:50, di
     return L.divIcon({className:'',iconSize:[s,s],html:'<div class="cl" style="width:'+s+'px;height:'+s+'px;background:conic-gradient('+g.join(',')+')"><span style="background:#1d2125;border-radius:50%;width:'+(s-12)+'px;height:'+(s-12)+'px;display:flex;align-items:center;justify-content:center">'+n+'</span></div>'});}});
 map.addLayer(grupo);
 let COR = {}; try { COR = JSON.parse(localStorage.getItem('correcciones')||'{}') || {}; } catch(e) { COR = {}; }
-function guardaCOR(){ try { localStorage.setItem('correcciones', JSON.stringify(COR)); } catch(e) { avisa('⚠️ El móvil no deja guardar. Envía la lista ahora para no perderla.'); } botonCor(); }
+let BORR = {}; try { BORR = JSON.parse(localStorage.getItem('correcciones_borradas')||'{}') || {}; } catch(e) { BORR = {}; }
+function guardaCOR(){ try { localStorage.setItem('correcciones', JSON.stringify(COR)); localStorage.setItem('correcciones_borradas', JSON.stringify(BORR)); } catch(e) { avisa('⚠️ El móvil no deja guardar. Envía la lista ahora para no perderla.'); } botonCor(); }
 const MK = {}, ORIG = {};
 function icono(p){ const [id,c,,,,,ap,esf] = p;
   const col = c==='r' && esf!=null ? NIV[esf].c : CAPAS[c].c;
@@ -216,6 +217,35 @@ function pintaTracks(){
 document.getElementById('ley').innerHTML = NIV.map(v=>'<b style="background:'+v.c+'"></b>'+v.n).join('');
 map.on('moveend zoomend',pintaTracks); pintaTracks();
 
+/* Rutas que has llevado a la app DESPUÉS de montar el catálogo: publicado, se leen
+   directamente de la colección de la app (rutas/), así «Mis rutas» nunca se queda vieja.
+   Con doble clic en el ordenador el navegador no deja leerlas: se ve la última versión montada. */
+async function rutasNuevasDeLaApp(){
+  if (!/^https?:$/.test(location.protocol)) return;
+  const lee = async u => { try { const r = await fetch(u,{cache:'no-cache'}); return r.ok ? ((await r.json()).rutas||[]) : []; } catch(e){ return []; } };
+  const [idx, add] = await Promise.all([lee('rutas/index.json'), lee('rutas/anadidas.json')]);
+  const ya = new Set(D.am||[]), nuevas = [...idx, ...add].filter(r => r && r.id && !ya.has(r.id) && (ya.add(r.id), true));
+  if (!nuevas.length) return;
+  const celdas = {};
+  await Promise.all([...new Set(nuevas.filter(r=>!r.g).map(r=>r.c))].map(async c => { try { const x = await fetch('rutas/geo-'+c+'.json'); if (x.ok) celdas[c] = await x.json(); } catch(e){} }));
+  const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  let n=0;
+  for (const r of nuevas){
+    const g = r.g || (celdas[r.c]||{})[r.id]; if (!g || !g.length || !g[0].length) continue;
+    const id = 'r:nueva-'+r.id, a0 = g[0][0], bici = r.a==='bici';
+    const km = +r.km||0, d = +r.d||0, e = km + d/100, lv = bici ? null : (e<8&&d<300?0:e<14&&d<700?1:e<22&&d<1000?2:3);
+    const fe = r.f ? (+r.f.slice(6))+'-'+MES[+r.f.slice(4,6)-1]+'-'+r.f.slice(0,4) : '';
+    const p = [id,'m',r.n,bici?'en_bici':'a_pie',a0[0],a0[1],0,lv];
+    D.p.push(p); IDX[id]=p; idxRuta[id]=p; T[id]=g;
+    F[id] = {nueva:1, distancia_km:km, desnivel_positivo_m:d||null, fechas:fe?[fe]:[], resumen:'Ruta '+(bici?'en bici ':'')+'de tu colección: '+km.toLocaleString('es')+' km'+(d?', '+d.toLocaleString('es')+' m de subida':'')+(fe?'. Hecha el '+fe:'')+'. Datos medidos con tu GPS.'};
+    const b = r.b || [Math.min(...g.flat().map(q=>q[0])),Math.min(...g.flat().map(q=>q[1])),Math.max(...g.flat().map(q=>q[0])),Math.max(...g.flat().map(q=>q[1]))];
+    D.tb[id]=b; caja[id]=L.latLngBounds([b[0],b[1]],[b[2],b[3]]);
+    const m = L.marker([a0[0],a0[1]],{icon:icono(p), title:r.n}); m.capa='m'; m.on('click',ev=>{ if (modo) return marcaAqui(ev.latlng); ficha(p); }); MK[id]=m; marcas.m.push(m); cuenta.m++; n++;
+  }
+  if (n){ rellena(); pintaTracks(); const ch=[...document.querySelectorAll('#bar .chip')].find(b=>b.textContent.includes(CAPAS.m.n)); if(ch) ch.querySelector('small').textContent=cuenta.m; avisa('👣 '+n+' ruta'+(n>1?'s':'')+' nueva'+(n>1?'s':'')+' de tu app añadida'+(n>1?'s':''), 4000); }
+}
+rutasNuevasDeLaApp();
+
 function horas(h){ if(!h) return ''; const H=Math.floor(h), M=Math.round((h-H)*60/5)*5; return 'unas '+(H?H+' h':'')+(M?(H?' ':'')+M+' min':''); }
 function kmTxt(x){ return x<1 ? Math.round(x*1000/50)*50+' m' : (+x).toLocaleString('es',{maximumFractionDigits:1})+' km'; }
 function textoForma(fo, mia, D){
@@ -261,7 +291,7 @@ function pintaCerca(){
     const dy=(q[4]-la)*111.2, dx=(q[5]-lo)*111.2*k, d=Math.hypot(dx,dy); if(d>25) continue; R.push([d,q,dx,dy]); }
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 12-nov c</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 12-nov e</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
@@ -300,6 +330,8 @@ function ficha(p){
     if (f.altitud_max_m) h += '<span>⛰ hasta '+Math.round(f.altitud_max_m)+' m</span>';
     h += '</div>';
     if (f.fo) h += textoForma(f.fo, c==='m', f.distancia_km);
+    if (f.tu_tiempo_horas) h += '<div class="sub">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
+    if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
     if (f.veces>1) h += '<div class="sub">🔁 La has hecho '+f.veces+' veces: '+esc(f.fechas.join(', '))+'</div>';
   }
   if (f.resumen) h += '<p>'+esc(f.resumen)+'</p>';
@@ -330,8 +362,8 @@ function busca(id){ return IDX[id]; }
 function pon(id,lat,lon,acc,como){
   const p = busca(id), f = F[id]||{}, d = new Date();
   lat = +lat.toFixed(6); lon = +lon.toFixed(6);
-  COR[id] = {lat, lon, acc: acc==null?null:Math.round(acc), como, nombre:p[2], municipio:f.municipio||'', fecha: d.toLocaleDateString('es')+' '+d.toTimeString().slice(0,5)};
-  guardaCOR(); p[4]=lat; p[5]=lon; MK[id].setLatLng([lat,lon]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]);
+  COR[id] = {lat, lon, acc: acc==null?null:Math.round(acc), como, nombre:p[2], municipio:f.municipio||'', fecha: d.toLocaleDateString('es')+' '+d.toTimeString().slice(0,5), t:Date.now()};
+  delete BORR[id]; guardaCOR(); sube(); p[4]=lat; p[5]=lon; MK[id].setLatLng([lat,lon]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]);
   ficha(p); avisa('✅ Guardado: '+p[2], 2500);
 }
 function fijaGPS(id){
@@ -346,18 +378,18 @@ function fijaGPS(id){
 }
 function fijaMapa(id){ modo = id; document.getElementById('sheet').classList.remove('on');
   avisa('Toca en el mapa el sitio exacto (mejor con FOTO y mucho zoom).', 0, '<button onclick="modo=null;avisa(\'\')">Cancelar</button>'); }
-function deshaz(id){ const p = busca(id); delete COR[id]; guardaCOR();
+function deshaz(id){ const p = busca(id); delete COR[id]; BORR[id]=Date.now(); guardaCOR(); sube();
   p[4]=ORIG[id][0]; p[5]=ORIG[id][1]; MK[id].setLatLng(ORIG[id]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]); ficha(p); }
 function textoCor(){ return Object.entries(COR).map(([id,k])=>[id,k.nombre,k.municipio,k.lat+', '+k.lon,k.acc==null?'mapa':'±'+k.acc+' m',k.fecha].join(' | ')).join('\n'); }
 function botonCor(){ const n = Object.keys(COR).length, b = document.getElementById('cor'); b.style.display = n?'block':'none'; b.textContent = '✉ '+n+(n>1?' correcciones':' corrección'); }
 let vaciarPulsado = 0;
 function lista(){
   const n = Object.keys(COR).length;
-  let h = '<button class="x" onclick="cierra()">✕</button><h2>Correcciones de posición</h2><div class="sub">'+n+' sitio'+(n>1?'s':'')+'. Cópialas y pégaselas a Claude para pasarlas al catálogo.</div>';
+  let h = '<button class="x" onclick="cierra()">✕</button><h2>Correcciones de posición</h2><div class="sub">'+n+' sitio'+(n>1?'s':'')+'. Se guardan en tu GitHub y las ven tus otros aparatos; Claude las pasa al catálogo al reconstruirlo.</div>';
   h += '<textarea class="cl2" id="tcor" readonly>'+esc(textoCor())+'</textarea><div class="btns">';
   h += '<button onclick="copia()">📋 Copiar</button>';
   if (navigator.share) h += '<button class="sec" onclick="navigator.share({title:\'Correcciones mapa\',text:textoCor()}).catch(()=>{})">↗ Compartir</button>';
-  h += '<button class="sec" onclick="vacia(this)">🗑 Vaciar lista</button></div>';
+  h += '</div><div class="sub" style="margin-top:10px">'+esc(estadoSync())+'</div>';
   const s = document.getElementById('sheet'); s.innerHTML = h; s.scrollTop = 0; s.classList.add('on');
 }
 function copia(){ const t = textoCor();
@@ -367,6 +399,89 @@ function vacia(b){ if (Date.now()-vaciarPulsado > 3000) { vaciarPulsado = Date.n
   for (const id of Object.keys(COR)) { const p=busca(id); delete COR[id]; p[4]=ORIG[id][0]; p[5]=ORIG[id][1]; MK[id].setLatLng(ORIG[id]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]); }
   guardaCOR(); cierra(); avisa('Lista vaciada. Los puntos vuelven a su sitio aproximado.', 3000); }
 botonCor();
+
+/* ---- Correcciones compartidas entre móvil, tablet y ordenador (12-nov-2026) ----
+   Viven en el repositorio, en sync/correcciones-catalogo.json, fuera de las carpetas
+   que sube «Publicar Mapas»: así el .bat nunca las pisa ni las borra.
+   Sube quien tiene el permiso de GitHub de la app (móvil y tablet). Todos leen,
+   también el ordenador abriendo el fichero con doble clic. Si un sitio se corrige
+   en dos aparatos, gana la corrección más reciente. */
+const SYNC_RUTA = 'sync/correcciones-catalogo.json';
+const SYNC_PUB = 'https://chernanzfinanzas-gif.github.io/mapas-ign/' + SYNC_RUTA;
+const LS_GH = 'ign.gh';
+let syncEstado = '';
+function repoDeLaUrl(){ const m = location.hostname.match(/^([^.]+)\.github\.io$/); if (!m) return null;
+  const t = location.pathname.split('/').filter(Boolean)[0]; return { duenio:m[1], repo: t || (m[1]+'.github.io') }; }
+function tokenGh(){ try { return (localStorage.getItem(LS_GH)||'').trim(); } catch(e){ return ''; } }
+function estadoSync(){
+  if (syncEstado) return syncEstado;
+  if (!repoDeLaUrl()) return 'En este ordenador se ven las correcciones del móvil y la tablet, pero las que hagas aquí se quedan aquí.';
+  if (!tokenGh()) return 'Este aparato no tiene el permiso de GitHub de la app: las correcciones se quedan aquí.';
+  return 'Sincronizado con tus otros aparatos.';
+}
+const aB64 = txt => { const b = new TextEncoder().encode(txt); let x=''; for (let i=0;i<b.length;i+=8192) x+=String.fromCharCode.apply(null,b.subarray(i,i+8192)); return btoa(x); };
+function aplicaCor(id){ const p = busca(id); if (!p || !ORIG[id] || !MK[id]) return;
+  const k = COR[id]; const [la,lo] = k ? [k.lat,k.lon] : ORIG[id];
+  p[4]=la; p[5]=lo; MK[id].setLatLng([la,lo]); MK[id].setIcon(icono(p)); grupo.refreshClusters(MK[id]); }
+/* junta lo de fuera con lo de aquí; devuelve true si aquí hay algo que fuera no tiene */
+function junta(rem){
+  let cambio=false, pendiente=false;
+  for (const [id,k] of Object.entries(rem||{})){
+    const loc = COR[id], tb = BORR[id]||0, tl = loc ? (loc.t||0) : tb;
+    if ((k.t||0) > tl) {
+      if (k.borrado) { if (loc) { delete COR[id]; aplicaCor(id); cambio=true; } delete BORR[id]; }
+      else { const {borrado, ...x} = k; COR[id] = x; delete BORR[id]; aplicaCor(id); cambio=true; }
+    } else if ((k.t||0) < tl) pendiente = true;
+  }
+  for (const id of Object.keys(COR)) if (!(rem||{})[id]) pendiente = true;
+  for (const id of Object.keys(BORR)) if ((rem||{})[id] && !(rem[id].borrado)) pendiente = true;
+  if (cambio) { guardaCOR(); if (selPt && COR[selPt]!==undefined) {} }
+  return pendiente;
+}
+async function leeRemoto(){
+  const r = repoDeLaUrl(), tk = tokenGh();
+  if (r && tk) {   // con permiso: por la API, que da también el «sha» para escribir y no espera a GitHub Pages
+    const api = 'https://api.github.com/repos/'+r.duenio+'/'+r.repo+'/contents/'+SYNC_RUTA;
+    const res = await fetch(api,{headers:{Authorization:'Bearer '+tk, Accept:'application/vnd.github+json'}, cache:'no-store'});
+    if (res.status===404) return {c:{}, sha:null, api, tk};
+    if (!res.ok) throw new Error(res.status===401?'el permiso de GitHub no vale':'GitHub respondió '+res.status);
+    const m = await res.json(); let c={};
+    try { c = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((m.content||'').replace(/\n/g,'')),ch=>ch.charCodeAt(0)))).c || {}; } catch(e){}
+    return {c, sha:m.sha, api, tk};
+  }
+  const url = r ? SYNC_RUTA : SYNC_PUB;
+  const res = await fetch(url+'?t='+Date.now(),{cache:'no-store'});
+  if (!res.ok) return {c:{}};
+  return {c: (await res.json()).c || {}};
+}
+let subiendo = null;
+async function sube(){
+  if (!repoDeLaUrl() || !tokenGh()) { botonCor(); return; }
+  if (subiendo) return subiendo;
+  subiendo = (async () => {
+    for (let intento=0; intento<3; intento++){
+      try {
+        const R = await leeRemoto(); junta(R.c);
+        const c = {...R.c};
+        for (const [id,k] of Object.entries(COR)) if (!c[id] || (c[id].t||0) < (k.t||0)) c[id] = k;
+        for (const [id,t] of Object.entries(BORR)) if (!c[id] || (c[id].t||0) < t) c[id] = {borrado:true, t};
+        const txt = JSON.stringify({v:1, c}, null, 1);
+        const res = await fetch(R.api,{method:'PUT', headers:{Authorization:'Bearer '+R.tk, Accept:'application/vnd.github+json','Content-Type':'application/json'},
+          body: JSON.stringify({message:'Correcciones de posición del catálogo', content:aB64(txt), sha:R.sha||undefined})});
+        if (res.status===409 || res.status===422) continue;      // otro aparato escribió a la vez: se relee y se reintenta
+        if (!res.ok) throw new Error('GitHub respondió '+res.status);
+        BORR = {}; guardaCOR(); syncEstado = '☁️ Sincronizado: lo verán el móvil, la tablet y el ordenador.'; return true;
+      } catch(e) { syncEstado = '⚠️ No se ha podido sincronizar ('+e.message+'). Queda guardado aquí y se reintentará.'; return false; }
+    }
+    syncEstado = '⚠️ No se ha podido sincronizar. Se reintentará.'; return false;
+  })();
+  try { return await subiendo; } finally { subiendo = null; }
+}
+(async () => {
+  try { const R = await leeRemoto(); const pend = junta(R.c);
+        if (pend && repoDeLaUrl() && tokenGh()) sube(); }
+  catch(e) { syncEstado = '⚠️ No se han podido leer las correcciones de tus otros aparatos ('+e.message+').'; }
+})();
 
 function gpx(id){
   const p = idxRuta[id], f = F[id]||{}, x = s=>esc(s).replace(/'/g,'&apos;');
