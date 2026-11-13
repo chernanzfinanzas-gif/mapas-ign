@@ -4465,12 +4465,13 @@ function troceaBbox(b, km2trozo) {
 }
 
 /* pide un trozo, probando los servidores por orden hasta que uno responda */
+let sendasCancel = false, sendasAborta = null, sendasServidor = 0;
 async function pideTrozo(bb) {
   /* dos consultas en una: los caminos con su trazado completo (out geom) y los
      puntos con una sola coordenada (out center, que también resuelve los que en
      OSM están dibujados como área, por ejemplo un refugio con su planta). */
-  const consulta = '[out:json][timeout:60];'
-    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"](' + bb + ');out geom;'
+  const consulta = '[out:json][timeout:25];'
+    + 'way["highway"~"^(path|footway|track|bridleway|steps|cycleway)$"]["footway"!~"^(sidewalk|crossing|traffic_island)$"](' + bb + ');out geom;'
     + '('
     +   'nwr["amenity"~"^(drinking_water|shelter|parking)$"](' + bb + ');'
     +   'nwr["natural"~"^(spring|peak|saddle|cave_entrance)$"](' + bb + ');'
@@ -4478,13 +4479,17 @@ async function pideTrozo(bb) {
     +   'nwr["mountain_pass"="yes"](' + bb + ');'
     + ');out center tags;';
   let ultimo = 'sin respuesta';
-  for (const url of OVERPASS) {
+  for (let k = 0; k < OVERPASS.length; k++) {
+    if (sendasCancel) throw new Error('cancelado');
+    const url = OVERPASS[k], ab = new AbortController(); sendasAborta = ab; sendasServidor = k + 1;
+    const reloj = setTimeout(() => ab.abort(), 25000);   // v121: sin esto, un servidor colgado dejaba la descarga esperando para siempre
     try {
-      const res = await fetch(url, { method:'POST', body:'data=' + encodeURIComponent(consulta),
+      const res = await fetch(url, { method:'POST', body:'data=' + encodeURIComponent(consulta), signal: ab.signal,
         headers:{ 'Content-Type':'application/x-www-form-urlencoded' } });
-      if (res.ok) return await res.json();
+      if (res.ok) { const j = await res.json(); clearTimeout(reloj); return j; }
       ultimo = 'HTTP ' + res.status;
-    } catch (err) { ultimo = err.message || 'error de red'; }
+    } catch (err) { ultimo = sendasCancel ? 'cancelado' : (err.name === 'AbortError' ? 'el servidor no contesta' : (err.message || 'error de red')); }
+    clearTimeout(reloj);
   }
   throw new Error(ultimo);
 }
@@ -4507,10 +4512,17 @@ async function descargaSendas(bounds, nombre, poly) {
   if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch (e) {} }
   const vistos = new Set(), caminos = [], puntos = [];
   let fallos = 0;
+  /* v121: se ve que está vivo (segundos y servidor) y se puede cancelar */
+  sendasCancel = false; const t0 = Date.now(); let base = '';
+  const $c = document.createElement('button'); $c.className = 'sec'; $c.textContent = 'Cancelar'; $c.style.cssText = 'width:auto;padding:4px 12px;margin:4px 0 0;font-size:12.5px';
+  $c.onclick = () => { sendasCancel = true; if (sendasAborta) sendasAborta.abort(); };
+  const late = setInterval(() => { $p.textContent = base + ' · ' + Math.round((Date.now() - t0) / 1000) + ' s' + (sendasServidor > 1 ? ' · probando el servidor ' + sendasServidor + ' de ' + OVERPASS.length : ''); $p.appendChild(document.createElement('br')); $p.appendChild($c); }, 1000);
   try {
     for (let i = 0; i < trozos.length; i++) {
-      $p.textContent = 'Pidiendo caminos y puntos… trozo ' + (i + 1) + ' de ' + trozos.length
+      if (sendasCancel) break;
+      base = 'Pidiendo caminos y puntos… trozo ' + (i + 1) + ' de ' + trozos.length
         + (caminos.length ? ' · ' + fmtN(caminos.length) + ' caminos, ' + fmtN(puntos.length) + ' puntos' : '');
+      $p.textContent = base;
       const t = trozos[i];
       const bb = [t.getSouth(), t.getWest(), t.getNorth(), t.getEast()].map(n => n.toFixed(5)).join(',');
       let json = null;
@@ -4545,6 +4557,8 @@ async function descargaSendas(bounds, nombre, poly) {
       }
       if (i < trozos.length - 1) await new Promise(r => setTimeout(r, 700));  // no atosigar al servidor
     }
+    clearInterval(late);
+    if (sendasCancel) { $p.textContent = 'Descarga de senderos cancelada. No se ha guardado nada.'; return; }
     if (!caminos.length && !puntos.length) {
       $p.textContent = fallos
         ? 'Los servidores de OpenStreetMap no han respondido. Prueba en unos minutos.'
@@ -4569,6 +4583,7 @@ async function descargaSendas(bounds, nombre, poly) {
   } catch (err) {
     $p.textContent = 'No se han podido descargar: ' + err.message + '. Inténtalo dentro de un minuto.';
   } finally {
+    clearInterval(late); sendasServidor = 0;
     $v.disabled = false; $g.disabled = !capaGpx;
   }
 }
@@ -7717,7 +7732,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v120';
+const VERSION = 'v122';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7785,7 +7800,7 @@ function montaBloques() {
     /* Visualización: filtros y color de mis rutas, senderos pisados y traer los senderos de la pantalla */
     const rut = nueva('Mis rutas en el mapa', [$('rutas-filtro').closest('.dos-campos'), $('rutas-color').closest('label'), $('rutas-leyenda')]); rut.dataset.bloque = 'ver';
     const sv = $('btn-sendas-vista'); sv.textContent = 'Traer los senderos de esta pantalla'; sv.title = 'Los senderos de OpenStreetMap solo se ven donde se han descargado: con esto se traen los de lo que estás viendo';
-    const sen = nueva('Senderos en el mapa', [$('sendas-pisados').closest('label'), $('pisados-estado'), sv, $('sendas-prog')]); sen.dataset.bloque = 'ver';
+    const sen = nueva('Senderos en el mapa', [$('sendas-pisados').closest('label'), $('pisados-estado'), sv, $('sendas-prog')].concat(ANCHA ? [$('sendas-lista')] : [])); sen.dataset.bloque = 'ver';
     if (mapaS) { hoja.insertBefore(rut, mapaS.nextSibling); hoja.insertBefore(sen, rut.nextSibling); }
     /* Ajustes: el token */
     const tok = nueva('Conexión con GitHub', [$('publicar')]); tok.dataset.bloque = 'mas'; if (acerca) hoja.insertBefore(tok, acerca);
