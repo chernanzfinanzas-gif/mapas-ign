@@ -911,7 +911,11 @@ img.leaflet-tile{image-rendering:auto}
    mapa de encima y transparencia. La barra de transparencia de abajo ya no se usa. */
 #barra-opacidad{display:none!important}
 #sel-base[hidden],#sel-encima[hidden]{display:none}
-#panel-mapas{position:absolute;top:calc(146px + var(--safe-t));left:8px;z-index:660;width:min(340px,calc(100vw - 16px));
+/* el botón de mapas, compacto: una línea y del ancho de su texto (deja libre la pantalla) */
+#selectores #sel-mapas{flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;max-width:100%}
+#sel-mapas .et{font-size:10px}
+#sel-mapas b{font-size:13px}
+#panel-mapas{position:absolute;top:calc(128px + var(--safe-t));left:8px;z-index:660;width:min(340px,calc(100vw - 16px));
   background:rgba(253,252,250,.98);border:1px solid var(--linea);border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.2);padding:12px 12px 6px}
 #panel-mapas[hidden]{display:none}
 #panel-mapas .fila{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -7368,7 +7372,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v94';
+const VERSION = 'v95';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
