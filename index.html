@@ -920,12 +920,21 @@ img.leaflet-tile{image-rendering:auto}
 #barra-opacidad{display:none!important}
 #sel-base[hidden],#sel-encima[hidden]{display:none}
 /* ---- v100: PANTALLA ANCHA (ordenador y tablet): el menú ☰ se reparte en bloques en la barra de arriba ---- */
+.fuera{display:none!important}
+.enc-it{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--linea)} .enc-it span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer} .enc-it button{border:0;background:none;color:#8a877f;cursor:pointer;font-size:13px;padding:2px 6px}
 #bloques{display:none} #bloques .ct{display:none}
 body.ancha #bloques{display:flex;gap:6px;flex:1 1 auto;min-width:0}
 body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--linea);border-radius:10px;background:var(--papel);box-shadow:var(--sombra);
   font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 body.ancha #bloques button.on{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #btn-panel{display:none}
+/* v118: en pantalla ancha, previsión, boletín, aludes y avisos se abren en una ventana flotante que no tapa el mapa */
+body.ancha #hoja-llena{inset:auto;top:calc(56px + var(--safe-t));right:8px;width:min(600px,calc(100vw - 16px));max-height:calc(100vh - 70px);
+  border:1px solid var(--linea);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.3);overflow:hidden}
+body.ancha #hoja-llena .hl-cab{padding:10px 12px 8px} body.ancha #hoja-llena .hl-tit h3{font-size:15px} body.ancha #hoja-llena .hl-x{width:32px;height:32px}
+.dosb{display:flex;gap:6px} .dosb>button{flex:1 1 0;min-width:0}
+.av-grupo{margin:10px 0 4px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5d5a53}
+.av-lista li.aqui{outline:2px solid var(--verde);outline-offset:1px;border-radius:8px} .av-lista li{cursor:pointer}
 /* v115: lo mismo para el cuadro de dibujar una zona */
 body.ancha #barra-dibujo{left:auto;right:8px;bottom:auto;top:calc(100px + var(--safe-t));width:330px}
 body.ancha #barra-dibujo .ln2{flex-wrap:wrap} body.ancha #barra-dibujo input{flex:1 1 100%;padding:6px 8px}
@@ -953,6 +962,8 @@ body.ancha #hoja .oculto-pc{display:none!important}
 body.ancha #hoja .dosb{display:flex;gap:6px;margin:3px 0} body.ancha #hoja .dosb>button{flex:1 1 0;min-width:0;width:auto;margin:0;padding:7px 6px;font-size:13px;line-height:1.2}
 body.ancha #hoja #pm-baja{border-radius:9px} body.ancha #hoja #pm-envia{border-radius:9px;border:1px solid var(--verde);cursor:pointer}
 body.ancha #hoja .dosb>button.prim{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
+/* v116: los cuatro botones de descargar y dibujar, del mismo tamaño */
+body.ancha #hoja #pm-baja,body.ancha #hoja #btn-zona-dibujo,body.ancha #hoja #pm-envia,body.ancha #hoja #pm-dib-envia{height:46px;box-sizing:border-box;flex:1 1 0;width:auto;margin:0;padding:4px 6px;font-size:13px;font-weight:600;line-height:1.2;border-radius:9px;display:flex;align-items:center;justify-content:center;text-align:center}
 body.ancha #hoja #estimacion{font-size:12px;margin:6px 0 2px;color:#5d5a53}
 body.ancha #hoja section.masop{flex:0 0 100%;padding-top:4px}
 #almacen{font-size:12px;line-height:1.45;color:#6b6861}
@@ -1604,7 +1615,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <div id="tiempo-sal"></div>
       <h4>Avisos de AEMET</h4>
       <p class="pista">Los avisos oficiales por fenómenos adversos —viento, tormentas, nieve, calor—. Se descargan los de toda España de una vez y se guardan, así que sin cobertura sigues viendo los últimos, con su fecha.</p>
-      <button class="sec" id="btn-avisos">Traer los avisos</button>
+      <div class="dosb"><button class="sec" id="btn-avisos-todos">Ver todos los avisos</button><button class="sec" id="btn-avisos">Traer los avisos</button></div>
       <div id="avisos-sal"></div>
       <h4>Boletín de montaña</h4>
       <p class="pista">El parte oficial de AEMET del macizo, escrito por meteorólogos: estado del cielo, cota de nieve, viento y temperaturas. Solo hay para nueve macizos.</p>
@@ -2300,10 +2311,35 @@ async function leeEncargos() {
     return res.ok ? ((await res.json()).z || []) : [];
   } catch (e) { return []; }
 }
+async function quitaEncargo(id) {   // v117
+  const token = tokenGh(), r = repoDeLaUrl(); if (!token || !r) throw new Error('falta el token de GitHub');
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_ENCARGOS;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  for (let intento = 0; intento < 3; intento++) {
+    const prev = await fetch(api, { headers:cab, cache:'no-store' }); if (!prev.ok) throw new Error('GitHub responde ' + prev.status);
+    const m = await prev.json(); let z = []; try { z = JSON.parse(decodeURIComponent(escape(atob((m.content || '').replace(/\n/g, ''))))).z || []; } catch (x) {}
+    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Zona retirada', content:aBase64(JSON.stringify({ v:1, z: z.filter(x => x.id !== id) })), sha: m.sha }) });
+    if (res.ok) return; if (res.status !== 409 && res.status !== 422) throw new Error('GitHub responde ' + res.status);
+  }
+  throw new Error('no se ha podido guardar');
+}
+async function pintaEncargos() {   // v117: lo mandado al móvil que sigue apuntado (caduca a los 45 días)
+  const $l = document.getElementById('enc-lista'); if (!$l) return;
+  if (!tokenGh()) { $l.innerHTML = ''; return; }
+  const z = (await leeEncargos()).filter(e => e && e.id && Date.now() - e.t < 45 * 86400000).sort((a, b) => b.t - a.t);
+  $l.innerHTML = z.length ? '<h4>Zonas mandadas al móvil</h4>' : '';
+  z.forEach(e => { const d = document.createElement('div'); d.className = 'enc-it';
+    const s = document.createElement('span'); s.textContent = e.nom + ' · ' + new Date(e.t).toLocaleDateString('es-ES', { day:'numeric', month:'short' });
+    s.title = 'Ver esta zona en el mapa'; s.onclick = () => { if (e.b) mapa.fitBounds([[e.b[0], e.b[1]], [e.b[2], e.b[3]]]); };
+    const x = document.createElement('button'); x.textContent = '✕'; x.title = 'Quitar este encargo: el móvil dejará de ofrecerlo';
+    x.onclick = async () => { x.disabled = true; try { await quitaEncargo(e.id); } catch (er) { avisa('No se ha podido quitar: ' + er.message); } pintaEncargos(); };
+    d.appendChild(s); d.appendChild(x); $l.appendChild(d); });
+}
 async function encarga(nom, bounds) {
   const token = tokenGh(), r = repoDeLaUrl();
   if (!r) throw new Error('solo funciona en la app publicada, no abierta desde la carpeta');
-  if (!token) throw new Error('falta el token de GitHub (☰ → Senderos)');
+  if (!token) throw new Error('falta el token de GitHub (' + (document.body.classList.contains('ancha') ? 'Ajustes' : '☰ → Senderos') + ')');
   const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value).filter(i => { const c = capaPorId(i); return c && !c.soloOnline; });
   if (!ids.length) throw new Error('no hay ningún mapa marcado en ☰ → Descargar la zona');
   const zmax = +document.getElementById('zmax').value;
@@ -2320,7 +2356,7 @@ async function encarga(nom, bounds) {
     z = z.filter(x => Date.now() - x.t < 45 * 86400000 && x.nom !== nom); z.push(e);   // caducan a los 45 días; mismo nombre = se sustituye
     const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
       body: JSON.stringify({ message:'Zona preparada para el móvil: ' + nom, content:aBase64(JSON.stringify({ v:1, z })), sha: sha || undefined }) });
-    if (res.ok) { marcaEncHecho(e.id); return e; }
+    if (res.ok) { marcaEncHecho(e.id); setTimeout(pintaEncargos, 1500); return e; }
     if (res.status !== 409 && res.status !== 422) { const d = await res.json().catch(() => ({})); throw new Error(d.message || ('HTTP ' + res.status)); }
   }
   throw new Error('no se pudo guardar, inténtalo otra vez');
@@ -2687,6 +2723,7 @@ function abrePanel() {
      que recargar la app cada vez que publicas algo desde el otro dispositivo */
   if (typeof pintaPaquetesRepo === 'function') pintaPaquetesRepo();
   pintaEstima(); pintaLista(); pintaAlmacen();
+  try { pintaAvisosGuardados(); } catch (e) {}   // v118: los avisos, al día con lo que hay en pantalla
   mapa.on('moveend zoomend', pintaEstima);
 }
 function cierraPanel() { $panel.classList.remove('abierto'); mapa.off('moveend zoomend', pintaEstima); }
@@ -7178,6 +7215,12 @@ function abreHoja(titulo, subtitulo, html) {
   c.querySelector('.hl-cuerpo').innerHTML = html;
   c.querySelector('.hl-x').onclick = cierraHoja;
   document.body.appendChild(c);
+  /* v118: la ventana flotante se pone al lado del bloque abierto, sin taparlo, si cabe */
+  if (document.body.classList.contains('ancha') && $panel.classList.contains('abierto')) {
+    const r = $panel.getBoundingClientRect(), w = c.offsetWidth;
+    if (innerWidth - r.right < w + 12 && r.left >= w + 12) { c.style.right = 'auto'; c.style.left = (r.left - w - 6) + 'px'; }
+    else if (innerWidth - r.right >= w + 12) { c.style.right = 'auto'; c.style.left = (r.right + 6) + 'px'; }
+  }
   return c;
 }
 function cierraHoja() {
@@ -7644,7 +7687,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v115';
+const VERSION = 'v118';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7694,7 +7737,7 @@ function montaBloques() {
     const fila = (...ns) => { const d = document.createElement('div'); d.className = 'dosb'; ns.forEach(n => d.appendChild(n)); return d; };
     esta.querySelector('h3').textContent = 'Descargar o mandar al móvil';
     const dibMov = document.createElement('button'); dibMov.id = 'pm-dib-envia'; dibMov.className = 'sec prim'; dibMov.textContent = '✏️ Dibujar zona al móvil';
-    dibMov.onclick = () => { if (!tokenGh()) { $('pm-baja-txt').textContent = 'Para mandar zonas al móvil falta el token de GitHub (Rutas y zonas → Senderos).'; return; } window._dibParaMovil = true; abreDibujo('zonas'); };
+    dibMov.onclick = () => { if (!tokenGh()) { $('pm-baja-txt').textContent = 'Para mandar zonas al móvil falta el token de GitHub (en Ajustes).'; return; } window._dibParaMovil = true; abreDibujo('zonas'); };
     $('btn-zona-dibujo').textContent = '✏️ Dibujar zona a descargar'; $('btn-zona-dibujo').classList.add('prim'); $('pm-envia').classList.add('prim'); $('btn-zona-dibujo').addEventListener('click', () => { window._dibParaMovil = false; }, true);
     $('pm-envia').textContent = '📲 Esta pantalla al móvil'; $('quitar-zona-dib').textContent = 'Olvidar la zona dibujada';
     [$('pm-nom'), $('pm-foto-caja'), $('zmax').closest('label'), fila($('pm-baja'), $('btn-zona-dibujo')), fila($('pm-envia'), dibMov),
@@ -7703,6 +7746,23 @@ function montaBloques() {
     const o = $('btn-gpx'); if (o) { const f2 = fila(); o.parentNode.insertBefore(f2, o); f2.appendChild($('btn-planificar')); f2.appendChild(o);   // v113: dibujar va primero y destacado
       o.textContent = '📂 Cargar un GPX…'; $('btn-planificar').textContent = '✏️ Dibujar ruta nueva'; $('btn-planificar').classList.add('prim');
       o.closest('section').querySelector('h3').textContent = 'Ruta nueva y objetivos'; } }
+  /* v117: «Rutas y zonas» se queda en «Mis rutas» (buscar y qué he hecho por aquí). Lo de ver pasa a Visualización, el token a Ajustes,
+     y «Mis zonas» se cambia aquí por la lista de lo mandado al móvil. */
+  { const $ = i => document.getElementById(i), secDe = re => [...hoja.querySelectorAll('section')].find(x => re.test(x.querySelector('h3').textContent.trim()));
+    const zonas = secDe(/^mis zonas/i), send = secDe(/^senderos/i), mapaS = secDe(/^mapa$/i), acerca = secDe(/^acerca/i), esta = $('pm-baja').closest('section');
+    if (zonas) zonas.classList.add('oculto-pc');
+    const lista = document.createElement('div'); lista.id = 'enc-lista'; esta.querySelector('.cuerpo').appendChild(lista);
+    /* Visualización: filtros y color de mis rutas, senderos pisados y traer los senderos de la pantalla */
+    const rut = nueva('Mis rutas en el mapa', [$('rutas-filtro').closest('.dos-campos'), $('rutas-color').closest('label'), $('rutas-leyenda')]); rut.dataset.bloque = 'ver';
+    const sv = $('btn-sendas-vista'); sv.textContent = 'Traer los senderos de esta pantalla'; sv.title = 'Los senderos de OpenStreetMap solo se ven donde se han descargado: con esto se traen los de lo que estás viendo';
+    const sen = nueva('Senderos en el mapa', [$('sendas-pisados').closest('label'), $('pisados-estado'), sv, $('sendas-prog')]); sen.dataset.bloque = 'ver';
+    if (mapaS) { hoja.insertBefore(rut, mapaS.nextSibling); hoja.insertBefore(sen, rut.nextSibling); }
+    /* Ajustes: el token */
+    const tok = nueva('Conexión con GitHub', [$('publicar')]); tok.dataset.bloque = 'mas'; if (acerca) hoja.insertBefore(tok, acerca);
+    if (send) send.classList.add('oculto-pc');
+    [$('btn-hecha-suelta'), $('btn-hecha-suelta').nextElementSibling].forEach(n => n && n.classList.add('oculto-pc'));
+    BLOQUES.mis[0] = 'Mis rutas'; const bm = document.querySelector('#bloques button[data-b="mis"]'); if (bm) { bm.querySelector('.lg').textContent = 'Mis rutas'; bm.querySelector('.ct').textContent = 'Mis rutas'; }
+  }
   /* v111: botón «ⓘ Ayuda» en la cabecera: enseña u oculta las explicaciones de cada apartado */
   { const ay = document.createElement('button'); ay.id = 'ayuda-bt'; ay.textContent = 'ⓘ Ayuda'; ay.title = 'Mostrar u ocultar las explicaciones';
     try { if (localStorage.getItem('ign.ayuda') === '1') hoja.classList.add('conayuda'); } catch (e) {}
@@ -7743,10 +7803,21 @@ function abreBloque(k, alterna) {
     $panel.style.width = Math.min(innerWidth - 16, n * 350 + (n - 1) * 22 + 30) + 'px'; }
   $panel.classList.add('abierto'); $panel.style.left = '8px';
   $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - $panel.offsetWidth - 8)) + 'px'; document.getElementById('hoja').scrollTop = 0;
-  if (typeof pintaPaquetesRepo === 'function' && k === 'mis') pintaPaquetesRepo();
+  if (k === 'ruta') pintaEncargos();
+  if (k === 'tiempo') pintaAvisosGuardados();
   pintaEstima(); pintaLista(); pintaAlmacen();
   mapa.off('moveend zoomend', pintaEstima); mapa.on('moveend zoomend', pintaEstima);
 }
+/* v117: limpieza de «Senderos» y «Mis rutas» en todos los aparatos. Los senderos bajan solos con cada zona, así que
+   sobran sus descargas a mano y el llevarlos de un aparato a otro; y las casillas de mostrar repiten las de arriba. */
+(function limpia() { const $ = i => document.getElementById(i), fuera = n => n && n.classList.add('fuera');
+  [$('sendas-nombre') && $('sendas-nombre').closest('label'), $('btn-sendas-dibujo'), $('btn-sendas-gpx'), $('btn-publicar'), $('btn-exportar-todo'), $('repo-sendas'),
+   $('sendas-ver') && $('sendas-ver').closest('label'), $('rutas-ver') && $('rutas-ver').closest('label')].forEach(fuera);
+  const pub = $('publicar'); if (pub) { const h = pub.querySelector('h4'); if (h) h.textContent = 'Token de GitHub'; const p = pub.querySelector('p.pista'); if (p) p.textContent = 'Hace falta para mandar zonas al móvil y para guardar las correcciones del catálogo.';
+    const l = $('gh-token').closest('label'); if (l && l.firstChild && l.firstChild.nodeType === 3) l.firstChild.textContent = 'Token '; }
+  if (!ANCHA) fuera($('btn-sendas-vista'));
+  const sec = $('sendas-lista') && $('sendas-lista').closest('section'); if (sec) { const p = sec.querySelector('p.pista'); if (p) p.innerHTML = 'Sendas, pistas y escaleras de OpenStreetMap dibujadas sobre el mapa. <b>Se descargan solas con cada zona.</b>'; }
+})();
 montaBloques();
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
@@ -7881,7 +7952,8 @@ function pintaAvisosGuardados() {
                       : 'Falta la clave de AEMET, más abajo en esta misma sección.')) + '</div>';
     return;
   }
-  const pt = ultimaPos ? [ultimaPos[0], ultimaPos[1]] : [mapa.getCenter().lat, mapa.getCenter().lng];
+  /* v118: en ordenador y tablet cuenta lo que estás MIRANDO, no dónde está el aparato */
+  const pt = (ultimaPos && !document.body.classList.contains('ancha')) ? [ultimaPos[0], ultimaPos[1]] : [mapa.getCenter().lat, mapa.getCenter().lng];
   const aqui = avisosDe(pt, 3);
   $s.innerHTML = '<div class="pista">' + fmtN(g.lista.length) + ' avisos vigentes en España · '
     + cuandoSe(g.t) + '.</div>'
@@ -7895,6 +7967,24 @@ function pintaAvisosGuardados() {
        : '<div class="pista">Ninguno donde estás mirando.</div>');
 }
 
+/* v118: ventana con TODOS los avisos vigentes (hoy y los tres días siguientes), por nivel. Los de la zona que miras van primero y marcados. */
+function verTodosAvisos() {
+  const g = leeAvisos();
+  if (!g || !g.lista) { avisa(claveAemet() ? 'Aún no hay avisos guardados: pulsa «Traer los avisos»' : 'Falta la clave de AEMET'); return; }
+  const ahora = Date.now(), tope = ahora + 3 * 86400000, c = [mapa.getCenter().lat, mapa.getCenter().lng];
+  const centro = p => { let a = 0, b = 0; p.forEach(v => { a += v[0]; b += v[1]; }); return [a / p.length, b / p.length]; };
+  const vig = g.lista.filter(a => { const d2 = Date.parse(a.d2), d1 = Date.parse(a.d1); return !(isFinite(d2) && d2 < ahora) && !(isFinite(d1) && d1 > tope); })
+    .map(a => ({ a, aqui: dentroDe(c, a.pol), km: mapa.distance(c, centro(a.pol)) / 1000 }));
+  let h = '<div class="pista">' + fmtN(vig.length) + ' avisos vigentes en España · ' + cuandoSe(g.t) + '. En verde, los de la zona que estás mirando. Toca uno para llevar el mapa allí.</div>';
+  const it = [];
+  ['rojo', 'naranja', 'amarillo'].forEach(niv => { const l = vig.filter(x => x.a.niv === niv).sort((x, y) => (y.aqui - x.aqui) || (x.km - y.km)); if (!l.length) return;
+    h += '<div class="av-grupo">' + niv + ' · ' + l.length + '</div><ul class="av-lista">' + l.map(x => { it.push(x);
+      return '<li data-i="' + (it.length - 1) + '" class="' + (x.aqui ? 'aqui' : '') + '"><span class="niv ' + niv + '">' + niv + '</span><span class="av-txt"><b>' + escXml(x.a.ev) + '</b><span>'
+        + escXml(x.a.zona) + ' · ' + cuandoAviso(x.a) + (x.aqui ? '' : ' · a ' + Math.round(x.km) + ' km') + '</span></span></li>'; }).join('') + '</ul>'; });
+  if (!vig.length) h += '<div class="pista">Ningún aviso vigente.</div>';
+  abreHoja('Avisos de AEMET', 'Fenómenos adversos, toda España', h);
+  document.querySelectorAll('#hoja-llena .av-lista li').forEach(li => li.onclick = () => { const x = it[+li.dataset.i]; if (x) mapa.fitBounds(L.latLngBounds(x.a.pol.map(v => L.latLng(v[0], v[1]))), { maxZoom: 10 }); });
+}
 async function botonAvisos() {
   const $b = document.getElementById('btn-avisos'), $s = document.getElementById('avisos-sal');
   $b.disabled = true; $s.innerHTML = '<div class="pista">Consultando a AEMET…</div>';
@@ -8052,6 +8142,8 @@ async function verBoletin() {
 
 document.getElementById('btn-tiempo').onclick  = verTiempoAqui;
 document.getElementById('btn-avisos').onclick  = botonAvisos;
+document.getElementById('btn-avisos-todos').onclick = verTodosAvisos;
+mapa.on('moveend', () => { if (document.body.classList.contains('ancha') && $panel.classList.contains('abierto') && typeof bloqueAbierto !== 'undefined' && bloqueAbierto === 'tiempo') pintaAvisosGuardados(); });
 document.getElementById('btn-mejor').onclick   = dondeMejor;
 document.getElementById('btn-boletin').onclick = verBoletin;
 
