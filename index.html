@@ -923,6 +923,26 @@ img.leaflet-tile{image-rendering:auto}
 .fuera{display:none!important}
 .enc-it{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--linea)} .enc-it span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer} .enc-it button{border:0;background:none;color:#8a877f;cursor:pointer;font-size:13px;padding:2px 6px}
 #bloques{display:none} #bloques .ct{display:none}
+/* v120: en el MÓVIL los mismos bloques, elegidos desde ☰ (lista desplegable) y abiertos en la hoja de abajo */
+body.bloq:not(.ancha) #bloques.abierto{display:flex;flex-direction:column;gap:2px;position:absolute;top:calc(52px + var(--safe-t));left:8px;z-index:1100;min-width:232px;
+  background:var(--papel);border:1px solid var(--linea);border-radius:14px;padding:6px;box-shadow:0 8px 26px rgba(0,0,0,.28)}
+body.bloq:not(.ancha) #bloques button{height:48px;padding:0 12px;border:0;border-radius:10px;background:none;font:inherit;font-size:16px;font-weight:600;color:#33312d;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px}
+body.bloq:not(.ancha) #bloques button.on{background:#e7efe9;color:var(--verde)} body.bloq:not(.ancha) #bloques .ic{width:24px;text-align:center}
+body.bloq .oculto-bl{display:none!important} body:not(.ancha) .solo-ancha{display:none!important}
+body.bloq:not(.ancha) #hoja .dosb{margin:6px 0} body.bloq:not(.ancha) #hoja .dosb>button{margin:0;font-size:14.5px}
+body.bloq:not(.ancha) #hoja #pm-baja,body.bloq:not(.ancha) #hoja #btn-zona-dibujo{height:52px;font-size:14.5px}
+body.bloq:not(.ancha) #hoja #pm-nom{padding:11px 10px;border:1px solid var(--linea);border-radius:10px;font:inherit;font-size:15px;margin:0 0 6px}
+body.bloq:not(.ancha) #hoja section.enbloque{padding:14px 0}
+/* arriba: el selector de mapas ocupa el sitio de Track · Rutas · Sendas; abajo: grabar grande y aparcar */
+body.bloq:not(.sintacto) #interruptores #sel-mapas{flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;padding:5px 11px;border-radius:999px}
+body.bloq:not(.sintacto) #selectores{display:none}
+#abajo-der{position:absolute;right:8px;bottom:calc(46px + var(--safe-b));z-index:630;display:flex;gap:8px;align-items:center}
+#abajo-der #tog-rec{position:static;padding:11px 16px;font-size:15.5px;font-weight:700} #abajo-der #tog-rec .pt{width:14px;height:14px}
+#abajo-der #tog-punto{padding:11px 12px;font-size:15px;font-weight:700}
+#tog-coche{padding:11px 12px;font-size:15px;font-weight:700;border-color:#2c5a86;color:#2c5a86;background:rgba(251,250,247,.94)} #tog-coche.puesto{background:#2c5a86;color:#fff}
+body.sintacto #abajo-der{display:none}
+/* con la fila de botones abajo, las coordenadas van en la última línea, a la derecha del crédito del mapa */
+body.bloq:not(.sintacto) #lectura{left:auto;right:8px;bottom:calc(6px + var(--safe-b))}
 body.ancha #bloques{display:flex;gap:6px;flex:1 1 auto;min-width:0}
 body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--linea);border-radius:10px;background:var(--papel);box-shadow:var(--sombra);
   font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -931,6 +951,8 @@ body.ancha #btn-panel{display:none}
 /* v118: en pantalla ancha, previsión, boletín, aludes y avisos se abren en una ventana flotante que no tapa el mapa */
 body.ancha #hoja-llena{inset:auto;top:calc(56px + var(--safe-t));right:8px;width:min(600px,calc(100vw - 16px));max-height:calc(100vh - 70px);
   border:1px solid var(--linea);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.3);overflow:hidden}
+body.ancha #hoja-llena.grande{width:min(860px,calc(100vw - 16px))} body.ancha #hoja-llena.grande .hl-cuerpo>*{max-width:none}
+body.ancha #hoja-llena.pdf{height:calc(100vh - 70px)} body.ancha #hoja-llena.pdf .hl-cuerpo{padding:0;display:flex;flex-direction:column;overflow:hidden} #hoja-llena.pdf iframe{flex:1 1 auto;width:100%;border:0;background:#fff} #hoja-llena.pdf .pista{margin:6px 12px}
 body.ancha #hoja-llena .hl-cab{padding:10px 12px 8px} body.ancha #hoja-llena .hl-tit h3{font-size:15px} body.ancha #hoja-llena .hl-x{width:32px;height:32px}
 .dosb{display:flex;gap:6px} .dosb>button{flex:1 1 0;min-width:0}
 .av-grupo{margin:10px 0 4px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5d5a53}
@@ -949,26 +971,26 @@ body.ancha #hoja{display:flex;flex-wrap:wrap;align-items:flex-start;align-conten
 body.ancha #hoja .cab{flex:0 0 100%;padding:9px 0 7px} body.ancha #hoja .cab b{font-size:14.5px}
 body.ancha #hoja section.enbloque{flex:1 1 330px;min-width:0;padding:10px 0 8px;border-bottom:0}
 body.ancha #hoja section h3{font-size:12.5px;margin:0 0 6px} body.ancha #hoja section h4{margin:10px 0 3px;font-size:12px}
-body.ancha #hoja p.pista:not([id]){display:none} body.ancha #hoja.conayuda p.pista:not([id]){display:block;font-size:12px;line-height:1.35;margin:0 0 6px}
+body.bloq #hoja p.pista:not([id]){display:none} body.bloq #hoja.conayuda p.pista:not([id]){display:block;font-size:12px;line-height:1.35;margin:0 0 6px}
 body.ancha #hoja .pista{font-size:12px;margin:0 0 6px}
 body.ancha #hoja button.accion,body.ancha #hoja button.sec{padding:7px 10px;font-size:13.5px;border-radius:9px;margin:3px 0}
 body.ancha #hoja label.campo{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12.5px;white-space:nowrap}
 body.ancha #hoja label.campo>input,body.ancha #hoja label.campo>select{flex:1 1 0;min-width:0;margin:0;padding:5px 7px;font-size:13px;white-space:normal}
 body.ancha #hoja input[type=text],body.ancha #hoja select{padding:5px 7px;font-size:13px}
-body.ancha #hoja #pm-nom{width:100%;box-sizing:border-box;margin:0 0 4px}
-#ayuda-bt{display:none} body.ancha #ayuda-bt{display:inline-block;margin-left:auto;margin-right:8px;border:1px solid var(--linea);background:none;border-radius:999px;padding:2px 9px;font:inherit;font-size:12px;color:#6b6862;cursor:pointer}
-body.ancha #hoja.conayuda #ayuda-bt{background:var(--verde);border-color:var(--verde);color:#fff}
+body.bloq #hoja #pm-nom{width:100%;box-sizing:border-box;margin:0 0 4px}
+#ayuda-bt{display:none} body.bloq #ayuda-bt{display:inline-block;margin-left:auto;margin-right:8px;border:1px solid var(--linea);background:none;border-radius:999px;padding:2px 9px;font:inherit;font-size:12px;color:#6b6862;cursor:pointer}
+body.bloq #hoja.conayuda #ayuda-bt{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #hoja .oculto-pc{display:none!important}
 body.ancha #hoja .dosb{display:flex;gap:6px;margin:3px 0} body.ancha #hoja .dosb>button{flex:1 1 0;min-width:0;width:auto;margin:0;padding:7px 6px;font-size:13px;line-height:1.2}
-body.ancha #hoja #pm-baja{border-radius:9px} body.ancha #hoja #pm-envia{border-radius:9px;border:1px solid var(--verde);cursor:pointer}
-body.ancha #hoja .dosb>button.prim{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
+body.bloq #hoja #pm-baja{border-radius:9px} body.bloq #hoja #pm-envia{border-radius:9px;border:1px solid var(--verde);cursor:pointer}
+body.bloq #hoja .dosb>button.prim{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
 /* v116: los cuatro botones de descargar y dibujar, del mismo tamaño */
-body.ancha #hoja #pm-baja,body.ancha #hoja #btn-zona-dibujo,body.ancha #hoja #pm-envia,body.ancha #hoja #pm-dib-envia{height:46px;box-sizing:border-box;flex:1 1 0;width:auto;margin:0;padding:4px 6px;font-size:13px;font-weight:600;line-height:1.2;border-radius:9px;display:flex;align-items:center;justify-content:center;text-align:center}
-body.ancha #hoja #estimacion{font-size:12px;margin:6px 0 2px;color:#5d5a53}
+body.bloq #hoja #pm-baja,body.bloq #hoja #btn-zona-dibujo,body.bloq #hoja #pm-envia,body.bloq #hoja #pm-dib-envia{height:46px;box-sizing:border-box;flex:1 1 0;width:auto;margin:0;padding:4px 6px;font-size:13px;font-weight:600;line-height:1.2;border-radius:9px;display:flex;align-items:center;justify-content:center;text-align:center}
+body.bloq #hoja #estimacion{font-size:12px;margin:6px 0 2px;color:#5d5a53}
 body.ancha #hoja section.masop{flex:0 0 100%;padding-top:4px}
 #almacen{font-size:12px;line-height:1.45;color:#6b6861}
-body.ancha #hoja section.sintit h3{display:none} body.ancha #hoja section.sintit{padding-bottom:4px}
-body.ancha #hoja .cuerpo .fila.vermos{flex-wrap:wrap;margin:14px 0 4px}
+body.bloq #hoja section.sintit h3{display:none} body.bloq #hoja section.sintit{padding-bottom:4px}
+body.bloq #hoja .cuerpo .fila.vermos{flex-wrap:wrap;margin:14px 0 4px}
 body.ancha #interruptores{right:auto;-webkit-mask-image:none;mask-image:none}
 body.ancha.sintacto #interruptores{display:none}
 body.ancha.sintacto #tog-rec{display:none}
@@ -979,17 +1001,17 @@ body.ancha #zona-activa{flex:0 1 240px}
 body.ancha #panel{inset:auto;top:calc(52px + var(--safe-t));left:8px;width:min(440px,calc(100vw - 16px));background:none;display:block;transition:none}
 body.ancha #panel:not(.abierto){display:none}
 body.ancha #hoja{border-radius:14px;max-height:calc(100vh - 70px - var(--safe-t));transform:none;box-shadow:0 8px 26px rgba(0,0,0,.25);border:1px solid var(--linea)}
-body.ancha #hoja section{display:none}
-body.ancha #hoja section.enbloque{display:block}
-body.ancha #hoja section.enbloque .cuerpo{display:block}
-body.ancha #hoja section h3{cursor:default} body.ancha #hoja section h3::after{display:none}
+body.bloq #hoja section{display:none}
+body.bloq #hoja section.enbloque{display:block}
+body.bloq #hoja section.enbloque .cuerpo{display:block}
+body.bloq #hoja section h3{cursor:default} body.bloq #hoja section h3::after{display:none}
 body.ancha #hoja section.enbloque.masop:not(.abta) .cuerpo{display:none}
 body.ancha #hoja section.masop h3{cursor:pointer;display:block;text-transform:none;letter-spacing:0;font-size:13.5px;font-weight:600;color:#5d5a53}
 body.ancha #hoja section.masop h3::before{content:'▸ '} body.ancha #hoja section.masop.abta h3::before{content:'▾ '}
-body.ancha #hoja .cuerpo .fila{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-body.ancha #hoja .cuerpo .fila>span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
-body.ancha #hoja .cuerpo .fila select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
-body.ancha #hoja .cuerpo .fila input[type=range]{flex:1;margin:0;accent-color:var(--verde);height:26px}
+body.bloq #hoja .cuerpo .fila{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+body.bloq #hoja .cuerpo .fila>span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
+body.bloq #hoja .cuerpo .fila select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
+body.bloq #hoja .cuerpo .fila input[type=range]{flex:1;margin:0;accent-color:var(--verde);height:26px}
 @media (max-width:1240px){ body.ancha .apps a:not(.aqui) .tx{display:none} body.ancha #zona-activa{flex:0 1 150px} }
 @media (max-width:1020px){ body.ancha #bloques .lg{display:none} body.ancha #bloques .ct{display:inline} body.ancha #bloques .ic{display:none} body.ancha #bloques button{padding:0 8px;font-size:13px} body.ancha #zona-activa{flex:0 0 44px} }
 /* el botón de mapas, compacto: una línea y del ancho de su texto (deja libre la pantalla) */
@@ -1027,7 +1049,7 @@ body.ancha #hoja .cuerpo .fila input[type=range]{flex:1;margin:0;accent-color:va
 
 
 /* lectura inferior */
-#lectura{position:absolute;left:8px;bottom:calc(104px + var(--safe-b));z-index:600;
+#lectura{position:absolute;left:8px;bottom:calc(54px + var(--safe-b));z-index:600;
   background:rgba(251,250,247,.94);border:1px solid var(--linea);border-radius:10px;
   padding:7px 10px;font-size:12px;font-variant-numeric:tabular-nums;box-shadow:var(--sombra);
   max-width:62vw;display:none}
@@ -1685,6 +1707,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
         <input type="search" id="rutas-buscar" placeholder="Cazorla, Peñalara, Cares…" autocomplete="off">
       </label>
       <ul id="rutas-resultados"></ul>
+      <button class="sec" id="rutas-limpiar" hidden>✕ Quitar esta lista</button>
       <button class="sec" id="btn-cerca">¿Qué he hecho por aquí?</button>
       <div class="dos-campos">
         <label class="campo">Actividad
@@ -2339,7 +2362,7 @@ async function pintaEncargos() {   // v117: lo mandado al móvil que sigue apunt
 async function encarga(nom, bounds) {
   const token = tokenGh(), r = repoDeLaUrl();
   if (!r) throw new Error('solo funciona en la app publicada, no abierta desde la carpeta');
-  if (!token) throw new Error('falta el token de GitHub (' + (document.body.classList.contains('ancha') ? 'Ajustes' : '☰ → Senderos') + ')');
+  if (!token) throw new Error('falta el token de GitHub (' + (document.body.classList.contains('bloq') ? 'Ajustes' : '☰ → Senderos') + ')');
   const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value).filter(i => { const c = capaPorId(i); return c && !c.soloOnline; });
   if (!ids.length) throw new Error('no hay ningún mapa marcado en ☰ → Descargar la zona');
   const zmax = +document.getElementById('zmax').value;
@@ -4877,7 +4900,7 @@ function abreDibujo(destino) {
   document.getElementById('dib-nombre').value =
     (destinoDib === 'zonas' ? document.getElementById('nombre').value
                             : document.getElementById('sendas-nombre').value) || '';
-  document.getElementById('dib-bajar').textContent = destinoDib !== 'zonas' ? 'Descargar' : !document.body.classList.contains('ancha') ? 'Usar esta zona' : window._dibParaMovil ? 'Mandar al móvil' : 'Descargar esta zona';
+  document.getElementById('dib-bajar').textContent = destinoDib !== 'zonas' ? 'Descargar' : !document.body.classList.contains('bloq') ? 'Usar esta zona' : window._dibParaMovil ? 'Mandar al móvil' : 'Descargar esta zona';
   const $q = document.getElementById('dib-que');
   $q.textContent = destinoDib === 'zonas' ? 'Zona de mapas del IGN' : 'Zona de senderos de OSM';
   $q.className = destinoDib === 'zonas' ? 'mapas' : 'sendas';
@@ -5814,7 +5837,7 @@ document.getElementById('dib-bajar').onclick = () => {
     if (window._dibParaMovil) {   // v112: «Dibujar zona al móvil» — al terminar de dibujar se manda sola y se olvida la zona
       window._dibParaMovil = false;
       Promise.resolve(document.getElementById('pm-envia').onclick()).then(() => olvidaZonaDibujada());
-    } else if (document.body.classList.contains('ancha')) { document.getElementById('pm-baja').click(); }   // v115: enseña lo que pesa y deja el botón en «Sí, descargar ahora»
+    } else if (document.body.classList.contains('bloq')) { document.getElementById('pm-baja').click(); }   // v115: enseña lo que pesa y deja el botón en «Sí, descargar ahora»
     else avisa('Zona fijada: elige capas y detalle, y descarga');
   } else {
     document.getElementById('sendas-nombre').value = nom;
@@ -5831,7 +5854,7 @@ function pintaZonaDibujada() {
   const $q = document.getElementById('quitar-zona-dib');
   if ($q) $q.hidden = !zonaDibujada;
   if (window._reiniciaBaja && !bajando) window._reiniciaBaja();
-  { const $e = document.getElementById('pm-envia'); if ($e && document.body.classList.contains('ancha')) $e.textContent = zonaDibujada ? '📲 Zona dibujada al móvil' : '📲 Esta pantalla al móvil'; }
+  { const $e = document.getElementById('pm-envia'); if ($e && document.body.classList.contains('bloq')) $e.textContent = zonaDibujada ? '📲 Zona dibujada al móvil' : '📲 Esta pantalla al móvil'; }
   if (!zonaDibujada) return;
   capaZonaDib = (polyDibujado ? L.polygon(polyDibujado, { color:'#2f6b4f', weight:2, dashArray:'6,4',
       fillColor:'#2f6b4f', fillOpacity:.1, interactive:false })
@@ -6380,6 +6403,10 @@ document.getElementById('rutas-filtro').onchange = ev => { filtroAct = ev.target
 document.getElementById('rutas-anio').onchange   = ev => ponAnio(ev.target.value);
 document.getElementById('rutas-color').onchange  = ev => { modoColor = ev.target.value; pintaRutas(); };
 document.getElementById('btn-cerca').onclick     = rutasCerca;
+/* v119: la lista de resultados (búsqueda o «qué he hecho por aquí») se puede quitar */
+{ const ul = document.getElementById('rutas-resultados'), $q = document.getElementById('rutas-limpiar');
+  new MutationObserver(() => { $q.hidden = !ul.children.length; }).observe(ul, { childList: true });
+  $q.onclick = () => { ul.innerHTML = ''; const b = document.getElementById('rutas-buscar'); if (b) b.value = ''; }; }
 /* El manual, en otra pestaña: así no pierdes lo que tuvieras a medias en el
    mapa —una ruta dibujándose, el editor abierto— por ir a mirar cómo era algo. */
 document.getElementById('btn-manual').onclick = () => {
@@ -7214,12 +7241,15 @@ function abreHoja(titulo, subtitulo, html) {
   if (!subtitulo) c.querySelector('p').hidden = true;
   c.querySelector('.hl-cuerpo').innerHTML = html;
   c.querySelector('.hl-x').onclick = cierraHoja;
+  if (/^(Previsión|¿Dónde hace mejor)/.test(titulo)) c.classList.add('grande');   // v119
+  if (/^Peligro de aludes · PDF/.test(titulo)) c.classList.add('grande', 'pdf');
   document.body.appendChild(c);
   /* v118: la ventana flotante se pone al lado del bloque abierto, sin taparlo, si cabe */
   if (document.body.classList.contains('ancha') && $panel.classList.contains('abierto')) {
     const r = $panel.getBoundingClientRect(), w = c.offsetWidth;
     if (innerWidth - r.right < w + 12 && r.left >= w + 12) { c.style.right = 'auto'; c.style.left = (r.left - w - 6) + 'px'; }
     else if (innerWidth - r.right >= w + 12) { c.style.right = 'auto'; c.style.left = (r.right + 6) + 'px'; }
+    else if (innerWidth - r.right < w + 12) cierraPanel();   // v119: si no cabe a ningún lado, se recoge el bloque y queda solo la ventana
   }
   return c;
 }
@@ -7687,7 +7717,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v118';
+const VERSION = 'v120';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7696,9 +7726,8 @@ const BLOQUES = { ver:['Visualización', /^(mapa$|legibilidad)/i], ruta:['Prepar
   mis:['Rutas y zonas', /^(mis rutas|mis zonas|senderos)/i], tiempo:['Tiempo y seguridad', /^(el tiempo|seguridad)/i], mas:['Ajustes', /^(manual|acerca de)/i] };
 let bloqueAbierto = null;
 function montaBloques() {
-  if (!ANCHA) return;
   if (!document.querySelector('#hoja section[data-sec]')) { setTimeout(montaBloques, 150); return; }   // espera al acordeón
-  document.body.classList.add('ancha');
+  document.body.classList.add('bloq'); if (ANCHA) document.body.classList.add('ancha');   // v120: los bloques, también en el móvil
   const hoja = document.getElementById('hoja'), primera = hoja.querySelector('section');
   const nueva = (titulo, nodos) => { const sec = document.createElement('section'); sec.innerHTML = '<h3></h3><div class="cuerpo"></div>';
     sec.querySelector('h3').textContent = titulo; nodos.forEach(n => n && sec.querySelector('.cuerpo').appendChild(n)); hoja.insertBefore(sec, primera); return sec; };
@@ -7735,14 +7764,15 @@ function montaBloques() {
      La descarga detallada de antes sobra: su botón de dibujar, el detalle y la estimación viven ahora aquí. */
   { const $ = i => document.getElementById(i), esta = $('pm-baja').closest('section'), c = esta.querySelector('.cuerpo'), det = $('descargar').closest('section');
     const fila = (...ns) => { const d = document.createElement('div'); d.className = 'dosb'; ns.forEach(n => d.appendChild(n)); return d; };
-    esta.querySelector('h3').textContent = 'Descargar o mandar al móvil';
+    esta.querySelector('h3').textContent = ANCHA ? 'Descargar o mandar al móvil' : 'Descargar mapas y senderos';
     const dibMov = document.createElement('button'); dibMov.id = 'pm-dib-envia'; dibMov.className = 'sec prim'; dibMov.textContent = '✏️ Dibujar zona al móvil';
     dibMov.onclick = () => { if (!tokenGh()) { $('pm-baja-txt').textContent = 'Para mandar zonas al móvil falta el token de GitHub (en Ajustes).'; return; } window._dibParaMovil = true; abreDibujo('zonas'); };
     $('btn-zona-dibujo').textContent = '✏️ Dibujar zona a descargar'; $('btn-zona-dibujo').classList.add('prim'); $('pm-envia').classList.add('prim'); $('btn-zona-dibujo').addEventListener('click', () => { window._dibParaMovil = false; }, true);
     $('pm-envia').textContent = '📲 Esta pantalla al móvil'; $('quitar-zona-dib').textContent = 'Olvidar la zona dibujada';
     [$('pm-nom'), $('pm-foto-caja'), $('zmax').closest('label'), fila($('pm-baja'), $('btn-zona-dibujo')), fila($('pm-envia'), dibMov),
      $('quitar-zona-dib'), $('estimacion'), $('pm-baja-txt'), $('progreso')].forEach(n => n && c.appendChild(n));
-    if (det) det.classList.add('oculto-pc');
+    if (det) det.classList.add('oculto-pc', 'oculto-bl');
+    $('pm-envia').parentNode.classList.add('solo-ancha');   // en el teléfono no tiene sentido «mandar al móvil»
     const o = $('btn-gpx'); if (o) { const f2 = fila(); o.parentNode.insertBefore(f2, o); f2.appendChild($('btn-planificar')); f2.appendChild(o);   // v113: dibujar va primero y destacado
       o.textContent = '📂 Cargar un GPX…'; $('btn-planificar').textContent = '✏️ Dibujar ruta nueva'; $('btn-planificar').classList.add('prim');
       o.closest('section').querySelector('h3').textContent = 'Ruta nueva y objetivos'; } }
@@ -7751,7 +7781,7 @@ function montaBloques() {
   { const $ = i => document.getElementById(i), secDe = re => [...hoja.querySelectorAll('section')].find(x => re.test(x.querySelector('h3').textContent.trim()));
     const zonas = secDe(/^mis zonas/i), send = secDe(/^senderos/i), mapaS = secDe(/^mapa$/i), acerca = secDe(/^acerca/i), esta = $('pm-baja').closest('section');
     if (zonas) zonas.classList.add('oculto-pc');
-    const lista = document.createElement('div'); lista.id = 'enc-lista'; esta.querySelector('.cuerpo').appendChild(lista);
+    const lista = document.createElement('div'); lista.id = 'enc-lista'; lista.className = 'solo-ancha'; esta.querySelector('.cuerpo').appendChild(lista);
     /* Visualización: filtros y color de mis rutas, senderos pisados y traer los senderos de la pantalla */
     const rut = nueva('Mis rutas en el mapa', [$('rutas-filtro').closest('.dos-campos'), $('rutas-color').closest('label'), $('rutas-leyenda')]); rut.dataset.bloque = 'ver';
     const sv = $('btn-sendas-vista'); sv.textContent = 'Traer los senderos de esta pantalla'; sv.title = 'Los senderos de OpenStreetMap solo se ven donde se han descargado: con esto se traen los de lo que estás viendo';
@@ -7761,7 +7791,7 @@ function montaBloques() {
     const tok = nueva('Conexión con GitHub', [$('publicar')]); tok.dataset.bloque = 'mas'; if (acerca) hoja.insertBefore(tok, acerca);
     if (send) send.classList.add('oculto-pc');
     [$('btn-hecha-suelta'), $('btn-hecha-suelta').nextElementSibling].forEach(n => n && n.classList.add('oculto-pc'));
-    BLOQUES.mis[0] = 'Mis rutas'; const bm = document.querySelector('#bloques button[data-b="mis"]'); if (bm) { bm.querySelector('.lg').textContent = 'Mis rutas'; bm.querySelector('.ct').textContent = 'Mis rutas'; }
+    if (ANCHA) BLOQUES.mis[0] = 'Mis rutas'; const bm = document.querySelector('#bloques button[data-b="mis"]'); if (bm && ANCHA) { bm.querySelector('.lg').textContent = 'Mis rutas'; bm.querySelector('.ct').textContent = 'Mis rutas'; }
   }
   /* v111: botón «ⓘ Ayuda» en la cabecera: enseña u oculta las explicaciones de cada apartado */
   { const ay = document.createElement('button'); ay.id = 'ayuda-bt'; ay.textContent = 'ⓘ Ayuda'; ay.title = 'Mostrar u ocultar las explicaciones';
@@ -7776,7 +7806,24 @@ function montaBloques() {
       const esta = document.getElementById('pm-baja').closest('section'); if (esta) hoja.insertBefore(seg, esta); }
     { const leg = [...hoja.querySelectorAll('section')].find(x => /^legibilidad/i.test(x.querySelector('h3').textContent.trim())); if (leg) leg.classList.add('oculto-pc'); }   // v112: en ordenador no hace falta
     BLOQUES.tiempo[0] = 'Tiempo'; const bt = document.querySelector('#bloques button[data-b="tiempo"]'); if (bt) { bt.querySelector('.lg').textContent = 'Tiempo'; } }
-  document.querySelectorAll('#bloques button').forEach(b => b.onclick = () => abreBloque(b.dataset.b, true));
+  document.querySelectorAll('#bloques button').forEach(b => b.onclick = () => { document.getElementById('bloques').classList.remove('abierto'); abreBloque(b.dataset.b, ANCHA); });
+  if (!ANCHA) {   // v120, móvil: ☰ despliega la lista de bloques
+    const $bl = document.getElementById('bloques'); document.body.appendChild($bl);
+    document.getElementById('btn-panel').onclick = ev => { ev.stopPropagation(); if ($panel.classList.contains('abierto')) cierraPanel(); $bl.classList.toggle('abierto'); };
+    mapa.on('click movestart', () => $bl.classList.remove('abierto'));
+    const tx = { mis:'Rutas y zonas', tiempo:'Tiempo y seguridad' }; Object.keys(tx).forEach(k => { const b = $bl.querySelector('button[data-b="' + k + '"] .lg'); if (b) b.textContent = tx[k]; });
+  }
+  if (!(navigator.maxTouchPoints > 0) || matchMedia('(hover:hover) and (pointer:fine)').matches) { /* ordenador: se trata más abajo */ }
+  else {   // v120, móvil y tablet: el selector de mapas sube a la fila de arriba; abajo, Grabar grande y «Aparcar aquí»
+    const fila = document.getElementById('interruptores'); fila.insertBefore(document.getElementById('sel-mapas'), fila.firstChild);
+    const caja = document.createElement('div'); caja.id = 'abajo-der'; const rec = document.getElementById('tog-rec'); rec.parentNode.insertBefore(caja, rec);
+    const co = document.createElement('button'); co.id = 'tog-coche'; co.className = 'tog';
+    const pinta = () => { const c = leeCoche(); co.classList.toggle('puesto', !!c); co.textContent = c ? '🚗 Aparcado' : '🚗 Aparcar'; co.title = c ? 'Punto de regreso marcado. Toca para cambiarlo o quitarlo' : 'Marcar aquí el coche o el punto al que quieres volver'; };
+    co.onclick = () => { if (!leeCoche()) { marcaCoche(); setTimeout(pinta, 300); return; }
+      if (co.dataset.arm === '1') { co.dataset.arm = ''; borraCoche(); pinta(); avisa('Marca de regreso quitada'); return; }
+      co.dataset.arm = '1'; co.textContent = '¿Quitar la marca?'; setTimeout(() => { co.dataset.arm = ''; pinta(); }, 3500); };
+    const pu = document.getElementById('tog-punto'); pu.textContent = '⚑ Punto'; caja.appendChild(pu); caja.appendChild(co); caja.appendChild(rec); pinta(); setInterval(pinta, 5000);
+  }
   document.getElementById('sel-mapas').onclick = () => abreBloque('ver', true);
   const abreP = abrePanel, cierraP = cierraPanel, abreS = abreSeccion;
   abrePanel = function () { if (!bloqueAbierto) return abreBloque('ruta'); abreP(); };
@@ -7799,10 +7846,11 @@ function abreBloque(k, alterna) {
   document.querySelector('#hoja .cab b').textContent = BLOQUES[k][0];
   const bt = document.querySelector('#bloques button[data-b="' + k + '"]'), r = bt.getBoundingClientRect();
   if (k === 'ver') pintaPanelMapas();
-  { const n = Math.min(3, document.querySelectorAll('#hoja section.enbloque:not(.masop):not(.oculto-pc)').length || 1);   // v111: una columna por sección
+  if (ANCHA) { const n = Math.min(3, document.querySelectorAll('#hoja section.enbloque:not(.masop):not(.oculto-pc)').length || 1);   // v111: una columna por sección
     $panel.style.width = Math.min(innerWidth - 16, n * 350 + (n - 1) * 22 + 30) + 'px'; }
-  $panel.classList.add('abierto'); $panel.style.left = '8px';
-  $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - $panel.offsetWidth - 8)) + 'px'; document.getElementById('hoja').scrollTop = 0;
+  $panel.classList.add('abierto');
+  if (ANCHA) { $panel.style.left = '8px'; $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - $panel.offsetWidth - 8)) + 'px'; }
+  document.getElementById('hoja').scrollTop = 0;
   if (k === 'ruta') pintaEncargos();
   if (k === 'tiempo') pintaAvisosGuardados();
   pintaEstima(); pintaLista(); pintaAlmacen();
@@ -8168,7 +8216,13 @@ function pintaAludesGuardado(abrir) {
 async function verAludes() {
   const $b = document.getElementById('btn-aludes'), $s = document.getElementById('aludes-sal');
   const zona = document.getElementById('aludes-zona').value;
-  if (zona.indexOf('pdf:') === 0) { window.open('https://www.aemet.es/documentos/es/eltiempo/prediccion/montana/boletin_peligro_aludes/' + zona.slice(4) + '.pdf', '_blank', 'noopener'); return; }
+  if (zona.indexOf('pdf:') === 0) { const url = 'https://www.aemet.es/documentos/es/eltiempo/prediccion/montana/boletin_peligro_aludes/' + zona.slice(4) + '.pdf';
+    if (document.body.classList.contains('sintacto')) {   // v119: en una ventana de la app, con su ✕
+      const nom = document.getElementById('aludes-zona').selectedOptions[0].textContent.replace(/\s*\(.*$/, '');
+      abreHoja('Peligro de aludes · PDF de AEMET', nom + ' · mira la fecha del parte',
+        '<div class="pista">Si no se ve aquí dentro, <a href="' + url + '" target="_blank" rel="noopener">ábrelo en otra pestaña</a>.</div><iframe src="' + url + '#view=FitH" title="Parte de aludes"></iframe>');
+    } else window.open(url, '_blank', 'noopener');
+    return; }
   const clave = claveAemet();
   if (!clave) { $s.innerHTML = '<div class="viejo">Falta la clave de AEMET.</div>'; return; }
   $b.disabled = true; $s.innerHTML = '<div class="pista">Pidiendo el parte…</div>';
