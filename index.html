@@ -935,6 +935,14 @@ img.leaflet-tile{image-rendering:auto}
 #panel-mapas .fila span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
 #panel-mapas select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
 #panel-mapas input{flex:1;margin:0;accent-color:var(--verde);height:26px}
+#pm-nom{width:100%;box-sizing:border-box;margin:2px 0 8px;padding:7px 9px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
+#pm-envia{width:100%;margin:0 0 8px;padding:8px;border:1px solid var(--verde);border-radius:10px;background:#fff;color:var(--verde);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+#pm-envia:disabled{opacity:.5}
+#enc-aviso{position:absolute;left:8px;right:8px;bottom:calc(52px + var(--safe-b));z-index:650;max-width:460px;margin:0 auto;background:rgba(253,252,250,.98);border:1px solid var(--verde);border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.25);padding:12px}
+#enc-aviso[hidden]{display:none}
+#enc-txt{font-size:13.5px;line-height:1.4;margin-bottom:10px;color:#2a2a28}
+#enc-aviso .bts{display:flex;gap:6px} #enc-aviso button{flex:1;padding:9px 6px;border-radius:10px;border:1px solid var(--linea);background:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+#enc-aviso #enc-si{background:var(--verde);border-color:var(--verde);color:#fff;flex:1.6} #enc-aviso button:disabled{opacity:.5}
 #pm-baja{width:100%;margin:2px 0 8px;padding:9px;border:1px solid var(--verde);border-radius:10px;background:var(--verde);color:#fff;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
 #pm-baja.sec2{background:#fff;color:var(--verde)} #pm-baja:disabled{opacity:.5}
 #pm-baja-txt{font-size:12px;color:#5d5a53;margin:-2px 0 8px;line-height:1.35} #pm-baja-txt:empty{display:none}
@@ -1391,9 +1399,12 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <div class="fila"><span>Fondo</span><select id="pm-base"></select></div>
   <div class="fila"><span>Encima</span><select id="pm-encima"></select></div>
   <div class="fila"><span>Transp.</span><input type="range" id="pm-op" min="0" max="100" step="5" aria-label="Transparencia del mapa de encima"><b id="pm-op-val"></b></div>
+  <input type="text" id="pm-nom" placeholder="Nombre de la zona (opcional)" autocomplete="off">
   <button id="pm-baja" title="Guarda los mapas y los senderos de lo que estás viendo, para usarlos sin cobertura">&#10515; Descargar esta pantalla</button>
+  <button id="pm-envia" class="sec2" title="Apunta esta zona para que el móvil y la tablet la descarguen de un toque">&#128242; Preparar para el móvil</button>
   <div id="pm-baja-txt"></div>
 </div>
+<div id="enc-aviso" hidden><div id="enc-txt"></div><div class="bts"><button id="enc-si">Descargar</button><button id="enc-luego">Ahora no</button><button id="enc-no" title="No volver a ofrecerla en este aparato">Descartar</button></div></div>
 
 <div id="barra-dibujo" hidden>
   <div class="ln0"><span id="dib-que">Mapas del IGN</span></div>
@@ -2164,7 +2175,8 @@ mapa.on('click', () => { if (!bajando) $pm.hidden = true; });
       $b.textContent = 'Sí, descargar ahora'; $b.classList.add('sec2'); lista = true; return;
     }
     const h = new Date(), dd = n => String(n).padStart(2, '0');
-    document.getElementById('nombre').value = 'Zona ' + dd(h.getDate()) + '/' + dd(h.getMonth() + 1) + ' ' + dd(h.getHours()) + ':' + dd(h.getMinutes());
+    const nomPm = (document.getElementById('pm-nom').value || '').trim();
+    document.getElementById('nombre').value = nomPm || 'Zona ' + dd(h.getDate()) + '/' + dd(h.getMonth() + 1) + ' ' + dd(h.getHours()) + ':' + dd(h.getMinutes());
     reinicia(); $b.disabled = true; $t.textContent = 'Empezando…';
     clearInterval(reloj);
     reloj = setInterval(() => {
@@ -2175,6 +2187,102 @@ mapa.on('click', () => { if (!bajando) $pm.hidden = true; });
     descarga();
   };
 }
+
+/* ---- v99: ZONAS ENCARGADAS desde otro aparato ---------------------------------
+   Los mapas no viajan (pesan decenas de megas); viaja el ENCARGO: nombre, límites, mapas y detalle.
+   Se apunta en sync/zonas-moviles.json del repositorio. Cada aparato recuerda cuáles ha descargado
+   o descartado ya; el que hace el encargo lo da por hecho en sí mismo. */
+const RUTA_ENCARGOS = 'sync/zonas-moviles.json', LS_ENC = 'ign.encargos.hechos';
+const leeEncHechos = () => { try { return new Set(JSON.parse(localStorage.getItem(LS_ENC)) || []); } catch (e) { return new Set(); } };
+const marcaEncHecho = id => { const h = leeEncHechos(); h.add(id); guarda(LS_ENC, [...h].slice(-300)); };
+async function leeEncargos() {
+  const token = tokenGh(), r = repoDeLaUrl();
+  try {
+    if (token && r) {
+      const res = await fetch('https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_ENCARGOS,
+        { headers:{ Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' }, cache:'no-store' });
+      if (res.status === 404) return [];
+      if (res.ok) { const m = await res.json(); return JSON.parse(decodeURIComponent(escape(atob((m.content || '').replace(/\n/g, ''))))).z || []; }
+    }
+    const res = await fetch(RUTA_ENCARGOS + '?t=' + Date.now(), { cache:'no-store' });
+    return res.ok ? ((await res.json()).z || []) : [];
+  } catch (e) { return []; }
+}
+async function encarga(nom, bounds) {
+  const token = tokenGh(), r = repoDeLaUrl();
+  if (!r) throw new Error('solo funciona en la app publicada, no abierta desde la carpeta');
+  if (!token) throw new Error('falta el token de GitHub (☰ → Senderos)');
+  const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value).filter(i => { const c = capaPorId(i); return c && !c.soloOnline; });
+  if (!ids.length) throw new Error('no hay ningún mapa marcado en ☰ → Descargar la zona');
+  const zmax = +document.getElementById('zmax').value;
+  const e = { id:'e' + Date.now().toString(36), nom, t:Date.now(), zmax, capas:ids,
+    b:[bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()].map(n => +n.toFixed(5)) };
+  const api = 'https://api.github.com/repos/' + r.duenio + '/' + r.repo + '/contents/' + RUTA_ENCARGOS;
+  const cab = { Authorization:'Bearer ' + token, Accept:'application/vnd.github+json' };
+  for (let intento = 0; intento < 3; intento++) {
+    let sha = null, z = [];
+    const prev = await fetch(api, { headers:cab, cache:'no-store' });
+    if (prev.ok) { const m = await prev.json(); sha = m.sha; try { z = JSON.parse(decodeURIComponent(escape(atob((m.content || '').replace(/\n/g, ''))))).z || []; } catch (x) { z = []; } }
+    else if (prev.status === 401) throw new Error('el token no es válido');
+    else if (prev.status !== 404) throw new Error('GitHub responde ' + prev.status);
+    z = z.filter(x => Date.now() - x.t < 45 * 86400000 && x.nom !== nom); z.push(e);   // caducan a los 45 días; mismo nombre = se sustituye
+    const res = await fetch(api, { method:'PUT', headers:{ ...cab, 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Zona preparada para el móvil: ' + nom, content:aBase64(JSON.stringify({ v:1, z })), sha: sha || undefined }) });
+    if (res.ok) { marcaEncHecho(e.id); return e; }
+    if (res.status !== 409 && res.status !== 422) { const d = await res.json().catch(() => ({})); throw new Error(d.message || ('HTTP ' + res.status)); }
+  }
+  throw new Error('no se pudo guardar, inténtalo otra vez');
+}
+document.getElementById('pm-envia').onclick = async () => {
+  const $b = document.getElementById('pm-envia'), $t = document.getElementById('pm-baja-txt');
+  const h = new Date(), dd = n => String(n).padStart(2, '0');
+  const nom = (document.getElementById('pm-nom').value || '').trim() || 'Zona ' + dd(h.getDate()) + '/' + dd(h.getMonth() + 1) + ' ' + dd(h.getHours()) + ':' + dd(h.getMinutes());
+  const b = boundsDescarga(), ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value);
+  const est = estimaZona(b, +document.getElementById('zmax').value, ids);
+  if (est.bytes > 400 * 1048576) { $t.textContent = 'Lo que ves es demasiado grande (más de 400 MB de mapas). Acerca el zoom a la zona que te interesa.'; return; }
+  $b.disabled = true; $t.textContent = 'Apuntando la zona…';
+  try { await encarga(nom, b); $t.textContent = '📲 «' + nom + '» preparada (unos ' + fmtMB(est.bytes) + '). Abre la app en el móvil y te ofrecerá descargarla.'; document.getElementById('pm-nom').value = ''; }
+  catch (err) { $t.textContent = 'No se ha podido preparar: ' + err.message + '.'; }
+  $b.disabled = false;
+};
+let encPend = [], encMirado = 0;
+async function miraEncargos() {
+  if (bajando || !navigator.onLine || Date.now() - encMirado < 20000) return;
+  encMirado = Date.now();
+  const hechos = leeEncHechos();
+  encPend = (await leeEncargos()).filter(e => e && e.id && e.b && !hechos.has(e.id) && Date.now() - e.t < 45 * 86400000);
+  const $a = document.getElementById('enc-aviso');
+  if (!encPend.length) { $a.hidden = true; return; }
+  const total = encPend.reduce((s, e) => s + estimaZona(L.latLngBounds([e.b[0], e.b[1]], [e.b[2], e.b[3]]), e.zmax, e.capas).bytes, 0);
+  document.getElementById('enc-txt').textContent = '📲 ' + (encPend.length === 1 ? 'Tienes una zona preparada: ' : 'Tienes ' + encPend.length + ' zonas preparadas: ')
+    + encPend.map(e => '«' + e.nom + '»').join(', ') + '. Unos ' + fmtMB(total) + ' de mapas, y además los senderos. Mejor con wifi.';
+  $a.hidden = false;
+}
+document.getElementById('enc-luego').onclick = () => { document.getElementById('enc-aviso').hidden = true; encMirado = Date.now() + 3600000; };
+document.getElementById('enc-no').onclick = () => { encPend.forEach(e => marcaEncHecho(e.id)); encPend = []; document.getElementById('enc-aviso').hidden = true; };
+document.getElementById('enc-si').onclick = async () => {
+  const $t = document.getElementById('enc-txt'), bts = [...document.querySelectorAll('#enc-aviso button')];
+  bts.forEach(x => x.disabled = true);
+  const cola = encPend.slice(); let bien = 0;
+  for (let k = 0; k < cola.length; k++) {
+    const e = cola[k], pre = (cola.length > 1 ? (k + 1) + ' de ' + cola.length + ' · ' : '') + '«' + e.nom + '»: ';
+    const reloj = setInterval(() => { $t.textContent = pre + (document.getElementById('prog-txt').textContent || 'empezando…'); }, 400);
+    window._sendasPend = null;
+    const antes = leeZonas().length;
+    await descarga({ enc:true, nom:e.nom, zmax:e.zmax, ids:e.capas, bounds:L.latLngBounds([e.b[0], e.b[1]], [e.b[2], e.b[3]]) });
+    clearInterval(reloj);
+    const ok = leeZonas().some(z => z.nom === e.nom) && !sinCuota && !cancelado;
+    if (ok) { $t.textContent = pre + 'mapas guardados; bajando los senderos…'; try { if (window._sendasPend) await window._sendasPend; } catch (x) {} marcaEncHecho(e.id); bien++; }
+    else { $t.textContent = pre + (document.getElementById('prog-err').textContent || 'no se ha podido descargar.'); break; }
+  }
+  bts.forEach(x => x.disabled = false);
+  if (bien === cola.length) { $t.textContent = '✅ ' + (bien === 1 ? 'Zona descargada' : bien + ' zonas descargadas') + ': ya funciona' + (bien === 1 ? '' : 'n') + ' sin cobertura.'; encPend = [];
+    document.querySelectorAll('#enc-aviso button').forEach(x => x.hidden = x.id !== 'enc-luego'); document.getElementById('enc-luego').textContent = 'Cerrar';
+    setTimeout(() => { const a = document.getElementById('enc-aviso'); a.hidden = true; a.querySelectorAll('button').forEach(x => x.hidden = false); document.getElementById('enc-luego').textContent = 'Ahora no'; }, 8000); }
+  else { encPend = encPend.filter(e => !leeEncHechos().has(e.id)); }
+};
+setTimeout(miraEncargos, 3500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) miraEncargos(); });
 
 function modoEncimaOn(si) {   // se conserva por compatibilidad con el estado guardado
   modoEncima = si;
@@ -2329,12 +2437,13 @@ async function bajaTile(url, cache) {
   return 0;
 }
 
-async function descarga() {
+async function descarga(opc) {
   if (bajando) return;
-  const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value);
+  opc = (opc && opc.enc) ? opc : null;     // v99: un encargo hecho en otro aparato trae su zona, sus mapas y su nombre
+  const ids = opc ? opc.ids : [...document.querySelectorAll('#capas input:checked')].map(i => i.value);
   if (!ids.length) { avisa('Elige al menos una capa'); return; }
-  const bounds = boundsDescarga(), zmax = +document.getElementById('zmax').value;
-  const nom = (document.getElementById('nombre').value || '').trim()
+  const bounds = opc ? opc.bounds : boundsDescarga(), zmax = opc ? opc.zmax : +document.getElementById('zmax').value;
+  const nom = opc ? opc.nom : (document.getElementById('nombre').value || '').trim()
             || 'Zona ' + new Date().toLocaleDateString('es-ES');
   let urls = listaUrls(bounds, zmax, ids);
   if (!urls.length) { avisa('Encuadra antes la zona en el mapa'); return; }
@@ -2422,7 +2531,7 @@ async function descarga() {
   if (hechos > 0 && !cancelado && !sinCuota) {
     const S = bounds.getSouth(), W = bounds.getWest(), N = bounds.getNorth(), E = bounds.getEast();
     const cubierta = leeSendas().some(f => f.bbox && !f.poly && f.bbox[0] <= S + 1e-4 && f.bbox[1] <= W + 1e-4 && f.bbox[2] >= N - 1e-4 && f.bbox[3] >= E - 1e-4);
-    if (!cubierta) descargaSendas(bounds, nom).then(() => {
+    window._sendasPend = cubierta ? null : descargaSendas(bounds, nom).then(() => {
       const t = document.getElementById('sendas-prog').textContent;
       if (t) { avisa('Senderos: ' + t); const $r = document.getElementById('pm-baja-txt'); if ($r) $r.textContent = 'Mapas listos. Senderos: ' + t; }
     });
@@ -2433,7 +2542,7 @@ async function descarga() {
   else if (fallos)    avisa('Zona guardada con ' + fmtN(fallos) + ' huecos');
   else {
     avisa('Zona «' + nom + '» lista para usar sin cobertura');
-    if (!recortada) setTimeout(cierraPanel, 1500);   // deja ver el mapa recién bajado
+    if (!recortada && !opc) setTimeout(cierraPanel, 1500);   // deja ver el mapa recién bajado
   }
   setTimeout(() => { document.getElementById('progreso').classList.remove('ver'); }, 5000);
   olvidaZonaDibujada();
@@ -5474,6 +5583,18 @@ async function guardaPlan() {
   const $t = document.getElementById('tog-gpx'); if ($t) $t.checked = true;
   pintaListaGpx();
   await pintaGpxs();
+  /* v99: si este aparato tiene el permiso de GitHub, la ruta y su zona salen solas hacia el móvil */
+  if (tokenGh() && repoDeLaUrl()) {
+    avisa('Guardada. Enviando la ruta y su zona al móvil…');
+    abrePanel();
+    try { await publicaObjetivos(); } catch (e) {}
+    try {
+      const m = 0.015, b = L.latLngBounds([r.bbox[0] - m, r.bbox[1] - m * 1.35], [r.bbox[2] + m, r.bbox[3] + m * 1.35]);   // ~1,5 km de margen
+      await encarga(nom, b);
+      avisa('📲 Ruta y zona preparadas: abre la app en el móvil para descargarlas');
+    } catch (err) { avisa('La ruta está guardada, pero la zona no se ha podido preparar: ' + err.message); }
+    return;
+  }
   avisa('Guardada en «Mis objetivos». Súbela al repositorio para verla en el otro aparato');
   abrePanel();
 }
@@ -7427,7 +7548,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v98';
+const VERSION = 'v99';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
