@@ -87,6 +87,12 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #fvis img{max-width:100vw;max-height:calc(100vh - 70px);object-fit:contain}
 #fvis .pie{color:#fff;font:14px system-ui;padding:8px 12px;text-align:center}
 #fvis button{position:absolute;background:#0008;color:#fff;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer}
+.apps{display:inline-flex;flex:0 0 auto;height:32px;border:1px solid rgba(22,33,28,.16);border-radius:10px;overflow:hidden;background:#fbfaf7;box-shadow:0 1px 4px rgba(0,0,0,.22);pointer-events:auto}
+.apps a{display:flex;align-items:center;gap:5px;padding:0 10px;font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#3f3d38;text-decoration:none;border-left:1px solid rgba(22,33,28,.1);white-space:nowrap;cursor:pointer}
+.apps a:first-child{border-left:0}
+.apps a.aqui{background:#2f6b4f;color:#fff;cursor:default}
+.apps a .ic{font-size:15px}
+@media (max-width:640px){.apps a{padding:0 9px}.apps a:not(.aqui) .tx{display:none}}
 #aviso{position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:1200;background:#1d2125;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;box-shadow:0 2px 8px #0006;display:none;max-width:90vw;text-align:center}
 #aviso button{margin-left:8px;border:0;border-radius:6px;padding:4px 8px;font:600 13px system-ui;cursor:pointer}
 textarea.cl2{width:100%;height:180px;font:12px/1.35 ui-monospace,monospace;border:1px solid var(--li);border-radius:6px;padding:6px}
@@ -115,7 +121,7 @@ ul{padding-left:18px;margin:6px 0}
 </head>
 <body>
 <div id="map"></div>
-<div id="bar"><a class="chip" href="./" title="Volver a la app de mapas" style="text-decoration:none">&#8592; Mapa</a></div>
+<div id="bar"><div role="navigation" class="apps" aria-label="Cambiar de pantalla"><a href="./" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a class="aqui" aria-current="page" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a href="fotos/" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div></div>
 <div id="info"></div>
 <div id="ley"></div>
 <div id="base"></div>
@@ -176,7 +182,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov h';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov i';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -571,7 +577,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov h</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov i</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';

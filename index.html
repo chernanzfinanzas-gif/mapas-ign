@@ -698,6 +698,14 @@ img.leaflet-tile{image-rendering:auto}
   display:flex;align-items:center;gap:8px;pointer-events:none;
   background:linear-gradient(to bottom,rgba(251,250,247,.96),rgba(251,250,247,.62) 70%,transparent)}
 #barra>*{pointer-events:auto}
+/* v97: las tres pantallas (Mapas · Catálogo · Fotos) con las mismas pestañas */
+.apps{display:inline-flex;flex:0 0 auto;height:40px;border:1px solid rgba(22,33,28,.16);border-radius:10px;overflow:hidden;background:#fbfaf7;box-shadow:0 1px 4px rgba(0,0,0,.22);pointer-events:auto}
+.apps a{display:flex;align-items:center;gap:5px;padding:0 10px;font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#3f3d38;text-decoration:none;border-left:1px solid rgba(22,33,28,.1);white-space:nowrap;cursor:pointer}
+.apps a:first-child{border-left:0}
+.apps a.aqui{background:#2f6b4f;color:#fff;cursor:default}
+.apps a .ic{font-size:15px}
+@media (max-width:640px){.apps a{padding:0 9px}.apps a:not(.aqui) .tx{display:none}}
+#barra .apps #btn-catalogo,#barra .apps #btn-fotos{height:auto;border:0;border-left:1px solid rgba(22,33,28,.1);border-radius:0;box-shadow:none;background:none;font-size:13px;padding:0 10px}
 #btn-panel{width:40px;height:40px;flex:0 0 auto;border:1px solid var(--linea);border-radius:10px;
   background:var(--papel);box-shadow:var(--sombra);font-size:18px;line-height:1;cursor:pointer}
 /* La otra mitad de la app: el MAPA DE FOTOS (visor del catálogo de fotos, en fotos/).
@@ -915,6 +923,11 @@ img.leaflet-tile{image-rendering:auto}
 #selectores #sel-mapas{flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;max-width:100%}
 #sel-mapas .et{font-size:10px}
 #sel-mapas b{font-size:13px}
+/* v96: el zoom va AL LADO del botón de posición (a su izquierda), no debajo; su deslizador sigue colgando hacia abajo */
+#barra-zoom{top:calc(52px + var(--safe-t));right:56px}
+#zoom-btn{width:40px;height:40px;border-radius:10px;background:rgba(251,250,247,.94)}
+#interruptores{right:104px}
+#selectores{right:8px}
 #panel-mapas{position:absolute;top:calc(128px + var(--safe-t));left:8px;z-index:660;width:min(340px,calc(100vw - 16px));
   background:rgba(253,252,250,.98);border:1px solid var(--linea);border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.2);padding:12px 12px 6px}
 #panel-mapas[hidden]{display:none}
@@ -922,6 +935,9 @@ img.leaflet-tile{image-rendering:auto}
 #panel-mapas .fila span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
 #panel-mapas select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
 #panel-mapas input{flex:1;margin:0;accent-color:var(--verde);height:26px}
+#pm-baja{width:100%;margin:2px 0 8px;padding:9px;border:1px solid var(--verde);border-radius:10px;background:var(--verde);color:#fff;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+#pm-baja.sec2{background:#fff;color:var(--verde)} #pm-baja:disabled{opacity:.5}
+#pm-baja-txt{font-size:12px;color:#5d5a53;margin:-2px 0 8px;line-height:1.35} #pm-baja-txt:empty{display:none}
 #pm-op-val{font-size:12px;min-width:34px;text-align:right;color:#5d5a53}
 #barra-opacidad .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
 #opacidad-val{font-size:12px;font-variant-numeric:tabular-nums;color:#5d5a53;flex:0 0 auto;min-width:34px;text-align:right}
@@ -1345,8 +1361,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 <div id="barra">
   <button id="btn-panel" title="Zonas y descargas">&#9776;</button>
   <button id="zona-activa" title="Buscar un sitio e ir"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg><span id="zona-txt">Mapas IGN offline</span></button>
-  <a id="btn-fotos" href="fotos/" title="Mapa de fotos: tus fotos y las fotos de cada ruta">&#128247; App Fotos</a>
-  <a id="btn-catalogo" href="catalogo.html" title="Catálogo: rutas, naturaleza, historia y turismo"><span>&#129406;</span><span class="tx">Catálogo</span></a>
+  <div role="navigation" class="apps" aria-label="Cambiar de pantalla"><a class="aqui" aria-current="page" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a id="btn-catalogo" href="catalogo.html" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a id="btn-fotos" href="fotos/" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div>
   <div class="hueco-gps"></div>
 </div>
 <div id="buscador" hidden>
@@ -1376,6 +1391,8 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <div class="fila"><span>Fondo</span><select id="pm-base"></select></div>
   <div class="fila"><span>Encima</span><select id="pm-encima"></select></div>
   <div class="fila"><span>Transp.</span><input type="range" id="pm-op" min="0" max="100" step="5" aria-label="Transparencia del mapa de encima"><b id="pm-op-val"></b></div>
+  <button id="pm-baja" title="Guarda los mapas y los senderos de lo que estás viendo, para usarlos sin cobertura">&#10515; Descargar esta pantalla</button>
+  <div id="pm-baja-txt"></div>
 </div>
 
 <div id="barra-dibujo" hidden>
@@ -2129,7 +2146,35 @@ document.getElementById('pm-encima').onchange = e => {
 };
 document.getElementById('pm-op').oninput = e => { ponOpacidad(e.target.value / 100); document.getElementById('pm-op-val').textContent = e.target.value + '%'; };
 document.getElementById('pm-op').onchange = guardaEstado;
-mapa.on('click', () => { $pm.hidden = true; });
+mapa.on('click', () => { if (!bajando) $pm.hidden = true; });
+/* v98: «Descargar esta pantalla» — primer toque: dice cuánto pesa; segundo toque: baja mapas y senderos */
+{ const $b = document.getElementById('pm-baja'), $t = document.getElementById('pm-baja-txt'); let lista = false, reloj = null;
+  const reinicia = () => { lista = false; $b.textContent = '⤓ Descargar esta pantalla'; $b.classList.remove('sec2'); };
+  mapa.on('movestart', () => { if (lista && !bajando) { reinicia(); $t.textContent = ''; } });
+  $b.onclick = () => {
+    if (bajando) return;
+    const ids = [...document.querySelectorAll('#capas input:checked')].map(i => i.value);
+    const zmax = +document.getElementById('zmax').value;
+    if (!lista) {
+      if (!ids.length) { $t.textContent = 'No hay ningún mapa marcado para descargar: márcalo en ☰ → Descargar la zona.'; return; }
+      const est = estimaZona(boundsDescarga(), zmax, ids);
+      const nombres = ids.map(i => (capaPorId(i) || {}).corto).filter(Boolean).join(' + ');
+      if (est.bytes > 400 * 1048576) { $t.textContent = 'Lo que ves es demasiado grande para descargarlo (más de 400 MB de mapas). Acerca el zoom a la zona que te interesa.'; return; }
+      $t.textContent = 'Unos ' + fmtMB(est.bytes) + ' de mapas (' + nombres + ', hasta z' + zmax + ') y además los senderos. Mejor con wifi.';
+      $b.textContent = 'Sí, descargar ahora'; $b.classList.add('sec2'); lista = true; return;
+    }
+    const h = new Date(), dd = n => String(n).padStart(2, '0');
+    document.getElementById('nombre').value = 'Zona ' + dd(h.getDate()) + '/' + dd(h.getMonth() + 1) + ' ' + dd(h.getHours()) + ':' + dd(h.getMinutes());
+    reinicia(); $b.disabled = true; $t.textContent = 'Empezando…';
+    clearInterval(reloj);
+    reloj = setInterval(() => {
+      const a = document.getElementById('prog-txt').textContent, e = document.getElementById('prog-err').textContent;
+      if (bajando) $t.textContent = 'Mapas: ' + (a || '…') + (e ? ' — ' + e : '');
+      else { clearInterval(reloj); $b.disabled = false; if (/^(Mapas:|Empezando)/.test($t.textContent)) $t.textContent = e || 'Mapas guardados. Bajando los senderos…'; }
+    }, 400);
+    descarga();
+  };
+}
 
 function modoEncimaOn(si) {   // se conserva por compatibilidad con el estado guardado
   modoEncima = si;
@@ -2372,6 +2417,16 @@ async function descarga() {
   }
   bajando = false; $btn.disabled = false;
   pintaAlmacen();
+  /* v98: los senderos de OpenStreetMap se bajan SOLOS con la zona (antes era un paso aparte que se olvidaba).
+     Si ya hay un paquete que cubre la zona entera, no se repite. */
+  if (hechos > 0 && !cancelado && !sinCuota) {
+    const S = bounds.getSouth(), W = bounds.getWest(), N = bounds.getNorth(), E = bounds.getEast();
+    const cubierta = leeSendas().some(f => f.bbox && !f.poly && f.bbox[0] <= S + 1e-4 && f.bbox[1] <= W + 1e-4 && f.bbox[2] >= N - 1e-4 && f.bbox[3] >= E - 1e-4);
+    if (!cubierta) descargaSendas(bounds, nom).then(() => {
+      const t = document.getElementById('sendas-prog').textContent;
+      if (t) { avisa('Senderos: ' + t); const $r = document.getElementById('pm-baja-txt'); if ($r) $r.textContent = 'Mapas listos. Senderos: ' + t; }
+    });
+  }
   if (sinCuota)       avisa('Almacenamiento lleno — se guarda lo que cupo');
   else if (cancelado) avisa('Descarga cancelada — se guarda lo bajado');
   else if (fallos === urls.length) avisa('No se pudo descargar nada. ¿Tienes conexión?');
@@ -7372,7 +7427,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v95';
+const VERSION = 'v98';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
