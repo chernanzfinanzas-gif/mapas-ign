@@ -1584,13 +1584,14 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       </label>
       <button class="sec" id="btn-boletin">Ver el boletín</button>
       <h4>Peligro de aludes</h4>
-      <p class="pista">El parte de nieve y aludes de AEMET, en temporada de nieve. Con la clave solo se pueden traer los del Pirineo; los de Guadarrama y Picos de Europa se abren en la web de AEMET.</p>
+      <p class="pista">El parte de nieve y aludes de AEMET, en temporada de nieve. Los del Pirineo se traen a la app y se guardan; los demás se abren como PDF de AEMET (hace falta cobertura). Mira siempre la fecha del parte: fuera de temporada queda colgado el último del invierno anterior.</p>
       <label class="campo">Zona
         <select id="aludes-zona">
           <option value="1">Pirineo navarro y aragonés</option>
           <option value="0">Pirineo catalán</option>
-          <option value="web:mad2">Sierra de Guadarrama (abre AEMET)</option>
-          <option value="web:peu1">Picos de Europa (abre AEMET)</option>
+          <option value="pdf:BPA_PN_Guadarrama">Sierra de Guadarrama (PDF de AEMET)</option>
+          <option value="pdf:BPA_PN_Picos_Europa">Picos de Europa (PDF de AEMET)</option>
+          <option value="pdf:BPA_sierra_Cordel_PLabra">Sierras del Cordel y Peña Labra (PDF de AEMET)</option>
         </select>
       </label>
       <button class="sec" id="btn-aludes">Ver el parte de aludes</button>
@@ -7605,7 +7606,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v109';
+const VERSION = 'v110';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7627,7 +7628,7 @@ function montaBloques() {
   const ver = document.createElement('div'); ver.className = 'fila vermos'; ver.innerHTML = '<span>Ver</span>';
   ['tog-gpx', 'tog-rutas', 'tog-sendas'].forEach(i => { const l = document.getElementById(i).closest('label'); if (l) ver.appendChild(l); });
   mapaSec.querySelector('.cuerpo').appendChild(ver);
-  if (!(navigator.maxTouchPoints > 0)) {
+  if (!(navigator.maxTouchPoints > 0) || matchMedia('(hover:hover) and (pointer:fine)').matches) {   // v110: un portátil con pantalla táctil también es ordenador
     document.body.classList.add('sintacto');
     /* v108, ordenador: el punto se coloca con un clic en el mapa (aquí no hay GPS que valga) y va junto al selector de mapas */
     const $pt = document.getElementById('tog-punto'); document.getElementById('selectores').appendChild($pt);
@@ -8007,7 +8008,7 @@ function pintaAludesGuardado(abrir) {
 async function verAludes() {
   const $b = document.getElementById('btn-aludes'), $s = document.getElementById('aludes-sal');
   const zona = document.getElementById('aludes-zona').value;
-  if (zona.indexOf('web:') === 0) { window.open('https://www.aemet.es/es/eltiempo/prediccion/montana?p=' + zona.slice(4), '_blank', 'noopener'); return; }
+  if (zona.indexOf('pdf:') === 0) { window.open('https://www.aemet.es/documentos/es/eltiempo/prediccion/montana/boletin_peligro_aludes/' + zona.slice(4) + '.pdf', '_blank', 'noopener'); return; }
   const clave = claveAemet();
   if (!clave) { $s.innerHTML = '<div class="viejo">Falta la clave de AEMET.</div>'; return; }
   $b.disabled = true; $s.innerHTML = '<div class="pista">Pidiendo el parte…</div>';
@@ -8153,7 +8154,7 @@ function abrePor(texto) {
     $c.textContent = t; $c.style.color = t.charAt(0) === '⚠' ? '#b3261e' : ''; };
   if ($ac) { $ac.addEventListener('change', () => { const v = $ac.value.trim(); if (v) guarda(LS_AEMET, v); cadAemet(); }); cadAemet(true); pintaAludesGuardado();
     const c = mapa.getCenter(), $z = document.getElementById('aludes-zona');
-    if ($z) $z.value = (c.lat > 42.2 && c.lng > -2) ? (c.lng < 0.75 ? '1' : '0') : (c.lat > 42.8 && c.lng < -4) ? 'web:peu1' : 'web:mad2'; }
+    if ($z) $z.value = (c.lat > 42.2 && c.lng > -2) ? (c.lng < 0.75 ? '1' : '0') : (c.lat > 42.8 && c.lng < -4) ? (c.lng > -4.6 ? 'pdf:BPA_sierra_Cordel_PLabra' : 'pdf:BPA_PN_Picos_Europa') : 'pdf:BPA_PN_Guadarrama'; }
   montaMacizos(); pintaTiempoGuardado(); pintaBoletinGuardado();
   /* los avisos: primero lo guardado, que es lo único que hay sin cobertura, y
      con eso ya se puede avisar; luego, si hay red, se mira si hay algo nuevo */
