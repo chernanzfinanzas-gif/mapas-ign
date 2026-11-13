@@ -40,6 +40,9 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;font:15p
 #base{position:absolute;bottom:18px;left:8px;z-index:1000;display:flex;gap:4px}
 #base button,#loc{border:0;border-radius:6px;padding:6px 9px;font:600 12px system-ui;background:#fff;box-shadow:0 1px 4px #0004;cursor:pointer}
 #base button.on{background:#1d2125;color:#fff}
+#mezcla{position:absolute;left:8px;bottom:56px;z-index:1250;background:#fff;border-radius:10px;box-shadow:0 2px 10px #0005;padding:10px 12px;display:none;width:min(300px,calc(100vw - 32px));font:13px system-ui}
+#mezcla .fila{display:flex;align-items:center;gap:8px;margin-bottom:8px} #mezcla .fila span{width:52px;font-weight:600}
+#mezcla select{flex:1;min-width:0;padding:5px;border:1px solid #ccc;border-radius:6px;font:13px system-ui} #mezcla input{width:100%}
 #base #editar.on{background:#e8730c;color:#fff}
 body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e8730c;outline-offset:2px}
 #dlg{position:fixed;inset:0;background:#0007;z-index:3000;display:none;align-items:center;justify-content:center}
@@ -128,11 +131,23 @@ ul{padding-left:18px;margin:6px 0}
 const CAPAS = {h:{n:'Historia',c:'#8a5a2b',s:'🏛'}, n:{n:'Naturaleza',c:'#0f766e',s:'🌲'}, r:{n:'Rutas',c:'#3a3f45',s:'🥾'}, m:{n:'Mis rutas',c:'#c0157f',s:'👣'}, t:{n:'Turismo',c:'#7c3aed',s:'⭐'}, u:{n:'Útil',c:'#0284c7',s:'💧'}};
 const NIV = [{n:'Fácil',c:'#22a447',e:'🟢'},{n:'Moderada',c:'#1e6fd9',e:'🔵'},{n:'Difícil',c:'#d32f2f',e:'🔴'},{n:'Muy difícil',c:'#111111',e:'⚫'}];
 const IGN = (u)=>'https://www.ign.es/wmts/'+u+'&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}';
-const BASES = {
-  TOPO: L.tileLayer(IGN('mapa-raster?layer=MTN'),{maxZoom:19,maxNativeZoom:17,attribution:'© IGN'}),
-  FOTO: L.tileLayer(IGN('pnoa-ma?layer=OI.OrthoimageCoverage'),{maxZoom:19,attribution:'© IGN PNOA'}),
-  BASE: L.tileLayer(IGN('ign-base?layer=IGNBaseTodo'),{maxZoom:19,attribution:'© IGN'})
+/* Los MISMOS mapas que la App Mapas (13-nov): fondo + otro encima con transparencia */
+const OSMA='© OpenStreetMap', ESRI='https://server.arcgisonline.com/ArcGIS/rest/services/';
+const MAPAS = {
+  'IGN Topográfico': o=>L.tileLayer(IGN('mapa-raster?layer=MTN'),Object.assign({maxZoom:19,maxNativeZoom:17,attribution:'© IGN'},o)),
+  'IGN Ortofoto': o=>L.tileLayer(IGN('pnoa-ma?layer=OI.OrthoimageCoverage'),Object.assign({maxZoom:19,attribution:'© IGN PNOA'},o)),
+  'IGN Base': o=>L.tileLayer(IGN('ign-base?layer=IGNBaseTodo'),Object.assign({maxZoom:19,attribution:'© IGN'},o)),
+  'IGN 1915 (MTN 1ª edición)': o=>L.tileLayer.wms('https://www.ign.es/wms/primera-edicion-mtn?',Object.assign({layers:'MTN50',format:'image/jpeg',version:'1.3.0',maxZoom:19,maxNativeZoom:16,attribution:'© IGN'},o)),
+  'OpenStreetMap': o=>L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',Object.assign({maxZoom:19,attribution:OSMA},o)),
+  'Sendas+ (CyclOSM)': o=>L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',Object.assign({subdomains:'abc',maxZoom:19,attribution:OSMA+' · CyclOSM'},o)),
+  'TS Topo (Tracestrack)': o=>L.tileLayer('https://tile.tracestrack.com/topo_es/{z}/{x}/{y}.webp?key=12469969a3be5c23eae6aa0e36e806b1',Object.assign({maxZoom:19,attribution:OSMA+' · © Tracestrack'},o)),
+  'Hike (OpenHikingMap)': o=>L.tileLayer('https://tile.openmaps.fr/openhikingmap/{z}/{x}/{y}.png',Object.assign({maxZoom:19,maxNativeZoom:17,attribution:OSMA+' · openmaps.fr'},o)),
+  'GR/PR (senderos señalizados)': o=>L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',Object.assign({maxZoom:19,maxNativeZoom:18,attribution:'Waymarked Trails · '+OSMA},o)),
+  'Calles (Esri)': o=>L.tileLayer(ESRI+'World_Street_Map/MapServer/tile/{z}/{y}/{x}',Object.assign({maxZoom:19,attribution:'© Esri'},o)),
+  'Satélite (Esri)': o=>L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',Object.assign({maxZoom:19,attribution:'© Esri'},o))
 };
+const SOLO_ENCIMA = new Set(['GR/PR (senderos señalizados)']);
+const RAPIDOS = {TOPO:'IGN Topográfico', FOTO:'IGN Ortofoto', BASE:'IGN Base'};
 /* UNA sola capa de dibujo para todo: si algo (el abanico de un montón de fotos, un círculo…) creaba
    su propio lienzo, quedaba ENCIMA de las rutas y se comía los clics (13-nov). */
 const rend = L.canvas({padding:.3, tolerance:14});
@@ -160,7 +175,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov f';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov g';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -173,11 +188,30 @@ window.addEventListener('scroll', sinDesplazar, {passive:true}); document.body.a
 window.addEventListener('resize', ()=>setTimeout(()=>{ sinDesplazar(); map.invalidateSize(); },150));
 map.on('layeradd', ()=>setTimeout(()=>{ for (const c of map.getPane('overlayPane').querySelectorAll('canvas')) if (c!==rend._container) c.style.pointerEvents='none'; },0));
 try{ const h=location.hash.slice(1).split(',').map(Number); if(h.length===3&&h.every(isFinite)) map.setView([h[0],h[1]],Math.max(6,Math.min(16,h[2]))); }catch(e){}
-let base = BASES.TOPO.addTo(map);
+let fondoN='IGN Topográfico', encimaN='', opacidad=50;
+try { const g=localStorage.getItem('catFondo'); if (MAPAS[g] && !SOLO_ENCIMA.has(g)) fondoN=g; encimaN=localStorage.getItem('catEncima')||''; if(!MAPAS[encimaN]) encimaN=''; opacidad=+(localStorage.getItem('catOpac')||50); } catch(e) {}
+let base = MAPAS[fondoN]().addTo(map), encima = null;
+function ponFondo(n){ if(!MAPAS[n]) return; map.removeLayer(base); base=MAPAS[n]().addTo(map); base.bringToBack(); fondoN=n;
+  try{localStorage.setItem('catFondo',n);}catch(e){} marcaRapidos(); const s=document.getElementById('mzBase'); if(s) s.value=n; }
+function ponEncima(n){ if(encima){ map.removeLayer(encima); encima=null; } encimaN=n||'';
+  if(encimaN) encima=MAPAS[encimaN]({zIndex:5, opacity:opacidad/100}).addTo(map);
+  try{localStorage.setItem('catEncima',encimaN);}catch(e){} const r=document.getElementById('mzOp'); if(r) r.style.display=encimaN?'':'none'; marcaRapidos(); }
+function marcaRapidos(){ const $b=document.getElementById('base'); if(!$b) return; for(const x of $b.children){ if(x.dataset.b) x.className = RAPIDOS[x.textContent]===fondoN ? 'on' : ''; if(x.id==='mapas') x.classList.toggle('on', !RAPIDOS[Object.keys(RAPIDOS).find(k=>RAPIDOS[k]===fondoN)] || !!encimaN); } }
 setTimeout(()=>{ const e=document.createElement('button'); e.id='editar'; e.textContent='✏️'; e.title='Modo edición: mover los lugares a su sitio'; e.onclick=editar; document.getElementById('base').appendChild(e); },0);
 const $base = document.getElementById('base');
-for (const k in BASES){ const b=document.createElement('button'); b.textContent=k; b.dataset.b=1; if(k==='TOPO')b.className='on';
-  b.onclick=()=>{map.removeLayer(base); base=BASES[k].addTo(map); [...$base.children].filter(x=>x.dataset.b).forEach(x=>x.className=x===b?'on':'');}; $base.appendChild(b); }
+for (const k in RAPIDOS){ const b=document.createElement('button'); b.textContent=k; b.dataset.b=1; b.onclick=()=>ponFondo(RAPIDOS[k]); $base.appendChild(b); }
+{ const b=document.createElement('button'); b.id='mapas'; b.textContent='🗺 Mapas'; b.title='Elegir el mapa de fondo y poner otro encima, con transparencia';
+  b.onclick=()=>{ const p=document.getElementById('mezcla'); p.style.display = p.style.display==='block' ? 'none' : 'block'; }; $base.appendChild(b);
+  const p=document.createElement('div'); p.id='mezcla';
+  const ops=(sinSolo)=>Object.keys(MAPAS).filter(k=>!(sinSolo&&SOLO_ENCIMA.has(k))).map(k=>'<option>'+k+'</option>').join('');
+  p.innerHTML='<div class="fila"><span>Fondo</span><select id="mzBase">'+ops(true)+'</select></div><div class="fila"><span>Encima</span><select id="mzSel"><option value="">ninguno</option>'+ops(false)+'</select></div><input type="range" id="mzOp" min="0" max="100" step="5" title="Transparencia del mapa de encima">';
+  document.body.appendChild(p); L.DomEvent.disableClickPropagation(p); L.DomEvent.disableScrollPropagation(p);
+  const sb=p.querySelector('#mzBase'), se=p.querySelector('#mzSel'), r=p.querySelector('#mzOp');
+  sb.value=fondoN; se.value=encimaN; r.value=opacidad;
+  sb.onchange=()=>ponFondo(sb.value); se.onchange=()=>ponEncima(se.value);
+  r.oninput=()=>{ opacidad=+r.value; if(encima) encima.setOpacity(opacidad/100); try{localStorage.setItem('catOpac',r.value);}catch(e){} };
+  map.on('click',()=>{ p.style.display='none'; }); }
+ponEncima(encimaN); marcaRapidos();
 /* Mapa suave: el fondo más pálido para que destaquen rutas y puntos */
 { let suave = true; try { suave = localStorage.getItem('mapaSuave') !== '0'; } catch(e) {}
   const b = document.createElement('button'), $m = document.getElementById('map');
@@ -536,7 +570,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov f</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov g</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
