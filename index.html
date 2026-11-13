@@ -941,6 +941,10 @@ body.ancha #hoja #pm-nom{width:100%;box-sizing:border-box;margin:0 0 4px}
 #ayuda-bt{display:none} body.ancha #ayuda-bt{display:inline-block;margin-left:auto;margin-right:8px;border:1px solid var(--linea);background:none;border-radius:999px;padding:2px 9px;font:inherit;font-size:12px;color:#6b6862;cursor:pointer}
 body.ancha #hoja.conayuda #ayuda-bt{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #hoja .oculto-pc{display:none!important}
+body.ancha #hoja .dosb{display:flex;gap:6px;margin:3px 0} body.ancha #hoja .dosb>button{flex:1 1 0;min-width:0;width:auto;margin:0;padding:7px 6px;font-size:13px;line-height:1.2}
+body.ancha #hoja #pm-baja{border-radius:9px} body.ancha #hoja #pm-envia{border-radius:9px;border:1px solid var(--verde);background:#fff;color:var(--verde);font-weight:600;cursor:pointer}
+body.ancha #hoja .dosb>button.prim{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
+body.ancha #hoja #estimacion{font-size:12px;margin:6px 0 2px;color:#5d5a53}
 body.ancha #hoja section.masop{flex:0 0 100%;padding-top:4px}
 #almacen{font-size:12px;line-height:1.45;color:#6b6861}
 body.ancha #hoja section.sintit h3{display:none} body.ancha #hoja section.sintit{padding-bottom:4px}
@@ -1687,6 +1691,8 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <button class="sec" id="btn-pub-rutas" hidden>Publicar las rutas añadidas</button>
       <div id="renom-cuenta" class="pista" hidden></div>
       <button class="sec" id="btn-renom" hidden>Descargar los nombres que quedaron corregidos aquí</button>
+      <button class="sec" id="btn-hecha-suelta" title="Para un GPX antiguo que no pasó por el reloj: las rutas nuevas llegan solas con «Rutas al día»">Añadir a mano un GPX antiguo…</button>
+      <p class="pista">Solo para tracks viejos que no vienen del reloj. Las rutas nuevas entran solas desde Garmin con «Rutas al día». Usa el token de GitHub de la sección de senderos.</p>
     </section>
 
     <section>
@@ -1745,8 +1751,6 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <ul id="gpx-lista"></ul>
       <div id="obj-estado" class="pista"></div>
       <button class="sec" id="btn-pub-obj" hidden>Subirlos todos al repositorio</button>
-      <button class="sec" id="btn-hecha-suelta">Añadir una ruta ya hecha…</button>
-      <p class="pista">Usa el mismo token de GitHub de la sección de senderos.</p>
     </section>
 
     <section>
@@ -2238,7 +2242,8 @@ mapa.on('click', () => { if (!bajando) $pm.hidden = true; });
   setTimeout(aplica, 1200); }
 /* v98: «Descargar esta pantalla» — primer toque: dice cuánto pesa; segundo toque: baja mapas y senderos */
 { const $b = document.getElementById('pm-baja'), $t = document.getElementById('pm-baja-txt'); let lista = false, reloj = null;
-  const reinicia = () => { lista = false; $b.textContent = '⤓ Descargar esta pantalla'; $b.classList.remove('sec2'); };
+  const reinicia = () => { lista = false; $b.textContent = zonaDibujada ? '⤓ Descargar la zona dibujada' : '⤓ Descargar esta pantalla'; $b.classList.remove('sec2'); };
+  window._reiniciaBaja = reinicia;
   mapa.on('movestart', () => { if (lista && !bajando) { reinicia(); $t.textContent = ''; } });
   $b.onclick = () => {
     if (bajando) return;
@@ -5742,7 +5747,7 @@ document.getElementById('pl-bajar').onclick = () => {
 document.getElementById('btn-sendas-dibujo').onclick = () => abreDibujo('sendas');
 document.getElementById('btn-zona-dibujo').onclick   = () => abreDibujo('zonas');
 document.getElementById('dib-deshacer').onclick = () => { verticesDib.pop(); pintaDib(); };
-document.getElementById('dib-cancelar').onclick = cierraDibujo;
+document.getElementById('dib-cancelar').onclick = () => { window._dibParaMovil = false; cierraDibujo(); };
 document.getElementById('dib-bajar').onclick = () => {
   const poly = poligonoDib(); if (!poly) return;
   const nom = (document.getElementById('dib-nombre').value || '').trim();
@@ -5755,10 +5760,13 @@ document.getElementById('dib-bajar').onclick = () => {
        detalle en el panel, viendo la estimación en MB antes de confirmar */
     zonaDibujada = b; polyDibujado = poly;
     abrePor('Descargar la zona');
-    if (nom) document.getElementById('nombre').value = nom;
+    if (nom) { document.getElementById('nombre').value = nom; document.getElementById('pm-nom').value = nom; }
     pintaZonaDibujada();
     pintaEstima();
-    avisa('Zona fijada: elige capas y detalle, y descarga');
+    if (window._dibParaMovil) {   // v112: «Dibujar zona al móvil» — al terminar de dibujar se manda sola y se olvida la zona
+      window._dibParaMovil = false;
+      Promise.resolve(document.getElementById('pm-envia').onclick()).then(() => olvidaZonaDibujada());
+    } else avisa(document.body.classList.contains('ancha') ? 'Zona fijada: pulsa «Descargar la zona dibujada»' : 'Zona fijada: elige capas y detalle, y descarga');
   } else {
     document.getElementById('sendas-nombre').value = nom;
     abrePor('Senderos de OpenStreetMap');
@@ -5773,6 +5781,8 @@ function pintaZonaDibujada() {
   if (capaZonaDib) { mapa.removeLayer(capaZonaDib); capaZonaDib = null; }
   const $q = document.getElementById('quitar-zona-dib');
   if ($q) $q.hidden = !zonaDibujada;
+  if (window._reiniciaBaja && !bajando) window._reiniciaBaja();
+  { const $e = document.getElementById('pm-envia'); if ($e && document.body.classList.contains('ancha')) $e.textContent = zonaDibujada ? '📲 Zona dibujada al móvil' : '📲 Esta pantalla al móvil'; }
   if (!zonaDibujada) return;
   capaZonaDib = (polyDibujado ? L.polygon(polyDibujado, { color:'#2f6b4f', weight:2, dashArray:'6,4',
       fillColor:'#2f6b4f', fillOpacity:.1, interactive:false })
@@ -7622,12 +7632,12 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v111';
+const VERSION = 'v113';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
 const ANCHA = matchMedia('(min-width:760px)').matches;
-const BLOQUES = { ver:['Visualización', /^(mapa$|legibilidad)/i], ruta:['Preparar ruta', /^(mis objetivos|esta pantalla|descargar la zona)/i],
+const BLOQUES = { ver:['Visualización', /^(mapa$|legibilidad)/i], ruta:['Preparar ruta', /^(mis objetivos|ruta nueva|esta pantalla|descargar la zona)/i],
   mis:['Rutas y zonas', /^(mis rutas|mis zonas|senderos)/i], tiempo:['Tiempo y seguridad', /^(el tiempo|seguridad)/i], mas:['Ajustes', /^(manual|acerca de)/i] };
 let bloqueAbierto = null;
 function montaBloques() {
@@ -7666,6 +7676,21 @@ function montaBloques() {
   if (det) { det.classList.add('masop'); const h = det.querySelector('h3'); h.textContent = 'Más opciones: nivel de detalle o dibujar la zona';
     h.addEventListener('click', e => { e.stopPropagation(); det.classList.toggle('abta'); }, true); }
   { const man = document.getElementById('btn-manual').closest('section'); if (man) man.classList.add('sintit'); }
+  /* v112: «Descargar o mandar al móvil» — nombre, foto aérea, detalle, y dos filas de dos botones; debajo, tamaño y progreso.
+     La descarga detallada de antes sobra: su botón de dibujar, el detalle y la estimación viven ahora aquí. */
+  { const $ = i => document.getElementById(i), esta = $('pm-baja').closest('section'), c = esta.querySelector('.cuerpo'), det = $('descargar').closest('section');
+    const fila = (...ns) => { const d = document.createElement('div'); d.className = 'dosb'; ns.forEach(n => d.appendChild(n)); return d; };
+    esta.querySelector('h3').textContent = 'Descargar o mandar al móvil';
+    const dibMov = document.createElement('button'); dibMov.id = 'pm-dib-envia'; dibMov.className = 'sec'; dibMov.textContent = '✏️ Dibujar zona al móvil';
+    dibMov.onclick = () => { if (!tokenGh()) { $('pm-baja-txt').textContent = 'Para mandar zonas al móvil falta el token de GitHub (Rutas y zonas → Senderos).'; return; } window._dibParaMovil = true; abreDibujo('zonas'); };
+    $('btn-zona-dibujo').textContent = '✏️ Dibujar zona a descargar'; $('btn-zona-dibujo').addEventListener('click', () => { window._dibParaMovil = false; }, true);
+    $('pm-envia').textContent = '📲 Esta pantalla al móvil'; $('quitar-zona-dib').textContent = 'Olvidar la zona dibujada';
+    [$('pm-nom'), $('pm-foto-caja'), $('zmax').closest('label'), fila($('pm-baja'), $('btn-zona-dibujo')), fila($('pm-envia'), dibMov),
+     $('quitar-zona-dib'), $('estimacion'), $('pm-baja-txt'), $('progreso')].forEach(n => n && c.appendChild(n));
+    if (det) det.classList.add('oculto-pc');
+    const o = $('btn-gpx'); if (o) { const f2 = fila(); o.parentNode.insertBefore(f2, o); f2.appendChild($('btn-planificar')); f2.appendChild(o);   // v113: dibujar va primero y destacado
+      o.textContent = '📂 Cargar un GPX…'; $('btn-planificar').textContent = '✏️ Dibujar ruta nueva'; $('btn-planificar').classList.add('prim');
+      o.closest('section').querySelector('h3').textContent = 'Ruta nueva y objetivos'; } }
   /* v111: botón «ⓘ Ayuda» en la cabecera: enseña u oculta las explicaciones de cada apartado */
   { const ay = document.createElement('button'); ay.id = 'ayuda-bt'; ay.textContent = 'ⓘ Ayuda'; ay.title = 'Mostrar u ocultar las explicaciones';
     try { if (localStorage.getItem('ign.ayuda') === '1') hoja.classList.add('conayuda'); } catch (e) {}
@@ -7677,6 +7702,7 @@ function montaBloques() {
     if (seg) { let ver = false; [...seg.querySelector('.cuerpo').children].forEach(n => { if (n.tagName === 'H4') ver = /^puntos marcados/i.test(n.textContent.trim()); if (!ver || n.tagName === 'H4') n.classList.add('oculto-pc'); });
       seg.querySelector('h3').textContent = 'Puntos marcados (waypoints)'; seg.dataset.bloque = 'ruta';
       const esta = document.getElementById('pm-baja').closest('section'); if (esta) hoja.insertBefore(seg, esta); }
+    { const leg = [...hoja.querySelectorAll('section')].find(x => /^legibilidad/i.test(x.querySelector('h3').textContent.trim())); if (leg) leg.classList.add('oculto-pc'); }   // v112: en ordenador no hace falta
     BLOQUES.tiempo[0] = 'Tiempo'; const bt = document.querySelector('#bloques button[data-b="tiempo"]'); if (bt) { bt.querySelector('.lg').textContent = 'Tiempo'; } }
   document.querySelectorAll('#bloques button').forEach(b => b.onclick = () => abreBloque(b.dataset.b, true));
   document.getElementById('sel-mapas').onclick = () => abreBloque('ver', true);
@@ -7701,7 +7727,7 @@ function abreBloque(k, alterna) {
   document.querySelector('#hoja .cab b').textContent = BLOQUES[k][0];
   const bt = document.querySelector('#bloques button[data-b="' + k + '"]'), r = bt.getBoundingClientRect();
   if (k === 'ver') pintaPanelMapas();
-  { const n = Math.min(3, document.querySelectorAll('#hoja section.enbloque:not(.masop)').length || 1);   // v111: una columna por sección
+  { const n = Math.min(3, document.querySelectorAll('#hoja section.enbloque:not(.masop):not(.oculto-pc)').length || 1);   // v111: una columna por sección
     $panel.style.width = Math.min(innerWidth - 16, n * 350 + (n - 1) * 22 + 30) + 'px'; }
   $panel.classList.add('abierto'); $panel.style.left = '8px';
   $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - $panel.offsetWidth - 8)) + 'px'; document.getElementById('hoja').scrollTop = 0;
