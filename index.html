@@ -907,6 +907,18 @@ img.leaflet-tile{image-rendering:auto}
 #barra-zoom:not(.abierto) input{display:none}
 @media (max-height:640px){ #barra-zoom input{height:124px} }
 #barra-opacidad[hidden]{display:none}
+/* 13-nov (v94): selector como el del catálogo — un botón «🗺 Mapas» que abre un panel con fondo,
+   mapa de encima y transparencia. La barra de transparencia de abajo ya no se usa. */
+#barra-opacidad{display:none!important}
+#sel-base[hidden],#sel-encima[hidden]{display:none}
+#panel-mapas{position:absolute;top:calc(146px + var(--safe-t));left:8px;z-index:660;width:min(340px,calc(100vw - 16px));
+  background:rgba(253,252,250,.98);border:1px solid var(--linea);border-radius:14px;box-shadow:0 8px 26px rgba(0,0,0,.2);padding:12px 12px 6px}
+#panel-mapas[hidden]{display:none}
+#panel-mapas .fila{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+#panel-mapas .fila span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
+#panel-mapas select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
+#panel-mapas input{flex:1;margin:0;accent-color:var(--verde);height:26px}
+#pm-op-val{font-size:12px;min-width:34px;text-align:right;color:#5d5a53}
 #barra-opacidad .et{font-size:12px;font-weight:600;color:#5d5a53;flex:0 0 auto}
 #opacidad-val{font-size:12px;font-variant-numeric:tabular-nums;color:#5d5a53;flex:0 0 auto;min-width:34px;text-align:right}
 #opacidad{flex:1 1 auto;width:100%;margin:0;accent-color:var(--verde);height:26px}
@@ -1350,11 +1362,17 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <button class="tog urg" id="tog-sos" title="Pantalla de emergencia">SOS</button>
 </div>
 <div id="selectores">
-  <button class="sel" id="sel-base"><span class="et">Mapa</span><b>TOPO</b></button>
-  <button class="sel" id="sel-encima"><span class="et">Encima</span><b>ninguna</b></button>
+  <button class="sel" id="sel-mapas"><span class="et">🗺 Mapas</span><b id="sel-mapas-txt">TOPO</b></button>
+  <button class="sel" id="sel-base" hidden><span class="et">Mapa</span><b>TOPO</b></button>
+  <button class="sel" id="sel-encima" hidden><span class="et">Encima</span><b>ninguna</b></button>
 </div>
 <button class="tog rec" id="tog-rec" title="Empezar a grabar la ruta"><span class="pt"></span><span class="tx">Grabar</span></button>
 <div id="menu-capas" hidden></div>
+<div id="panel-mapas" hidden>
+  <div class="fila"><span>Fondo</span><select id="pm-base"></select></div>
+  <div class="fila"><span>Encima</span><select id="pm-encima"></select></div>
+  <div class="fila"><span>Transp.</span><input type="range" id="pm-op" min="0" max="100" step="5" aria-label="Transparencia del mapa de encima"><b id="pm-op-val"></b></div>
+</div>
 
 <div id="barra-dibujo" hidden>
   <div class="ln0"><span id="dib-que">Mapas del IGN</span></div>
@@ -1974,6 +1992,8 @@ function marcaChips() {
   $e.querySelector('b').textContent = e ? e.corto + '  ' + Math.round(opacidad * 100) + '%' : 'ninguna';
   $e.classList.toggle('puesta', !!e);
   if (!document.getElementById('menu-capas').hidden) pintaMenuCapas(menuAbierto);
+  const $t = document.getElementById('sel-mapas-txt');
+  if ($t) $t.textContent = (a ? a.corto : '—') + (e ? ' + ' + e.corto + ' ' + Math.round(opacidad * 100) + '%' : '');
 }
 
 let menuAbierto = null;      // 'base' | 'encima' | null
@@ -2074,6 +2094,38 @@ document.getElementById('tog-rutas').onchange = ev => {
 document.getElementById('sel-base').onclick   = () => abreMenuCapas('base');
 document.getElementById('sel-encima').onclick = () => abreMenuCapas('encima');
 mapa.on('click movestart', cierraMenuCapas);
+/* 13-nov (v94): panel «🗺 Mapas» — fondo, encima y transparencia juntos, como en el catálogo */
+const $pm = document.getElementById('panel-mapas');
+function pintaPanelMapas() {
+  const ida = capaActiva && capaActiva.options.cfg.id, ide = capaEncima && capaEncima.options.cfg.id;
+  const op = cfg => {
+    const notas = [];
+    if (cfg.soloOnline) notas.push('solo con datos');
+    if (!cfg.soloOnline && zonaMarcada && !zonaMarcada.capas.includes(cfg.id)) notas.push('no descargada aquí');
+    return '<option value="' + cfg.id + '">' + cfg.nombre + ' (' + cfg.corto + ')' + (notas.length ? ' — ' + notas.join(', ') : '') + '</option>';
+  };
+  document.getElementById('pm-base').innerHTML = CAPAS.map(op).join('');
+  document.getElementById('pm-encima').innerHTML = '<option value="">ninguno</option>' + CAPAS.map(op).join('');
+  document.getElementById('pm-base').value = ida || '';
+  document.getElementById('pm-encima').value = ide || '';
+  document.getElementById('pm-op').value = Math.round(opacidad * 100);
+  document.getElementById('pm-op').closest('.fila').style.display = ide ? '' : 'none';
+  document.getElementById('pm-op-val').textContent = Math.round(opacidad * 100) + '%';
+}
+document.getElementById('sel-mapas').onclick = () => {
+  if (!$pm.hidden) { $pm.hidden = true; return; }
+  cierraMenuCapas(); pintaPanelMapas(); $pm.hidden = false;
+};
+document.getElementById('pm-base').onchange = e => { ponCapa(e.target.value); pintaPanelMapas(); };
+document.getElementById('pm-encima').onchange = e => {
+  const id = e.target.value;
+  if (!id) quitaEncima();
+  else if (!(capaEncima && capaEncima.options.cfg.id === id)) ponCapaEncima(id);
+  pintaPanelMapas();
+};
+document.getElementById('pm-op').oninput = e => { ponOpacidad(e.target.value / 100); document.getElementById('pm-op-val').textContent = e.target.value + '%'; };
+document.getElementById('pm-op').onchange = guardaEstado;
+mapa.on('click', () => { $pm.hidden = true; });
 
 function modoEncimaOn(si) {   // se conserva por compatibilidad con el estado guardado
   modoEncima = si;
@@ -7316,7 +7368,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v93';
+const VERSION = 'v94';
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
