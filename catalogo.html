@@ -73,6 +73,16 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #bus li small{color:var(--mu);margin-left:auto;text-align:right}
 #bus .tt{padding:6px 14px;font:700 11px system-ui;color:var(--mu);text-transform:uppercase;background:#f8f9fa;cursor:default}
 .pinloc{font-size:30px;line-height:30px;text-align:center;filter:drop-shadow(0 2px 2px #0007)}
+.fpin{width:44px;height:44px;border-radius:8px;border:2px solid #fff;box-shadow:0 1px 5px #0006;overflow:hidden;background:#ccc}
+.fpin img,.fpila img{width:100%;height:100%;object-fit:cover;display:block}
+.fpila{position:relative;width:58px;height:58px}
+.fpila span{position:absolute;inset:0;border-radius:8px;border:2px solid #fff;overflow:hidden;background:#ccc;box-shadow:0 1px 5px #0007}
+.fpila span:nth-child(1){transform:rotate(-9deg) translate(-5px,3px)} .fpila span:nth-child(2){transform:rotate(7deg) translate(5px,2px)}
+.fpila b{position:absolute;right:-8px;top:-8px;background:#0e7490;color:#fff;border-radius:999px;font:600 11.5px/1.5 system-ui;padding:0 6px;border:2px solid #fff}
+#fvis{position:fixed;inset:0;z-index:5000;background:#000e;display:none;flex-direction:column;align-items:center;justify-content:center}
+#fvis img{max-width:100vw;max-height:calc(100vh - 70px);object-fit:contain}
+#fvis .pie{color:#fff;font:14px system-ui;padding:8px 12px;text-align:center}
+#fvis button{position:absolute;background:#0008;color:#fff;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer}
 #aviso{position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:1200;background:#1d2125;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;box-shadow:0 2px 8px #0006;display:none;max-width:90vw;text-align:center}
 #aviso button{margin-left:8px;border:0;border-radius:6px;padding:4px 8px;font:600 13px system-ui;cursor:pointer}
 textarea.cl2{width:100%;height:180px;font:12px/1.35 ui-monospace,monospace;border:1px solid var(--li);border-radius:6px;padding:6px}
@@ -105,6 +115,7 @@ ul{padding-left:18px;margin:6px 0}
 <div id="info"></div>
 <div id="ley"></div>
 <div id="base"></div>
+<div id="fvis"><img id="fvimg" referrerpolicy="no-referrer" alt=""><div class="pie" id="fvpie"></div><button style="top:10px;right:10px" onclick="fvCierra()">✕</button><button style="left:8px;top:45%" onclick="fvPaso(-1)">‹</button><button style="right:8px;top:45%" onclick="fvPaso(1)">›</button></div>
 <div id="bus"><input id="busq" type="search" placeholder="Buscar sitio o localidad…" autocomplete="off"><ul id="busr"></ul></div>
 <div id="dlg"><div id="dlgc"></div></div>
 <button id="loc" title="Dónde estoy">◎</button>
@@ -255,6 +266,70 @@ $busq.addEventListener('keydown', e=>{
   if (e.key==='Enter' && lis.length) eligeBus(lis[Math.max(busSel,0)]);
 });
 map.on('click', cierraBus);
+
+/* ===== 📷 Mis fotos: las de la App Fotos (índice cifrado + llave de pCloud de ESTE aparato).
+   Sin la llave no se ve nada: el índice va cifrado y las miniaturas las sirve pCloud con la llave. ===== */
+const NUBE = {host:'eapi.pcloud.com',auth:'',param:'auth',clave:'',raiz:'/Catalogo Fotos/30_BIBLIOTECA/'};
+try { NUBE.host=localStorage.getItem('pcHost')||NUBE.host; NUBE.auth=localStorage.getItem('pcAuth')||''; NUBE.param=localStorage.getItem('pcParam')||'auth'; NUBE.clave=localStorage.getItem('pcClave')||''; } catch(e) {}
+const PROVF = new Set();
+const fRaiz = r => PROVF.has(r.split('/')[0]) ? '/Catalogo Fotos/FOTOS POR CATALOGAR/' : NUBE.raiz;
+const fMini = (r,t) => 'https://'+NUBE.host+'/getthumb?'+NUBE.param+'='+encodeURIComponent(NUBE.auth)+'&path='+encodeURIComponent(fRaiz(r)+r)+'&size='+(t||'400x400')+'&crop=0&type=jpeg';
+const fImg = r => '<img referrerpolicy="no-referrer" loading="lazy" src="'+fMini(r).replace(/"/g,'&quot;')+'">';
+let FOTOSC = null, fCapa = null, fCalor = null, fOn = false, fVis = [], fK = 0;
+async function leeFotos(){
+  const b64=s=>{ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); };
+  const m=await crypto.subtle.importKey('raw',b64(NUBE.clave),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const der=async t=>new Uint8Array(await crypto.subtle.sign('HMAC',m,new TextEncoder().encode(t)));
+  const ke=await der('enc'), km=await der('mac');
+  const r=await fetch('fotos/indice.bin',{cache:'no-cache'}); if(!r.ok) throw new Error('no encuentro el índice de fotos');
+  const bl=new Uint8Array(await r.arrayBuffer()), cu=bl.slice(0,bl.length-32), et=bl.slice(bl.length-32);
+  const kmac=await crypto.subtle.importKey('raw',km,{name:'HMAC',hash:'SHA-256'},false,['verify']);
+  if(!await crypto.subtle.verify('HMAC',kmac,et,cu)) throw new Error('la llave de fotos de este aparato no sirve para este índice');
+  const ka=await crypto.subtle.importKey('raw',ke,{name:'AES-CTR'},false,['decrypt']);
+  const gz=await crypto.subtle.decrypt({name:'AES-CTR',counter:cu.slice(5,21),length:32},ka,cu.slice(21));
+  const tx=await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  const D=JSON.parse(tx.slice(14).replace(/;\s*$/,''));
+  (D.provisionales||[]).forEach(a=>PROVF.add(a));
+  return D.fotos.filter(f=>f[2]!=null && f[6]!=='v').map(f=>{ const p=f[0].split('/'), c=p.length>2?p[p.length-2]:p[0];
+    return {r:f[0], fe:f[1]||'', lat:f[2], lon:f[3], ev:c.replace(/^\d{6}\s+\d{2}\s+/,'').replace(/^\d{4}[-_]\d{2}[-_]\d{2}\s*/,''), c}; });
+}
+function cargaHeat(){ return window.L.heatLayer ? Promise.resolve() : new Promise((ok,mal)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js'; s.onload=ok; s.onerror=()=>mal(new Error('sin conexión para el mapa de calor')); document.head.appendChild(s); }); }
+async function fotosOn(btn){
+  if (!NUBE.clave || !NUBE.auth){ avisa('📷 Este aparato no tiene la llave de la App Fotos. Abre el catálogo desde la app (botón 🥾), donde ya entra la App Fotos.',9000); fOn=false; btn.classList.add('off'); return; }
+  try {
+    btn.querySelector('small').textContent='…';
+    if (!FOTOSC){ [FOTOSC] = await Promise.all([leeFotos(), cargaHeat()]); }
+    btn.querySelector('small').textContent=FOTOSC.length.toLocaleString('es-ES');
+    if (!fCapa){
+      if (!map.getPane('fotos')){ map.createPane('fotos').style.zIndex=450; }   // por debajo de los puntos (600), encima de las rutas (400)
+      fCapa=L.markerClusterGroup({clusterPane:'fotos',showCoverageOnHover:false,maxClusterRadius:60,
+        iconCreateFunction:c=>{ const ms=c.getAllChildMarkers(); return L.divIcon({className:'',iconSize:[58,58],iconAnchor:[29,29],
+          html:'<div class="fpila">'+ms.slice(0,3).map(m=>'<span>'+fImg(FOTOSC[m.k].r)+'</span>').join('')+'<b>'+ms.length.toLocaleString('es-ES')+'</b></div>'}); }});
+      FOTOSC.forEach((f,k)=>{ const m=L.marker([f.lat,f.lon],{pane:'fotos',icon:L.divIcon({className:'',iconSize:[44,44],iconAnchor:[22,22],html:'<div class="fpin">'+fImg(f.r)+'</div>'})}); m.k=k; m.on('click',()=>fvAbre(k)); fCapa.addLayer(m); });
+      fCalor=L.heatLayer(FOTOSC.map(f=>[f.lat,f.lon,1]),{radius:16,blur:20,maxZoom:13,minOpacity:0.35,gradient:{0.2:'#2c7bb6',0.4:'#00a6ca',0.6:'#90eb9d',0.8:'#f9d057',1:'#d7191c'}});
+      map.on('zoomend',fAjusta);
+    }
+    fAjusta();
+  } catch(e){ avisa('📷 '+e.message,8000); fOn=false; btn.classList.add('off'); btn.querySelector('small').textContent=''; }
+}
+function fAjusta(){
+  if (!fCapa) return;
+  const lejos = map.getZoom()<10;
+  if (fOn && lejos){ if(!map.hasLayer(fCalor)) map.addLayer(fCalor); if(map.hasLayer(fCapa)) map.removeLayer(fCapa); }
+  else if (fOn){ if(map.hasLayer(fCalor)) map.removeLayer(fCalor); if(!map.hasLayer(fCapa)) map.addLayer(fCapa); }
+  else { if(map.hasLayer(fCalor)) map.removeLayer(fCalor); if(map.hasLayer(fCapa)) map.removeLayer(fCapa); }
+  if (fCalor && fCalor._canvas) fCalor._canvas.style.pointerEvents='none';   // que el calor no se coma los clics de las rutas
+}
+function fvAbre(k){ const f=FOTOSC[k]; fVis=FOTOSC.map((x,i)=>i).filter(i=>FOTOSC[i].c===f.c).sort((a,b)=>FOTOSC[a].fe.localeCompare(FOTOSC[b].fe)); fK=fVis.indexOf(k); fvPinta(); document.getElementById('fvis').style.display='flex'; }
+function fvPinta(){ const f=FOTOSC[fVis[fK]]; document.getElementById('fvimg').src=fMini(f.r,'2048x1024');
+  document.getElementById('fvpie').textContent=f.ev+' · '+(f.fe||'').slice(0,10)+'  ('+(fK+1)+' de '+fVis.length+')'; }
+function fvPaso(d){ fK=(fK+d+fVis.length)%fVis.length; fvPinta(); const f=FOTOSC[fVis[fK]]; }
+function fvCierra(){ document.getElementById('fvis').style.display='none'; document.getElementById('fvimg').src=''; }
+document.addEventListener('keydown',e=>{ if(document.getElementById('fvis').style.display!=='flex') return; if(e.key==='Escape') fvCierra(); if(e.key==='ArrowRight') fvPaso(1); if(e.key==='ArrowLeft') fvPaso(-1); });
+{ const b=document.createElement('button'); b.className='chip off'; b.innerHTML='📷 Mis fotos <small></small>'; b.title='Tus fotos geolocalizadas (App Fotos)';
+  b.onclick=()=>{ fOn=!fOn; b.classList.toggle('off',!fOn); try{localStorage.setItem('catFotos',fOn?'1':'0');}catch(e){} if(fOn) fotosOn(b); else fAjusta(); };
+  $bar.appendChild(b);
+  try { if (localStorage.getItem('catFotos')==='1'){ fOn=true; b.classList.remove('off'); fotosOn(b); } } catch(e) {} }
 
 /* Tracks: solo desde zoom 12 y solo los que se ven */
 const lineas = L.layerGroup().addTo(map), rend = L.canvas({padding:.3, tolerance:14});
@@ -423,7 +498,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 12-nov m</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov b</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
