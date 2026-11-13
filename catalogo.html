@@ -15,7 +15,7 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;font:15p
 #map{position:fixed;inset:0;background:#fff}
 #map.suave2 .leaflet-tile-pane{filter:saturate(.55) contrast(.85) brightness(1.08);opacity:.78}
 #map.suave1 .leaflet-tile-pane{filter:saturate(.8) contrast(.93) brightness(1.04);opacity:.9}
-#bar{position:absolute;top:8px;left:8px;right:8px;z-index:1000;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+#bar{position:absolute;top:54px;left:8px;right:56px;z-index:1000;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
 .forma{margin:8px 0;padding:8px 10px;border-radius:10px;border-left:5px solid;font-size:14px;line-height:1.35;background:#f6f6f4}
 .forma b{display:block;font-size:15px}
 .forma.c,.forma.iv,.forma.ivt{border-color:#22a447}.forma.l{border-color:#e8730c;background:#fff4e8}.forma.x{border-color:#9aa0a6;background:#fffbe6}
@@ -93,6 +93,21 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 .apps a.aqui{background:#2f6b4f;color:#fff;cursor:default}
 .apps a .ic{font-size:15px}
 @media (max-width:640px){.apps a{padding:0 9px}.apps a:not(.aqui) .tx{display:none}}
+/* 13-nov: misma disposición que la app de Mapas — arriba [buscar][pestañas][GPS]; debajo, a la derecha, centrar y «qué hay cerca» */
+#top{position:absolute;top:8px;left:8px;right:8px;z-index:1001;display:flex;gap:6px;align-items:center;pointer-events:none}
+#top>*{pointer-events:auto}
+#buscar{flex:1 1 auto;min-width:0;height:40px;border:1px solid rgba(22,33,28,.16);border-radius:10px;background:#fbfaf7;box-shadow:0 1px 4px rgba(0,0,0,.22);font:600 14px system-ui;color:#57544e;text-align:left;padding:0 12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .apps{height:40px}
+#gps,#loc{width:40px;height:40px;flex:0 0 auto;border:1px solid rgba(22,33,28,.16);border-radius:10px;background:#fbfaf7;box-shadow:0 1px 4px rgba(0,0,0,.22);font:700 13px system-ui;color:#57544e;cursor:pointer;padding:0}
+#gps.on,#loc.on{background:#2f6b4f;border-color:#2f6b4f;color:#fff}
+#loc{position:absolute;top:54px;right:8px;bottom:auto;z-index:1000;font-size:22px;line-height:1}
+#cerca{position:absolute;top:100px;right:8px;bottom:auto;z-index:1000;height:40px;border:0;border-radius:10px;padding:0 12px;font:700 13.5px system-ui;background:#4f46e5;color:#fff;box-shadow:0 2px 8px #0006;cursor:pointer;display:flex;align-items:center;gap:2px}
+#cerca-n{display:none;margin-left:6px;background:#22a447;border-radius:999px;padding:1px 7px;font-size:12px}
+#cerca-n.hay{display:inline-block}
+#cor{display:none!important}
+.corlin{background:#e7f6ec;border:1px solid #22a447;border-radius:8px;padding:7px 10px;margin:8px 0;font-size:13.5px;font-weight:600;color:#17662f;cursor:pointer}
+.corlin.gris{background:#f3f4f6;border-color:#d1d5db;color:#4b5563;font-weight:500}
+@media (max-width:640px){ #cerca{width:40px;padding:0;justify-content:center;font-size:17px} #cerca .tx{display:none} #cerca-n{position:absolute;top:-6px;right:-6px;margin:0} #buscar span{display:none} #buscar{flex:1 1 40px} }
 #aviso{position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:1200;background:#1d2125;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px;box-shadow:0 2px 8px #0006;display:none;max-width:90vw;text-align:center}
 #aviso button{margin-left:8px;border:0;border-radius:6px;padding:4px 8px;font:600 13px system-ui;cursor:pointer}
 textarea.cl2{width:100%;height:180px;font:12px/1.35 ui-monospace,monospace;border:1px solid var(--li);border-radius:6px;padding:6px}
@@ -121,15 +136,16 @@ ul{padding-left:18px;margin:6px 0}
 </head>
 <body>
 <div id="map"></div>
-<div id="bar"><div role="navigation" class="apps" aria-label="Cambiar de pantalla"><a href="./" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a class="aqui" aria-current="page" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a href="fotos/" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div></div>
+<div id="top"><button id="buscar" title="Buscar sitio o localidad">&#128269; <span>Buscar sitio o localidad</span></button><div role="navigation" class="apps" aria-label="Cambiar de pantalla"><a href="./" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a class="aqui" aria-current="page" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a href="fotos/" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div><button id="gps" title="GPS: ver mi posición en el mapa">((&#8226;))</button></div>
+<div id="bar"></div>
 <div id="info"></div>
 <div id="ley"></div>
 <div id="base"></div>
 <div id="fvis"><img id="fvimg" referrerpolicy="no-referrer" alt=""><div class="pie" id="fvpie"></div><button style="top:10px;right:10px" onclick="fvCierra()">✕</button><button style="left:8px;top:45%" onclick="fvPaso(-1)">‹</button><button style="right:8px;top:45%" onclick="fvPaso(1)">›</button></div>
 <div id="bus"><input id="busq" type="search" placeholder="Buscar sitio o localidad…" autocomplete="off"><ul id="busr"></ul></div>
 <div id="dlg"><div id="dlgc"></div></div>
-<button id="loc" title="Dónde estoy">◎</button>
-<button id="cerca" onclick="cerca()">📍 Qué hay cerca</button>
+<button id="loc" title="Llevar el mapa a donde estoy">&#8982;</button>
+<button id="cerca" onclick="cerca()" title="Qué hay cerca de aquí">📍<span class="tx"> Qué hay cerca</span><b id="cerca-n"></b></button>
 <button id="cor" onclick="lista()"></button>
 <div id="aviso"></div>
 <div id="sheet"></div>
@@ -182,7 +198,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov i';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov j';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -293,10 +309,9 @@ for (const k of ['m','r','n','h','t','u']){
 const norm = t => (t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 let NOMS = null, busT = null, busN = 0, pinLoc = null, busSel = -1;
 const $bus = document.getElementById('bus'), $busq = document.getElementById('busq'), $busr = document.getElementById('busr');
-{ const b=document.createElement('button'); b.className='chip'; b.title='Buscar sitio o localidad'; b.textContent='🔍 Buscar';
+{ const b=document.getElementById('buscar');
   b.onclick=()=>{ if ($bus.style.display==='block') return cierraBus();
-    $bus.style.top=(document.getElementById('bar').getBoundingClientRect().bottom+6)+'px'; $bus.style.display='block'; $busq.focus(); $busq.select(); };
-  $bar.insertBefore(b, $bar.children[1]); }
+    $bus.style.top=(document.getElementById('top').getBoundingClientRect().bottom+6)+'px'; $bus.style.display='block'; $busq.focus(); $busq.select(); }; }
 function cierraBus(){ $bus.style.display='none'; }
 function enCatalogo(q){
   if (!NOMS) NOMS = D.p.map(p=>norm(p[2]));
@@ -577,7 +592,10 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov i</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov j</small></h2>';
+  { const np=pendientes(), nt=Object.keys(COR).length;
+    if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
+    else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
@@ -669,7 +687,7 @@ function arrastre(on){
 }
 function editar(){
   const b = document.getElementById('editar');
-  if (!EDIT){ EDIT = true; PEND = {}; b.classList.add('on'); document.getElementById('cor').style.display='block'; document.getElementById('cor').textContent='✉ Correcciones'; b.textContent = '✏️ Terminar'; document.body.classList.add('editando');
+  if (!EDIT){ EDIT = true; PEND = {}; b.classList.add('on'); b.textContent = '✏️ Terminar'; document.body.classList.add('editando');
     arrastre(true); cierra(); avisa('✏️ Modo edición: arrastra los lugares a su sitio. Pulsa «✏️ Terminar» al acabar.'); return; }
   const ids = Object.keys(PEND).filter(id => PEND[id].a && (PEND[id].a[0]!==PEND[id].de[0] || PEND[id].a[1]!==PEND[id].de[1]));
   if (!ids.length) return salirEdicion();
@@ -715,7 +733,7 @@ let SINC = {}; try { SINC = JSON.parse(localStorage.getItem('correcciones_sinc')
 function guardaSINC(){ try { localStorage.setItem('correcciones_sinc', JSON.stringify(SINC)); } catch(e) {} }
 const yaEnCatalogo = id => ORIG[id] && Math.abs(ORIG[id][0]-COR[id].lat)<1e-5 && Math.abs(ORIG[id][1]-COR[id].lon)<1e-5;
 const pendientes = () => Object.keys(COR).filter(id => SINC[id] !== (COR[id].t||0) && !yaEnCatalogo(id)).length + Object.keys(BORR).length;
-function botonCor(){ const n = pendientes(), b = document.getElementById('cor'); b.style.display = n?'block':'none'; b.textContent = '✉ '+n+' sin sincronizar'; }
+function botonCor(){ const n = pendientes(), b = document.getElementById('cerca-n'); if(!b) return; b.textContent = n ? '✉ '+n : ''; b.classList.toggle('hay', !!n); }
 let vaciarPulsado = 0;
 function lista(){
   const n = Object.keys(COR).length;
@@ -836,9 +854,19 @@ function gpx(id){
 }
 
 let yo=null;
-document.getElementById('loc').onclick=()=>map.locate({setView:true,maxZoom:14});
-map.on('locationfound',e=>{ if(yo) map.removeLayer(yo); yo=puntoYo(e.latlng,'#1a73e8'); });
-map.on('locationerror',()=>alert('No se pudo saber dónde estás.'));
+/* GPS encendido (((•))) = se ve y se va actualizando mi posición; ⌖ = llevar el mapa a donde estoy (y enciende el GPS si hace falta) */
+let gpsOn=false, yoLL=null, centraAlLlegar=false;
+const $gps=document.getElementById('gps'), $loc=document.getElementById('loc');
+function gpsPon(si){ gpsOn=si; $gps.classList.toggle('on',si); try{localStorage.setItem('catGps',si?'1':'0');}catch(e){}
+  if (si) map.locate({watch:true,setView:false,enableHighAccuracy:true,maximumAge:15000});
+  else { map.stopLocate(); if(yo){ map.removeLayer(yo); yo=null; } yoLL=null; $loc.classList.remove('on'); } }
+$gps.onclick=()=>gpsPon(!gpsOn);
+$loc.onclick=()=>{ if (yoLL) { map.setView(yoLL, Math.max(map.getZoom(),14)); $loc.classList.add('on'); } else { centraAlLlegar=true; avisa('Buscando tu posición…'); if(!gpsOn) gpsPon(true); } };
+map.on('locationfound',e=>{ yoLL=e.latlng; if(yo) map.removeLayer(yo); yo=puntoYo(e.latlng,'#1a73e8');
+  if (centraAlLlegar){ centraAlLlegar=false; avisa(''); map.setView(yoLL, Math.max(map.getZoom(),14)); $loc.classList.add('on'); } });
+map.on('locationerror',()=>{ if (centraAlLlegar||gpsOn) avisa('No se pudo saber dónde estás (¿permiso de ubicación?).',5000); centraAlLlegar=false; gpsPon(false); });
+map.on('dragstart',()=>$loc.classList.remove('on'));
+try { if (localStorage.getItem('catGps')==='1' && !location.hash) gpsPon(true); } catch(e) {}
 </script>
 </body>
 </html>

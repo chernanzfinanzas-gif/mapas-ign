@@ -30,6 +30,12 @@
 html,body{margin:0;height:100%}
 body{background:var(--fondo);color:var(--tinta);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
 button{font:inherit;color:inherit}
+.apps{display:inline-flex;flex:0 0 auto;height:32px;border:1px solid rgba(22,33,28,.16);border-radius:10px;overflow:hidden;background:#fbfaf7;box-shadow:0 1px 4px rgba(0,0,0,.22);pointer-events:auto}
+.apps a{display:flex;align-items:center;gap:5px;padding:0 10px;font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#3f3d38;text-decoration:none;border-left:1px solid rgba(22,33,28,.1);white-space:nowrap;cursor:pointer}
+.apps a:first-child{border-left:0}
+.apps a.aqui{background:#2f6b4f;color:#fff;cursor:default}
+.apps a .ic{font-size:15px}
+@media (max-width:640px){.apps a{padding:0 9px}.apps a:not(.aqui) .tx{display:none}}
 header{position:sticky;top:0;z-index:20;background:var(--verde);color:#fff;padding:10px 16px calc(10px) 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .cuenta{font-size:12.5px;opacity:.85;white-space:nowrap}
@@ -257,10 +263,11 @@ nav button.on{color:var(--verde)}
 </head>
 <body>
 <header>
-  <a id="aRutas" href="../" title="Volver al mapa de rutas" style="display:none;color:#fff;text-decoration:none;font-size:14px;font-weight:600;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:3px 9px;white-space:nowrap">&larr; Rutas</a>
+  
   <h1 id="titulo">Catálogo de Fotos</h1>
   <span class="cuenta" id="cuenta"></span>
   <button class="salir" id="bSalir" style="display:none" title="Cerrar la sesión de pCloud en este aparato">Salir</button>
+  <div role="navigation" class="apps" id="aRutas" style="display:none" aria-label="Cambiar de pantalla"><a href="../" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a href="../catalogo.html" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a class="aqui" aria-current="page" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div>
 </header>
 
 <main>
@@ -344,7 +351,7 @@ function avisoError(e){
 window.addEventListener("error",e=>{ if(e.message) avisoError(e); });
 window.addEventListener("unhandledrejection",e=>avisoError(e));
 // Dentro de la App Mapas IGN (mapas-ign/fotos/): botón para volver a la parte de rutas
-if(/\/mapas-ign\//.test(location.pathname)){ const a=document.getElementById("aRutas"); if(a) a.style.display=""; document.title="Mapa de fotos"; }
+if(/\/mapas-ign\//.test(location.pathname)){ const a=document.getElementById("aRutas"); if(a) a.style.display="inline-flex"; document.title="Mapa de fotos"; }
 function enc(r){ return r.split("/").map(encodeURIComponent).join("/"); }
 const NUBE = { host:"eapi.pcloud.com", auth:"", param:"auth", raiz:"/Catalogo Fotos/30_BIBLIOTECA/", indice:"/Catalogo Fotos/visor/indice.js" };
 /* 16-10-2026: años SIN CATALOGAR («provisionales»). Están en pCloud en otra carpeta

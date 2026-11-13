@@ -919,6 +919,27 @@ img.leaflet-tile{image-rendering:auto}
    mapa de encima y transparencia. La barra de transparencia de abajo ya no se usa. */
 #barra-opacidad{display:none!important}
 #sel-base[hidden],#sel-encima[hidden]{display:none}
+/* ---- v100: PANTALLA ANCHA (ordenador y tablet): el menú ☰ se reparte en bloques en la barra de arriba ---- */
+#bloques{display:none} #bloques .ct{display:none}
+body.ancha #bloques{display:flex;gap:6px;flex:1 1 auto;min-width:0}
+body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--linea);border-radius:10px;background:var(--papel);box-shadow:var(--sombra);
+  font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+body.ancha #bloques button.on{background:var(--verde);border-color:var(--verde);color:#fff}
+body.ancha #btn-panel{display:none}
+body.ancha #zona-activa{flex:0 1 240px}
+body.ancha #panel{inset:auto;top:calc(52px + var(--safe-t));left:8px;width:min(440px,calc(100vw - 16px));background:none;display:block;transition:none}
+body.ancha #panel:not(.abierto){display:none}
+body.ancha #hoja{border-radius:14px;max-height:calc(100vh - 70px - var(--safe-t));transform:none;box-shadow:0 8px 26px rgba(0,0,0,.25);border:1px solid var(--linea)}
+body.ancha #hoja section{display:none}
+body.ancha #hoja section.enbloque{display:block}
+body.ancha #hoja section.enbloque .cuerpo{display:block}
+body.ancha #hoja section h3{cursor:default} body.ancha #hoja section h3::after{display:none}
+body.ancha #hoja .cuerpo .fila{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+body.ancha #hoja .cuerpo .fila>span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
+body.ancha #hoja .cuerpo .fila select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
+body.ancha #hoja .cuerpo .fila input[type=range]{flex:1;margin:0;accent-color:var(--verde);height:26px}
+@media (max-width:1240px){ body.ancha .apps a:not(.aqui) .tx{display:none} body.ancha #zona-activa{flex:0 1 150px} }
+@media (max-width:1020px){ body.ancha #bloques .lg{display:none} body.ancha #bloques .ct{display:inline} body.ancha #bloques .ic{display:none} body.ancha #bloques button{padding:0 8px;font-size:13px} body.ancha #zona-activa{flex:0 0 44px} }
 /* el botón de mapas, compacto: una línea y del ancho de su texto (deja libre la pantalla) */
 #selectores #sel-mapas{flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;max-width:100%}
 #sel-mapas .et{font-size:10px}
@@ -1369,6 +1390,13 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 <div id="barra">
   <button id="btn-panel" title="Zonas y descargas">&#9776;</button>
   <button id="zona-activa" title="Buscar un sitio e ir"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg><span id="zona-txt">Mapas IGN offline</span></button>
+  <div id="bloques">
+    <button data-b="ver"><span class="ic">&#128065;</span> <span class="lg">Visualización</span><span class="ct">Ver</span></button>
+    <button data-b="ruta"><span class="ic">&#9999;&#65039;</span> <span class="lg">Preparar ruta</span><span class="ct">Ruta</span></button>
+    <button data-b="mis"><span class="ic">&#128450;</span> <span class="lg">Rutas y zonas</span><span class="ct">Mis rutas</span></button>
+    <button data-b="tiempo"><span class="ic">&#9925;</span> <span class="lg">Tiempo y seguridad</span><span class="ct">Tiempo</span></button>
+    <button data-b="mas"><span class="ic">&#9881;</span> <span class="lg">Ajustes</span><span class="ct">Ajustes</span></button>
+  </div>
   <div role="navigation" class="apps" aria-label="Cambiar de pantalla"><a class="aqui" aria-current="page" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a id="btn-catalogo" href="catalogo.html" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a id="btn-fotos" href="fotos/" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div>
   <div class="hueco-gps"></div>
 </div>
@@ -7548,7 +7576,58 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v99';
+const VERSION = 'v100';
+/* ---- v100: bloques de la pantalla ancha -----------------------------------------------
+   Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
+   En el móvil (pantalla estrecha) todo sigue como estaba. */
+const ANCHA = matchMedia('(min-width:760px)').matches;
+const BLOQUES = { ver:['Visualización', /^(mapa$|legibilidad)/i], ruta:['Preparar ruta', /^(mis objetivos|esta pantalla|descargar la zona)/i],
+  mis:['Rutas y zonas', /^(mis rutas|mis zonas|senderos)/i], tiempo:['Tiempo y seguridad', /^(el tiempo|seguridad)/i], mas:['Ajustes', /^(manual|ruta y almacenamiento)/i] };
+let bloqueAbierto = null;
+function montaBloques() {
+  if (!ANCHA) return;
+  if (!document.querySelector('#hoja section[data-sec]')) { setTimeout(montaBloques, 150); return; }   // espera al acordeón
+  document.body.classList.add('ancha');
+  const hoja = document.getElementById('hoja'), primera = hoja.querySelector('section');
+  const nueva = (titulo, nodos) => { const sec = document.createElement('section'); sec.innerHTML = '<h3></h3><div class="cuerpo"></div>';
+    sec.querySelector('h3').textContent = titulo; nodos.forEach(n => n && sec.querySelector('.cuerpo').appendChild(n)); hoja.insertBefore(sec, primera); return sec; };
+  /* lo que en el móvil vive en la pastilla «🗺 Mapas» pasa aquí a sus bloques */
+  nueva('Esta pantalla: descargarla o mandarla al móvil', ['pm-nom', 'pm-baja', 'pm-envia', 'pm-baja-txt'].map(i => document.getElementById(i)));
+  nueva('Mapa', [...document.querySelectorAll('#panel-mapas .fila')]);
+  hoja.querySelectorAll('section').forEach(sec => { const t = (sec.querySelector('h3') || {}).textContent || '';
+    sec.dataset.bloque = Object.keys(BLOQUES).find(k => BLOQUES[k][1].test(t.trim())) || 'mas'; });
+  /* en «Preparar ruta» primero se dibuja y al final se descarga o se manda al móvil */
+  const obj = [...hoja.querySelectorAll('section')].find(x => /^mis objetivos/i.test(x.querySelector('h3').textContent.trim()));
+  if (obj) hoja.insertBefore(obj, hoja.querySelector('section'));
+  document.querySelectorAll('#bloques button').forEach(b => b.onclick = () => abreBloque(b.dataset.b, true));
+  document.getElementById('sel-mapas').onclick = () => abreBloque('ver', true);
+  const abreP = abrePanel, cierraP = cierraPanel, abreS = abreSeccion;
+  abrePanel = function () { if (!bloqueAbierto) return abreBloque('ruta'); abreP(); };
+  cierraPanel = function () { cierraP(); bloqueAbierto = null; document.querySelectorAll('#bloques button').forEach(x => x.classList.remove('on')); };
+  abreSeccion = function (i, desplaza) { const sec = document.querySelector('#hoja section[data-sec="' + i + '"]');
+    if (sec && $panel.classList.contains('abierto') && sec.dataset.bloque !== bloqueAbierto) abreBloque(sec.dataset.bloque);
+    else if (sec && !$panel.classList.contains('abierto')) { bloqueAbierto = null; pendienteBloque = sec.dataset.bloque; }
+    abreS(i, false); if (sec && desplaza !== false) setTimeout(() => sec.scrollIntoView({ block:'start', behavior:'smooth' }), 60); };
+  document.getElementById('cerrar').onclick = () => cierraPanel();
+  mapa.on('click', () => { if ($panel.classList.contains('abierto') && !bajando) cierraPanel(); });
+}
+let pendienteBloque = null;
+function abreBloque(k, alterna) {
+  if (alterna && bloqueAbierto === k && $panel.classList.contains('abierto')) { cierraPanel(); return; }
+  if (pendienteBloque) { k = pendienteBloque; pendienteBloque = null; }
+  bloqueAbierto = k;
+  document.querySelectorAll('#hoja section').forEach(sec => sec.classList.toggle('enbloque', sec.dataset.bloque === k));
+  document.querySelectorAll('#bloques button').forEach(x => x.classList.toggle('on', x.dataset.b === k));
+  document.querySelector('#hoja .cab b').textContent = BLOQUES[k][0];
+  const bt = document.querySelector('#bloques button[data-b="' + k + '"]'), r = bt.getBoundingClientRect();
+  $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - 448)) + 'px';
+  if (k === 'ver') pintaPanelMapas();
+  $panel.classList.add('abierto'); document.getElementById('hoja').scrollTop = 0;
+  if (typeof pintaPaquetesRepo === 'function' && k === 'mis') pintaPaquetesRepo();
+  pintaEstima(); pintaLista(); pintaAlmacen();
+  mapa.off('moveend zoomend', pintaEstima); mapa.on('moveend zoomend', pintaEstima);
+}
+montaBloques();
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';
 const NIVELES = { amarillo:1, naranja:2, rojo:3 };
