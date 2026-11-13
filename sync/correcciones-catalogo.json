@@ -80,6 +80,16 @@
    "municipio": "Casas de San Galindo",
    "fecha": "13/11/2026 09:26",
    "t": 1794558394533
+  },
+  "t:iglesia-de-nuestra-senora-de-la-asuncion-almadrones": {
+   "lat": 40.901293,
+   "lon": -2.774584,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Iglesia de Nuestra Señora de la Asunción",
+   "municipio": "Almadrones",
+   "fecha": "13/11/2026 09:27",
+   "t": 1794558431823
   }
  }
 }
