@@ -133,7 +133,11 @@ const BASES = {
   FOTO: L.tileLayer(IGN('pnoa-ma?layer=OI.OrthoimageCoverage'),{maxZoom:19,attribution:'© IGN PNOA'}),
   BASE: L.tileLayer(IGN('ign-base?layer=IGNBaseTodo'),{maxZoom:19,attribution:'© IGN'})
 };
-const map = L.map('map',{zoomControl:false,preferCanvas:true}).setView([40.2,-3.7],6);
+/* UNA sola capa de dibujo para todo: si algo (el abanico de un montón de fotos, un círculo…) creaba
+   su propio lienzo, quedaba ENCIMA de las rutas y se comía los clics (13-nov). */
+const rend = L.canvas({padding:.3, tolerance:14});
+const map = L.map('map',{zoomControl:false,preferCanvas:true,renderer:rend}).setView([40.2,-3.7],6);
+map.on('layeradd', ()=>setTimeout(()=>{ for (const c of map.getPane('overlayPane').querySelectorAll('canvas')) if (c!==rend._container) c.style.pointerEvents='none'; },0));
 try{ const h=location.hash.slice(1).split(',').map(Number); if(h.length===3&&h.every(isFinite)) map.setView([h[0],h[1]],Math.max(6,Math.min(16,h[2]))); }catch(e){}
 let base = BASES.TOPO.addTo(map);
 setTimeout(()=>{ const e=document.createElement('button'); e.id='editar'; e.textContent='✏️'; e.title='Modo edición: mover los lugares a su sitio'; e.onclick=editar; document.getElementById('base').appendChild(e); },0);
@@ -332,7 +336,7 @@ document.addEventListener('keydown',e=>{ if(document.getElementById('fvis').styl
   try { if (localStorage.getItem('catFotos')==='1'){ fOn=true; b.classList.remove('off'); fotosOn(b); } } catch(e) {} }
 
 /* Tracks: solo desde zoom 12 y solo los que se ven */
-const lineas = L.layerGroup().addTo(map), rend = L.canvas({padding:.3, tolerance:14});
+const lineas = L.layerGroup().addTo(map);
 const idxRuta = {}; for (const p of D.p) if (esRuta(p[1])) idxRuta[p[0]] = p;
 const caja = {}; for (const id in D.tb){ const b=D.tb[id]; caja[id]=L.latLngBounds([b[0],b[1]],[b[2],b[3]]); }
 let sel = null, tocado = 0, repinta = null;
@@ -498,7 +502,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov b</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov c</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
