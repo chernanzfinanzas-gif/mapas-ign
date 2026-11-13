@@ -373,7 +373,7 @@ const horarioEs = t => t.replace(/24\/7/,'abierto siempre').replace(/\b(Mo|Tu|We
 function datosOsm(o){
   if (!o) return '';
   let h = '';
-  if (o.bic) h += '<div class="sub" style="margin:6px 0">🏛 <b>Bien de Interés Cultural</b> (según OpenStreetMap)</div>';
+  if (o.bic) h += '<div class="sub" style="margin:6px 0">🏛 <b>Bien de Interés Cultural</b> (según '+(o.wd?'Wikidata':'OpenStreetMap')+')</div>';
   if (o.h) h += '<div class="sub" style="margin:6px 0">🕒 Horario: '+esc(horarioEs(o.h))+' <small>(OpenStreetMap, compruébalo)</small></div>';
   return h;
 }
@@ -423,7 +423,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 12-nov l</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 12-nov m</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
