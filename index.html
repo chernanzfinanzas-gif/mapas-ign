@@ -926,6 +926,10 @@ body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--lin
   font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 body.ancha #bloques button.on{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #btn-panel{display:none}
+/* v115: lo mismo para el cuadro de dibujar una zona */
+body.ancha #barra-dibujo{left:auto;right:8px;bottom:auto;top:calc(100px + var(--safe-t));width:330px}
+body.ancha #barra-dibujo .ln2{flex-wrap:wrap} body.ancha #barra-dibujo input{flex:1 1 100%;padding:6px 8px}
+body.ancha #barra-dibujo button{padding:7px 10px} body.ancha #barra-dibujo button.ok{flex:1 1 0}
 /* v114: en pantalla ancha el cuadro de planificar va arriba a la derecha, más cuadrado */
 body.ancha #barra-ruta{left:auto;right:8px;bottom:auto;top:calc(100px + var(--safe-t));width:330px}
 body.ancha #barra-ruta .ln3{flex-wrap:wrap} body.ancha #barra-ruta .ln3 input{flex:1 1 100%}
@@ -947,7 +951,7 @@ body.ancha #hoja #pm-nom{width:100%;box-sizing:border-box;margin:0 0 4px}
 body.ancha #hoja.conayuda #ayuda-bt{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #hoja .oculto-pc{display:none!important}
 body.ancha #hoja .dosb{display:flex;gap:6px;margin:3px 0} body.ancha #hoja .dosb>button{flex:1 1 0;min-width:0;width:auto;margin:0;padding:7px 6px;font-size:13px;line-height:1.2}
-body.ancha #hoja #pm-baja{border-radius:9px} body.ancha #hoja #pm-envia{border-radius:9px;border:1px solid var(--verde);background:#fff;color:var(--verde);font-weight:600;cursor:pointer}
+body.ancha #hoja #pm-baja{border-radius:9px} body.ancha #hoja #pm-envia{border-radius:9px;border:1px solid var(--verde);cursor:pointer}
 body.ancha #hoja .dosb>button.prim{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600}
 body.ancha #hoja #estimacion{font-size:12px;margin:6px 0 2px;color:#5d5a53}
 body.ancha #hoja section.masop{flex:0 0 100%;padding-top:4px}
@@ -4836,7 +4840,7 @@ function abreDibujo(destino) {
   document.getElementById('dib-nombre').value =
     (destinoDib === 'zonas' ? document.getElementById('nombre').value
                             : document.getElementById('sendas-nombre').value) || '';
-  document.getElementById('dib-bajar').textContent = destinoDib === 'zonas' ? 'Usar esta zona' : 'Descargar';
+  document.getElementById('dib-bajar').textContent = destinoDib !== 'zonas' ? 'Descargar' : !document.body.classList.contains('ancha') ? 'Usar esta zona' : window._dibParaMovil ? 'Mandar al móvil' : 'Descargar esta zona';
   const $q = document.getElementById('dib-que');
   $q.textContent = destinoDib === 'zonas' ? 'Zona de mapas del IGN' : 'Zona de senderos de OSM';
   $q.className = destinoDib === 'zonas' ? 'mapas' : 'sendas';
@@ -5737,6 +5741,8 @@ document.getElementById('pl-bajar').onclick = () => {
   let tol = 1;
   while (pts.length > TOPE_RELOJ && tol <= 16) { pts = simplificaTrack(rutaPlan.pts, tol); tol *= 2; }
   const wpt = pasosComoWpt();
+  /* v115: los puntos marcados a menos de 500 m de la ruta van también en el GPX del reloj */
+  try { leePuntos().forEach(p => { if (rutaPlan.pts.some(q => mapa.distance([q[0], q[1]], p.g) < 500)) wpt.push({ lat: p.g[0], lon: p.g[1], nom: p.nom, ele: p.alt }); }); } catch (e) {}
   const perfil = document.getElementById('pl-perfil');
   const desc = fmtN(+rutaPlan.km.toFixed(1)) + ' km · ' + fmtN(rutaPlan.d) + ' m de subida · '
              + perfil.options[perfil.selectedIndex].text + ' · planificada con Mapas IGN';
@@ -5771,7 +5777,8 @@ document.getElementById('dib-bajar').onclick = () => {
     if (window._dibParaMovil) {   // v112: «Dibujar zona al móvil» — al terminar de dibujar se manda sola y se olvida la zona
       window._dibParaMovil = false;
       Promise.resolve(document.getElementById('pm-envia').onclick()).then(() => olvidaZonaDibujada());
-    } else avisa(document.body.classList.contains('ancha') ? 'Zona fijada: pulsa «Descargar la zona dibujada»' : 'Zona fijada: elige capas y detalle, y descarga');
+    } else if (document.body.classList.contains('ancha')) { document.getElementById('pm-baja').click(); }   // v115: enseña lo que pesa y deja el botón en «Sí, descargar ahora»
+    else avisa('Zona fijada: elige capas y detalle, y descarga');
   } else {
     document.getElementById('sendas-nombre').value = nom;
     abrePor('Senderos de OpenStreetMap');
@@ -7637,7 +7644,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v114';
+const VERSION = 'v115';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7686,9 +7693,9 @@ function montaBloques() {
   { const $ = i => document.getElementById(i), esta = $('pm-baja').closest('section'), c = esta.querySelector('.cuerpo'), det = $('descargar').closest('section');
     const fila = (...ns) => { const d = document.createElement('div'); d.className = 'dosb'; ns.forEach(n => d.appendChild(n)); return d; };
     esta.querySelector('h3').textContent = 'Descargar o mandar al móvil';
-    const dibMov = document.createElement('button'); dibMov.id = 'pm-dib-envia'; dibMov.className = 'sec'; dibMov.textContent = '✏️ Dibujar zona al móvil';
+    const dibMov = document.createElement('button'); dibMov.id = 'pm-dib-envia'; dibMov.className = 'sec prim'; dibMov.textContent = '✏️ Dibujar zona al móvil';
     dibMov.onclick = () => { if (!tokenGh()) { $('pm-baja-txt').textContent = 'Para mandar zonas al móvil falta el token de GitHub (Rutas y zonas → Senderos).'; return; } window._dibParaMovil = true; abreDibujo('zonas'); };
-    $('btn-zona-dibujo').textContent = '✏️ Dibujar zona a descargar'; $('btn-zona-dibujo').addEventListener('click', () => { window._dibParaMovil = false; }, true);
+    $('btn-zona-dibujo').textContent = '✏️ Dibujar zona a descargar'; $('btn-zona-dibujo').classList.add('prim'); $('pm-envia').classList.add('prim'); $('btn-zona-dibujo').addEventListener('click', () => { window._dibParaMovil = false; }, true);
     $('pm-envia').textContent = '📲 Esta pantalla al móvil'; $('quitar-zona-dib').textContent = 'Olvidar la zona dibujada';
     [$('pm-nom'), $('pm-foto-caja'), $('zmax').closest('label'), fila($('pm-baja'), $('btn-zona-dibujo')), fila($('pm-envia'), dibMov),
      $('quitar-zona-dib'), $('estimacion'), $('pm-baja-txt'), $('progreso')].forEach(n => n && c.appendChild(n));
