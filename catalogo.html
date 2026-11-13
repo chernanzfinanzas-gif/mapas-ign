@@ -11,8 +11,8 @@
 <style>
 :root{--h:#8a5a2b;--n:#2e8b3e;--r:#e07b00;--t:#1f6fd1;--bg:#fff;--tx:#1d2125;--mu:#5f6670;--li:#e3e6ea}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--tx);background:#eee}
-#map{position:absolute;inset:0;background:#fff}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--tx);background:#eee}
+#map{position:fixed;inset:0;background:#fff}
 #map.suave2 .leaflet-tile-pane{filter:saturate(.55) contrast(.85) brightness(1.08);opacity:.78}
 #map.suave1 .leaflet-tile-pane{filter:saturate(.8) contrast(.93) brightness(1.04);opacity:.9}
 #bar{position:absolute;top:8px;left:8px;right:8px;z-index:1000;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
@@ -160,11 +160,17 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov e';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov f';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
 }, true);
+/* La página NUNCA se desplaza (13-nov): la ficha cerrada vive escondida debajo de la ventana y hacía la
+   página el doble de alta; si algo la desplazaba, el mapa se veía cortado y a medio pintar. */
+function sinDesplazar(){ if (scrollX||scrollY||document.documentElement.scrollTop||document.body.scrollTop){
+  window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0; map.invalidateSize(); } }
+window.addEventListener('scroll', sinDesplazar, {passive:true}); document.body.addEventListener('scroll', sinDesplazar, {passive:true});
+window.addEventListener('resize', ()=>setTimeout(()=>{ sinDesplazar(); map.invalidateSize(); },150));
 map.on('layeradd', ()=>setTimeout(()=>{ for (const c of map.getPane('overlayPane').querySelectorAll('canvas')) if (c!==rend._container) c.style.pointerEvents='none'; },0));
 try{ const h=location.hash.slice(1).split(',').map(Number); if(h.length===3&&h.every(isFinite)) map.setView([h[0],h[1]],Math.max(6,Math.min(16,h[2]))); }catch(e){}
 let base = BASES.TOPO.addTo(map);
@@ -530,7 +536,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov e</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov f</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
