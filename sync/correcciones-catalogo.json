@@ -100,6 +100,26 @@
    "municipio": "Argecilla",
    "fecha": "13/11/2026 09:28",
    "t": 1794558536464
+  },
+  "t:fuente-de-la-plaza-ledanca": {
+   "lat": 40.867814,
+   "lon": -2.843973,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Fuente de la plaza",
+   "municipio": "Ledanca",
+   "fecha": "13/11/2026 09:35",
+   "t": 1794558907119
+  },
+  "t:conjunto-urbano-de-ledanca-ledanca": {
+   "lat": 40.868166,
+   "lon": -2.843791,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Conjunto urbano de Ledanca",
+   "municipio": "Ledanca",
+   "fecha": "13/11/2026 09:35",
+   "t": 1794558907119
   }
  }
 }
