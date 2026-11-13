@@ -90,6 +90,16 @@
    "municipio": "Almadrones",
    "fecha": "13/11/2026 09:27",
    "t": 1794558431823
+  },
+  "t:casa-palacio-de-los-marqueses-de-argecilla-argecilla": {
+   "lat": 40.8833,
+   "lon": -2.817545,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Casa palacio de los marqueses de Argecilla",
+   "municipio": "Argecilla",
+   "fecha": "13/11/2026 09:28",
+   "t": 1794558536464
   }
  }
 }
