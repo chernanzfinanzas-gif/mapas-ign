@@ -926,6 +926,22 @@ body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--lin
   font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 body.ancha #bloques button.on{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #btn-panel{display:none}
+/* v111: bloques compactos — secciones en columnas, campos en una línea, botones bajos y las explicaciones tras «ⓘ Ayuda» */
+body.ancha #hoja{display:flex;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;gap:0 22px;padding:0 14px 10px;width:auto}
+body.ancha #hoja .cab{flex:0 0 100%;padding:9px 0 7px} body.ancha #hoja .cab b{font-size:14.5px}
+body.ancha #hoja section.enbloque{flex:1 1 330px;min-width:0;padding:10px 0 8px;border-bottom:0}
+body.ancha #hoja section h3{font-size:12.5px;margin:0 0 6px} body.ancha #hoja section h4{margin:10px 0 3px;font-size:12px}
+body.ancha #hoja p.pista:not([id]){display:none} body.ancha #hoja.conayuda p.pista:not([id]){display:block;font-size:12px;line-height:1.35;margin:0 0 6px}
+body.ancha #hoja .pista{font-size:12px;margin:0 0 6px}
+body.ancha #hoja button.accion,body.ancha #hoja button.sec{padding:7px 10px;font-size:13.5px;border-radius:9px;margin:3px 0}
+body.ancha #hoja label.campo{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12.5px;white-space:nowrap}
+body.ancha #hoja label.campo>input,body.ancha #hoja label.campo>select{flex:1 1 0;min-width:0;margin:0;padding:5px 7px;font-size:13px;white-space:normal}
+body.ancha #hoja input[type=text],body.ancha #hoja select{padding:5px 7px;font-size:13px}
+body.ancha #hoja #pm-nom{width:100%;box-sizing:border-box;margin:0 0 4px}
+#ayuda-bt{display:none} body.ancha #ayuda-bt{display:inline-block;margin-left:auto;margin-right:8px;border:1px solid var(--linea);background:none;border-radius:999px;padding:2px 9px;font:inherit;font-size:12px;color:#6b6862;cursor:pointer}
+body.ancha #hoja.conayuda #ayuda-bt{background:var(--verde);border-color:var(--verde);color:#fff}
+body.ancha #hoja .oculto-pc{display:none!important}
+body.ancha #hoja section.masop{flex:0 0 100%;padding-top:4px}
 #almacen{font-size:12px;line-height:1.45;color:#6b6861}
 body.ancha #hoja section.sintit h3{display:none} body.ancha #hoja section.sintit{padding-bottom:4px}
 body.ancha #hoja .cuerpo .fila.vermos{flex-wrap:wrap;margin:14px 0 4px}
@@ -7606,7 +7622,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v110';
+const VERSION = 'v111';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7650,6 +7666,18 @@ function montaBloques() {
   if (det) { det.classList.add('masop'); const h = det.querySelector('h3'); h.textContent = 'Más opciones: nivel de detalle o dibujar la zona';
     h.addEventListener('click', e => { e.stopPropagation(); det.classList.toggle('abta'); }, true); }
   { const man = document.getElementById('btn-manual').closest('section'); if (man) man.classList.add('sintit'); }
+  /* v111: botón «ⓘ Ayuda» en la cabecera: enseña u oculta las explicaciones de cada apartado */
+  { const ay = document.createElement('button'); ay.id = 'ayuda-bt'; ay.textContent = 'ⓘ Ayuda'; ay.title = 'Mostrar u ocultar las explicaciones';
+    try { if (localStorage.getItem('ign.ayuda') === '1') hoja.classList.add('conayuda'); } catch (e) {}
+    ay.onclick = () => { const on = hoja.classList.toggle('conayuda'); try { localStorage.setItem('ign.ayuda', on ? '1' : '0'); } catch (e) {} };
+    const cab = hoja.querySelector('.cab'); cab.insertBefore(ay, document.getElementById('cerrar')); }
+  /* v111, ordenador: de «Seguridad» solo sirve la lista de puntos marcados, que pasa a «Preparar ruta»; emergencia, grabación y coche son de campo */
+  if (document.body.classList.contains('sintacto')) {
+    const seg = [...hoja.querySelectorAll('section')].find(x => /^seguridad/i.test(x.querySelector('h3').textContent.trim()));
+    if (seg) { let ver = false; [...seg.querySelector('.cuerpo').children].forEach(n => { if (n.tagName === 'H4') ver = /^puntos marcados/i.test(n.textContent.trim()); if (!ver || n.tagName === 'H4') n.classList.add('oculto-pc'); });
+      seg.querySelector('h3').textContent = 'Puntos marcados (waypoints)'; seg.dataset.bloque = 'ruta';
+      const esta = document.getElementById('pm-baja').closest('section'); if (esta) hoja.insertBefore(seg, esta); }
+    BLOQUES.tiempo[0] = 'Tiempo'; const bt = document.querySelector('#bloques button[data-b="tiempo"]'); if (bt) { bt.querySelector('.lg').textContent = 'Tiempo'; } }
   document.querySelectorAll('#bloques button').forEach(b => b.onclick = () => abreBloque(b.dataset.b, true));
   document.getElementById('sel-mapas').onclick = () => abreBloque('ver', true);
   const abreP = abrePanel, cierraP = cierraPanel, abreS = abreSeccion;
@@ -7672,9 +7700,11 @@ function abreBloque(k, alterna) {
   document.querySelectorAll('#bloques button').forEach(x => x.classList.toggle('on', x.dataset.b === k));
   document.querySelector('#hoja .cab b').textContent = BLOQUES[k][0];
   const bt = document.querySelector('#bloques button[data-b="' + k + '"]'), r = bt.getBoundingClientRect();
-  $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - 448)) + 'px';
   if (k === 'ver') pintaPanelMapas();
-  $panel.classList.add('abierto'); document.getElementById('hoja').scrollTop = 0;
+  { const n = Math.min(3, document.querySelectorAll('#hoja section.enbloque:not(.masop)').length || 1);   // v111: una columna por sección
+    $panel.style.width = Math.min(innerWidth - 16, n * 350 + (n - 1) * 22 + 30) + 'px'; }
+  $panel.classList.add('abierto'); $panel.style.left = '8px';
+  $panel.style.left = Math.max(8, Math.min(r.left, innerWidth - $panel.offsetWidth - 8)) + 'px'; document.getElementById('hoja').scrollTop = 0;
   if (typeof pintaPaquetesRepo === 'function' && k === 'mis') pintaPaquetesRepo();
   pintaEstima(); pintaLista(); pintaAlmacen();
   mapa.off('moveend zoomend', pintaEstima); mapa.on('moveend zoomend', pintaEstima);

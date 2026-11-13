@@ -108,10 +108,19 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #radio button.on{background:#2f6b4f;color:#fff}
 /* 13-nov l: el tiempo de los próximos 10 días en la ficha, en una tira */
 .tmp{display:flex;gap:2px;margin:8px 0 6px;min-height:0} .tmp:empty{display:none}
+.tmp .tn{font:500 12px system-ui;color:#8a877f}
 .tmp div{flex:1 1 0;min-width:0;text-align:center;background:#f3f5f4;border-radius:7px;padding:3px 0 4px;font:600 11px system-ui;color:#3f3d38;line-height:1.25}
 .tmp div.finde{background:#e8efe9} .tmp i{display:block;font-style:normal;font-size:17px;line-height:1.2}
 .tmp small{display:block;white-space:nowrap;font:500 10px system-ui;color:#8a877f} .tmp u{display:block;text-decoration:none;color:#8a877f;font-weight:500}
 .tmp em{display:block;font-style:normal;font:600 10px system-ui;color:#1d6fb8;height:12px} .tmp em.v{color:#b3261e}
+/* 13-nov n: en el móvil las capas van en UNA fila, solo con su icono, y la leyenda comparte línea con el aviso de tracks */
+#ley{bottom:56px;white-space:nowrap;max-width:calc(100vw - 16px);overflow:hidden} #ley-n{color:var(--mu);margin-left:2px}
+@media (max-width:640px){
+  #bar{flex-wrap:nowrap;gap:4px}
+  #bar .chip{flex:none;padding:6px 8px;gap:4px;font-size:15px} #bar .chip small,#bar .chip .nm{display:none}
+  #bar .chip i{width:9px;height:9px}
+  #ley-n{display:none}
+}
 #cerca-n{display:none;margin-left:6px;background:#22a447;border-radius:999px;padding:1px 7px;font-size:12px}
 #cerca-n.hay{display:inline-block}
 #cor{display:none!important}
@@ -209,7 +218,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov l';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov n';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -310,7 +319,7 @@ rellena();
 const $bar = document.getElementById('bar');
 for (const k of ['m','r','n','h','t','u']){
   const b=document.createElement('button'); b.className='chip';
-  b.innerHTML='<i style="background:'+CAPAS[k].c+'"></i>'+CAPAS[k].s+' '+CAPAS[k].n+' <small>'+cuenta[k]+'</small>';
+  b.innerHTML='<i style="background:'+CAPAS[k].c+'"></i>'+CAPAS[k].s+'<span class="nm"> '+CAPAS[k].n+'</span> <small>'+cuenta[k]+'</small>'; b.title=CAPAS[k].n;
   if (k==='u') { b.querySelector('small').textContent='77.742'; b.classList.add('off'); }
   b.onclick=()=>{on[k]=!on[k]; b.classList.toggle('off',!on[k]); if (k==='u') return pintaUtiles(true); rellena(); pintaTracks();};
   $bar.appendChild(b);
@@ -431,7 +440,7 @@ function fvPinta(){ const f=FOTOSC[fVis[fK]]; document.getElementById('fvimg').s
 function fvPaso(d){ fK=(fK+d+fVis.length)%fVis.length; fvPinta(); const f=FOTOSC[fVis[fK]]; }
 function fvCierra(){ document.getElementById('fvis').style.display='none'; document.getElementById('fvimg').src=''; }
 document.addEventListener('keydown',e=>{ if(document.getElementById('fvis').style.display!=='flex') return; if(e.key==='Escape') fvCierra(); if(e.key==='ArrowRight') fvPaso(1); if(e.key==='ArrowLeft') fvPaso(-1); });
-{ const b=document.createElement('button'); b.className='chip off'; b.innerHTML='📷 Mis fotos <small></small>'; b.title='Tus fotos geolocalizadas (App Fotos)';
+{ const b=document.createElement('button'); b.className='chip off'; b.innerHTML='📷<span class="nm"> Mis fotos</span> <small></small>'; b.title='Tus fotos geolocalizadas (App Fotos)';
   b.onclick=()=>{ fOn=!fOn; b.classList.toggle('off',!fOn); try{localStorage.setItem('catFotos',fOn?'1':'0');}catch(e){} if(fOn) fotosOn(b); else fAjusta(); };
   $bar.appendChild(b);
   try { if (localStorage.getItem('catFotos')==='1'){ fOn=true; b.classList.remove('off'); fotosOn(b); } } catch(e) {} }
@@ -476,10 +485,12 @@ function pintaTracks(){
     if (sel && T[sel]) { dibuja(sel); salidaLlegada(sel); }   // la seleccionada, siempre encima
     if (pedir.size) Promise.all([...pedir].map(z=>carga('t',z))).then(()=>{ clearTimeout(repinta); repinta=setTimeout(pintaTracks,50); });
   }
-  document.getElementById('info').textContent = z<10 ? 'Acerca el zoom para ver los tracks' : n+' tracks en pantalla'+(faltan?' · cargando…':'');
+  /* 13-nov n: una sola línea — con tracks, la leyenda (y cuántos); sin ellos, el aviso */
+  const $i=document.getElementById('info'); $i.textContent = z<10 ? 'Acerca el zoom para ver los tracks' : n ? '' : (faltan?'Cargando tracks…':'Ningún track en pantalla'); $i.style.display = n ? 'none' : '';
   document.getElementById('ley').style.display = n ? 'block' : 'none';
+  const $n=document.getElementById('ley-n'); if($n) $n.textContent = ' · '+n+' track'+(n===1?'':'s')+(faltan?' · cargando…':'');
 }
-document.getElementById('ley').innerHTML = NIV.map(v=>'<b style="background:'+v.c+'"></b>'+v.n).join('');
+document.getElementById('ley').innerHTML = NIV.map(v=>'<b style="background:'+v.c+'"></b>'+v.n).join('')+'<span id="ley-n"></span>';
 map.on('moveend zoomend',pintaTracks); pintaTracks();
 
 /* Rutas que has llevado a la app DESPUÉS de montar el catálogo: publicado, se leen
@@ -603,7 +614,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov l</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov n</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -679,7 +690,11 @@ function ficha_(p){
 const TMP = {}; let tmpDe = null;
 const TMP_IC = c => c===0?'☀️':c<=2?'🌤️':c===3?'☁️':c<=48?'🌫️':c<=57?'🌦️':c<=67?'🌧️':c<=77?'🌨️':c<=82?'🌧️':c<=86?'🌨️':'⛈️';
 function tiempoFicha(id, lat, lon){
-  tmpDe = id; if (!navigator.onLine || lat==null) return;
+  tmpDe = id; lat = +lat; lon = +lon;
+  const nota = t => { const $t = document.getElementById('tmp'); if ($t && tmpDe === id) $t.innerHTML = '<span class="tn">'+t+'</span>'; };
+  if (!isFinite(lat) || !isFinite(lon)) return nota('El tiempo: este sitio no tiene posición');
+  if (!navigator.onLine) return nota('El tiempo: sin conexión');
+  nota('Cargando el tiempo…');
   const k = (Math.round(lat*20)/20).toFixed(2)+','+(Math.round(lon*20)/20).toFixed(2), g = TMP[k];
   const pinta = d => { const $t = document.getElementById('tmp'); if (!$t || tmpDe !== id || !d || !d.time) return;
     $t.title = 'Previsión de Open-Meteo para este punto';
@@ -689,7 +704,9 @@ function tiempoFicha(id, lat, lon){
         +(r>=60 ? '<em class="v">💨'+Math.round(r)+'</em>' : '<em>'+(ll>=1 ? Math.round(ll)+' mm' : '')+'</em>')+'</div>'; }).join(''); };
   if (g && Date.now()-g.t < 3600000) return pinta(g.d);
   fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat.toFixed(3)+'&longitude='+lon.toFixed(3)+'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max&timezone=auto&forecast_days=10')
-    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.daily) { TMP[k] = {t:Date.now(), d:j.daily}; pinta(j.daily); } }).catch(()=>{});
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('Open-Meteo respondió '+r.status)))
+    .then(j => { if (j && j.daily && j.daily.time) { TMP[k] = {t:Date.now(), d:j.daily}; try { pinta(j.daily); } catch(e) { nota('El tiempo: no se ha podido pintar ('+e.message+')'); } } else nota('El tiempo: respuesta sin datos'); })
+    .catch(e => nota('El tiempo no está disponible ahora ('+e.message+')'));
 }
 function cierra(){ document.getElementById('sheet').classList.remove('on'); sel=null; pintaTracks(); marcaPunto(null); }
 function marcaAqui(ll){ const id=modo; modo=null; avisa(''); pon(id,ll.lat,ll.lng,null,'mapa'); }
