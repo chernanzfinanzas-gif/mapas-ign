@@ -926,6 +926,11 @@ body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--lin
   font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 body.ancha #bloques button.on{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #btn-panel{display:none}
+/* v114: en pantalla ancha el cuadro de planificar va arriba a la derecha, más cuadrado */
+body.ancha #barra-ruta{left:auto;right:8px;bottom:auto;top:calc(100px + var(--safe-t));width:330px}
+body.ancha #barra-ruta .ln3{flex-wrap:wrap} body.ancha #barra-ruta .ln3 input{flex:1 1 100%}
+body.ancha #barra-ruta .ln3 button{flex:1 1 0;padding:7px 6px} body.ancha #barra-ruta select,body.ancha #barra-ruta input{padding:6px 8px}
+body.ancha #barra-ruta .ln2 button{padding:6px 10px}
 /* v111: bloques compactos — secciones en columnas, campos en una línea, botones bajos y las explicaciones tras «ⓘ Ayuda» */
 body.ancha #hoja{display:flex;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;gap:0 22px;padding:0 14px 10px;width:auto}
 body.ancha #hoja .cab{flex:0 0 100%;padding:9px 0 7px} body.ancha #hoja .cab b{font-size:14.5px}
@@ -7632,7 +7637,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v113';
+const VERSION = 'v114';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
