@@ -120,6 +120,16 @@
    "municipio": "Ledanca",
    "fecha": "13/11/2026 09:35",
    "t": 1794558907119
+  },
+  "t:molino-del-cura-ledanca": {
+   "lat": 40.87215,
+   "lon": -2.841339,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Molino del Cura",
+   "municipio": "Ledanca",
+   "fecha": "13/11/2026 09:35",
+   "t": 1794558950513
   }
  }
 }
