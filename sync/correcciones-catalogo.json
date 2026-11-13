@@ -70,6 +70,16 @@
    "municipio": "Jadraque",
    "fecha": "13/11/2026 09:25",
    "t": 1794558323569
+  },
+  "t:iglesia-de-san-juan-bautista-casas-de-san-galindo": {
+   "lat": 40.873063,
+   "lon": -2.957516,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Iglesia de San Juan Bautista",
+   "municipio": "Casas de San Galindo",
+   "fecha": "13/11/2026 09:26",
+   "t": 1794558394533
   }
  }
 }
