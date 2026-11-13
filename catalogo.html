@@ -136,7 +136,34 @@ const BASES = {
 /* UNA sola capa de dibujo para todo: si algo (el abanico de un montón de fotos, un círculo…) creaba
    su propio lienzo, quedaba ENCIMA de las rutas y se comía los clics (13-nov). */
 const rend = L.canvas({padding:.3, tolerance:14});
+function ficha(){ ultFicha=Date.now(); return ficha_.apply(this,arguments); }
 const map = L.map('map',{zoomControl:false,preferCanvas:true,renderer:rend}).setView([40.2,-3.7],6);
+/* 🩺 DETECTOR (13-nov): si se pulsa ENCIMA de una ruta y no se abre su ficha, aviso rojo con el estado,
+   para que Carlos mande la captura. No cambia nada del funcionamiento. */
+let ultFicha = 0;
+let pdDiag=null; document.addEventListener('pointerdown', e=>{ pdDiag=[e.clientX,e.clientY]; }, true);
+document.addEventListener('pointerup', e=>{
+  if (!pdDiag || Math.hypot(e.clientX-pdDiag[0],e.clientY-pdDiag[1])>6) return;   // fue un arrastre, no un toque
+  const mp=document.getElementById('map'), r=mp.getBoundingClientRect();
+  if (e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
+  const t0=Date.now();
+  setTimeout(()=>{ try{
+    if (ultFicha>=t0) return;
+    const lp=map.containerPointToLayerPoint([e.clientX-r.left,e.clientY-r.top]); let hits=0, nom='';
+    for (let q=rend._drawFirst;q;q=q.next){ const l=q.layer; if (l.options.interactive!==false && l._containsPoint && l._containsPoint(lp)){ hits++; } }
+    if (!hits) return;
+    const el=document.elementFromPoint(e.clientX,e.clientY), d=map.dragging._draggable;
+    const cv=[...document.querySelectorAll('#map canvas')].map(c=>(c===rend._container?'RUTAS':'otro')+'/'+getComputedStyle(c).pointerEvents+'/'+getComputedStyle(c.closest('.leaflet-pane')||c).zIndex).join(' ');
+    const rb=rend._bounds, dentro=rb? (lp.x>=rb.min.x&&lp.x<=rb.max.x&&lp.y>=rb.min.y&&lp.y<=rb.max.y):'?';
+    const txt='🩺 Pulsaste sobre '+hits+' ruta(s) y no se abrió la ficha. Haz una captura para Claude (toca para cerrar).\n'
+      +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
+      +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
+      +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov d';
+    let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
+    a.textContent=txt;
+  }catch(err){} },450);
+}, true);
 map.on('layeradd', ()=>setTimeout(()=>{ for (const c of map.getPane('overlayPane').querySelectorAll('canvas')) if (c!==rend._container) c.style.pointerEvents='none'; },0));
 try{ const h=location.hash.slice(1).split(',').map(Number); if(h.length===3&&h.every(isFinite)) map.setView([h[0],h[1]],Math.max(6,Math.min(16,h[2]))); }catch(e){}
 let base = BASES.TOPO.addTo(map);
@@ -278,7 +305,7 @@ try { NUBE.host=localStorage.getItem('pcHost')||NUBE.host; NUBE.auth=localStorag
 const PROVF = new Set();
 const fRaiz = r => PROVF.has(r.split('/')[0]) ? '/Catalogo Fotos/FOTOS POR CATALOGAR/' : NUBE.raiz;
 const fMini = (r,t) => 'https://'+NUBE.host+'/getthumb?'+NUBE.param+'='+encodeURIComponent(NUBE.auth)+'&path='+encodeURIComponent(fRaiz(r)+r)+'&size='+(t||'400x400')+'&crop=0&type=jpeg';
-const fImg = r => '<img referrerpolicy="no-referrer" loading="lazy" src="'+fMini(r).replace(/"/g,'&quot;')+'">';
+const fImg = r => '<img draggable="false" referrerpolicy="no-referrer" loading="lazy" src="'+fMini(r).replace(/"/g,'&quot;')+'">';
 let FOTOSC = null, fCapa = null, fCalor = null, fOn = false, fVis = [], fK = 0;
 async function leeFotos(){
   const b64=s=>{ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); };
@@ -502,7 +529,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov c</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov d</small></h2>';
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
@@ -515,7 +542,7 @@ function pintaCerca(){
   sel=null; pintaTracks(); marcaPunto(null);
   const s=document.getElementById('sheet'); s.innerHTML=h; s.scrollTop=0; s.classList.add('on');
 }
-function ficha(p){
+function ficha_(p){
   const [id,c,nom,tipo,lat,lon,ap] = p;
   if (!(id in F) || (esRuta(c) && D.tb[id] && !T[id])) {
     const z = ZP[id]; avisa('Cargando…');
