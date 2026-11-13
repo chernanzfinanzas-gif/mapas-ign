@@ -10,6 +10,66 @@
    "municipio": "Rojales",
    "fecha": "12/11/2026 22:59",
    "t": 1794520791240
+  },
+  "t:iglesia-de-la-concepcion-las-inviernas": {
+   "lat": 40.872142,
+   "lon": -2.66964,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Iglesia de la Concepción",
+   "municipio": "Las Inviernas",
+   "fecha": "13/11/2026 09:25",
+   "t": 1794558323569
+  },
+  "t:iglesia-de-la-asuncion-utande": {
+   "lat": 40.848923,
+   "lon": -2.927647,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Iglesia de la Asunción",
+   "municipio": "Utande",
+   "fecha": "13/11/2026 09:25",
+   "t": 1794558323569
+  },
+  "t:iglesia-del-santisimo-cristo-jadraque": {
+   "lat": 40.926516,
+   "lon": -2.927336,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Iglesia del Santísimo Cristo",
+   "municipio": "Jadraque",
+   "fecha": "13/11/2026 09:25",
+   "t": 1794558323569
+  },
+  "t:calle-de-san-juan-y-casona-de-los-castilla-jadraque": {
+   "lat": 40.926001,
+   "lon": -2.923651,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Calle de San Juan y casona de los Castilla",
+   "municipio": "Jadraque",
+   "fecha": "13/11/2026 09:25",
+   "t": 1794558323569
+  },
+  "t:convento-de-los-capuchinos-jadraque": {
+   "lat": 40.926411,
+   "lon": -2.92717,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Convento de los Capuchinos",
+   "municipio": "Jadraque",
+   "fecha": "13/11/2026 09:25",
+   "t": 1794558323569
+  },
+  "t:casa-de-las-cadenas-jadraque": {
+   "lat": 40.925304,
+   "lon": -2.923372,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Casa de las Cadenas",
+   "municipio": "Jadraque",
+   "fecha": "13/11/2026 09:25",
+   "t": 1794558323569
   }
  }
 }
