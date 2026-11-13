@@ -926,6 +926,15 @@ body.ancha #bloques button{height:40px;padding:0 11px;border:1px solid var(--lin
   font:inherit;font-size:13.5px;font-weight:600;color:#3f3d38;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 body.ancha #bloques button.on{background:var(--verde);border-color:var(--verde);color:#fff}
 body.ancha #btn-panel{display:none}
+#almacen{font-size:12px;line-height:1.45;color:#6b6861}
+body.ancha #hoja section.sintit h3{display:none} body.ancha #hoja section.sintit{padding-bottom:4px}
+body.ancha #hoja .cuerpo .fila.vermos{flex-wrap:wrap;margin:14px 0 4px}
+body.ancha #interruptores{right:auto;-webkit-mask-image:none;mask-image:none}
+body.ancha.sintacto #interruptores{display:none}
+body.ancha.sintacto #tog-rec{display:none}
+body.ancha.sintacto #selectores{display:flex;gap:6px;align-items:center}
+body.ancha.sintacto #selectores #tog-punto{flex:none;pointer-events:auto} #tog-punto.activo{background:var(--verde);color:#fff;border-color:var(--verde)}
+body.ancha.sintacto #selectores{top:calc(54px + var(--safe-t))}
 body.ancha #zona-activa{flex:0 1 240px}
 body.ancha #panel{inset:auto;top:calc(52px + var(--safe-t));left:8px;width:min(440px,calc(100vw - 16px));background:none;display:block;transition:none}
 body.ancha #panel:not(.abierto){display:none}
@@ -934,6 +943,9 @@ body.ancha #hoja section{display:none}
 body.ancha #hoja section.enbloque{display:block}
 body.ancha #hoja section.enbloque .cuerpo{display:block}
 body.ancha #hoja section h3{cursor:default} body.ancha #hoja section h3::after{display:none}
+body.ancha #hoja section.enbloque.masop:not(.abta) .cuerpo{display:none}
+body.ancha #hoja section.masop h3{cursor:pointer;display:block;text-transform:none;letter-spacing:0;font-size:13.5px;font-weight:600;color:#5d5a53}
+body.ancha #hoja section.masop h3::before{content:'▸ '} body.ancha #hoja section.masop.abta h3::before{content:'▾ '}
 body.ancha #hoja .cuerpo .fila{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 body.ancha #hoja .cuerpo .fila>span{width:54px;font-size:13px;font-weight:600;color:#5d5a53;flex:none}
 body.ancha #hoja .cuerpo .fila select{flex:1;min-width:0;padding:6px;border:1px solid var(--linea);border-radius:8px;font:inherit;font-size:13.5px;background:#fff}
@@ -964,6 +976,7 @@ body.ancha #hoja .cuerpo .fila input[type=range]{flex:1;margin:0;accent-color:va
 #enc-txt{font-size:13.5px;line-height:1.4;margin-bottom:10px;color:#2a2a28}
 #enc-aviso .bts{display:flex;gap:6px} #enc-aviso button{flex:1;padding:9px 6px;border-radius:10px;border:1px solid var(--linea);background:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 #enc-aviso #enc-si{background:var(--verde);border-color:var(--verde);color:#fff;flex:1.6} #enc-aviso button:disabled{opacity:.5}
+#pm-foto-caja{display:flex;align-items:center;gap:7px;font-size:13px;color:#3f3d38;margin:6px 0 8px;cursor:pointer} #pm-foto-caja input{width:17px;height:17px;accent-color:var(--verde);flex:none} #pm-foto-caja small{color:#8a877f}
 #pm-baja{width:100%;margin:2px 0 8px;padding:9px;border:1px solid var(--verde);border-radius:10px;background:var(--verde);color:#fff;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
 #pm-baja.sec2{background:#fff;color:var(--verde)} #pm-baja:disabled{opacity:.5}
 #pm-baja-txt{font-size:12px;color:#5d5a53;margin:-2px 0 8px;line-height:1.35} #pm-baja-txt:empty{display:none}
@@ -1428,6 +1441,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
   <div class="fila"><span>Encima</span><select id="pm-encima"></select></div>
   <div class="fila"><span>Transp.</span><input type="range" id="pm-op" min="0" max="100" step="5" aria-label="Transparencia del mapa de encima"><b id="pm-op-val"></b></div>
   <input type="text" id="pm-nom" placeholder="Nombre de la zona (opcional)" autocomplete="off">
+  <label id="pm-foto-caja"><input type="checkbox" id="pm-foto"> Bajar también la foto aérea <small>(pesa el doble que el topográfico)</small></label>
   <button id="pm-baja" title="Guarda los mapas y los senderos de lo que estás viendo, para usarlos sin cobertura">&#10515; Descargar esta pantalla</button>
   <button id="pm-envia" class="sec2" title="Apunta esta zona para que el móvil y la tablet la descarguen de un toque">&#128242; Preparar para el móvil</button>
   <div id="pm-baja-txt"></div>
@@ -1569,10 +1583,23 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
         <select id="aemet-area"></select>
       </label>
       <button class="sec" id="btn-boletin">Ver el boletín</button>
+      <h4>Peligro de aludes</h4>
+      <p class="pista">El parte de nieve y aludes de AEMET, en temporada de nieve. Con la clave solo se pueden traer los del Pirineo; los de Guadarrama y Picos de Europa se abren en la web de AEMET.</p>
+      <label class="campo">Zona
+        <select id="aludes-zona">
+          <option value="1">Pirineo navarro y aragonés</option>
+          <option value="0">Pirineo catalán</option>
+          <option value="web:mad2">Sierra de Guadarrama (abre AEMET)</option>
+          <option value="web:peu1">Picos de Europa (abre AEMET)</option>
+        </select>
+      </label>
+      <button class="sec" id="btn-aludes">Ver el parte de aludes</button>
+      <div id="aludes-sal"></div>
       <label class="campo">Clave de AEMET OpenData
         <input type="password" id="aemet-clave" placeholder="eyJhbGciOi…" autocomplete="off" spellcheck="false">
       </label>
-      <p class="pista">Se guarda solo en este navegador. Se pide gratis en el portal de AEMET OpenData.</p>
+      <p class="pista">Se guarda solo en este navegador. Se pide gratis en <a href="https://opendata.aemet.es/centrodedescargas/altaUsuario" target="_blank" rel="noopener">el portal de AEMET OpenData</a> y caduca a los 3 meses.</p>
+      <p class="pista" id="aemet-cad"></p>
       <div id="boletin-sal"></div>
     </section>
 
@@ -1707,12 +1734,11 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
 
     <section>
       <h3>Manual</h3>
-      <p class="pista">Cómo funciona todo: la app entera y los programas del ordenador. Está guardado con la app, así que <b>se abre sin cobertura</b> — que es donde no te acuerdas de cómo iba la pantalla de emergencia. Lleva buscador.</p>
-      <button class="accion" id="btn-manual">Abrir el manual</button>
+      <button class="accion" id="btn-manual" title="Cómo funciona todo. Se abre sin cobertura y lleva buscador">&#128214; Abrir el manual</button>
     </section>
 
     <section>
-      <h3>Ruta y almacenamiento</h3>
+      <h3>Acerca de</h3>
       <div id="almacen"></div>
     </section>
   </div>
@@ -2186,6 +2212,13 @@ document.getElementById('pm-encima').onchange = e => {
 document.getElementById('pm-op').oninput = e => { ponOpacidad(e.target.value / 100); document.getElementById('pm-op-val').textContent = e.target.value + '%'; };
 document.getElementById('pm-op').onchange = guardaEstado;
 mapa.on('click', () => { if (!bajando) $pm.hidden = true; });
+/* v103: en la descarga rápida solo se elige si baja la foto aérea; el topográfico y los senderos van siempre */
+{ const $f = document.getElementById('pm-foto'); const caja = id => document.querySelector('#capas input[value="' + id + '"]');
+  const aplica = () => { const t = caja('topo'), f = caja('foto'); if (t) t.checked = true; if (f) f.checked = $f.checked; };
+  try { $f.checked = localStorage.getItem('ign.pmfoto2') === '1'; } catch (e) {}
+  $f.onchange = () => { try { localStorage.setItem('ign.pmfoto2', $f.checked ? '1' : '0'); } catch (e) {} aplica(); mapa.fire('movestart'); };
+  document.getElementById('capas').addEventListener('change', e => { if (e.target.value === 'foto') $f.checked = e.target.checked; });
+  setTimeout(aplica, 1200); }
 /* v98: «Descargar esta pantalla» — primer toque: dice cuánto pesa; segundo toque: baja mapas y senderos */
 { const $b = document.getElementById('pm-baja'), $t = document.getElementById('pm-baja-txt'); let lista = false, reloj = null;
   const reinicia = () => { lista = false; $b.textContent = '⤓ Descargar esta pantalla'; $b.classList.remove('sec2'); };
@@ -2582,6 +2615,7 @@ function pintaCapas() {
   const c = document.getElementById('capas');
   c.innerHTML = '';
   CAPAS.forEach(cfg => {
+    if (cfg.id !== 'topo' && cfg.id !== 'foto') return;   // v104: para andar solo sirven estos dos; los demás se ven con datos pero no se descargan
     const l = document.createElement('label');
     l.className = cfg.soloOnline ? 'no-baja' : '';
     l.innerHTML = '<input type="checkbox" value="' + cfg.id + '"'
@@ -2628,31 +2662,18 @@ function cierraPanel() { $panel.classList.remove('abierto'); mapa.off('moveend z
 
 async function pintaAlmacen() {
   const $a = document.getElementById('almacen');
-  let txt = 'Versión de la app: <b>' + VERSION + '</b>.<br>';
+  /* v109: compacto — tres datos en letra pequeña, y los avisos solo cuando hacen falta */
+  let txt = 'App <b>' + VERSION + '</b>';
   if (navigator.storage && navigator.storage.estimate) {
-    try {
-      const e = await navigator.storage.estimate();
-      /* el navegador da el total del sitio, no solo las teselas: aquí entran
-         también los senderos, la colección de rutas y los tracks cargados */
-      /* OJO: aquí ponía `txt =` en vez de `txt +=`, así que la línea de la
-         versión que se acaba de escribir arriba se borraba. Resultado: la
-         versión solo se veía en los navegadores donde falla `estimate()`,
-         es decir, casi en ninguno. */
-      txt += 'Ocupado en este dispositivo: <b>' + fmtMB(e.usage || 0) + '</b> de '
-          + fmtMB(e.quota || 0) + ' disponibles. Incluye mapas, senderos, rutas y tracks.';
-    } catch (er) {}
+    try { const e = await navigator.storage.estimate();   // total del sitio: mapas, senderos, rutas y tracks
+      txt += ' · Ocupado en este dispositivo: <b>' + fmtMB(e.usage || 0) + '</b> de ' + fmtMB(e.quota || 0); } catch (er) {}
   }
+  const kb = bytesLocales() / 1024;   // el cajón pequeño (unos 5 MB): el único que se puede llenar de verdad
+  txt += '<br>Ajustes, grabación, puntos y rutas añadidas: <b>' + kb.toFixed(0) + ' KB</b> de 5.000';
+  if (kb > 3500) txt += '<br><span class="aviso-purga">Casi lleno: conviene publicar las rutas añadidas o quitar tracks.</span>';
   let persistente = false;
   if (navigator.storage && navigator.storage.persisted) { try { persistente = await navigator.storage.persisted(); } catch (e) {} }
-  txt += persistente
-    ? '<br>Almacenamiento <b>permanente</b>: el navegador no borrará nada por su cuenta.'
-    : '<br><span class="aviso-purga">Almacenamiento no permanente: si el móvil se queda sin espacio, Chrome podría borrar lo guardado. Se pide el permiso al descargar, y se concede antes si tienes la app instalada en la pantalla de inicio.</span>';
-  /* Aparte va el cajón pequeño: preferencias, grabación, puntos y rutas
-     añadidas. Son unos 5 MB en total y es el único sitio que se puede llenar
-     de verdad, así que conviene tenerlo a la vista. */
-  const kb = bytesLocales() / 1024;
-  txt += '<br>Ajustes, grabación, puntos y rutas añadidas: <b>' + kb.toFixed(0) + ' KB</b> de unos 5.000'
-       + (kb > 3500 ? ' <span class="aviso-purga">— conviene publicar las rutas añadidas o quitar tracks.</span>' : '.');
+  if (!persistente) txt += '<br><span class="aviso-purga" title="Se pide el permiso al descargar, y se concede antes si tienes la app instalada en la pantalla de inicio">Almacenamiento no permanente: si falta espacio, el navegador podría borrar lo guardado.</span>';
   $a.innerHTML = txt;
 }
 
@@ -4808,7 +4829,9 @@ function cierraDibujo() {
   verticesDib = [];
   document.getElementById('barra-dibujo').hidden = true;
 }
-function clicDib(e) { verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
+function clicDib(e) {
+  /* v108: ese clic es para colocar un punto, no para la ruta */ if (window._marcandoPunto) return;
+ verticesDib.push([e.latlng.lat, e.latlng.lng]); pintaDib(); }
 
 /* ---------- Editor de rutas -------------------------------------------
    El planificador dibuja de cero; el editor cambia lo que ya hay. La regla que
@@ -5094,6 +5117,8 @@ async function aplicaUnion() {
 }
 
 function clicEd(e) {
+  /* v108: ese clic es para colocar un punto, no para la ruta */ if (window._marcandoPunto) return;
+
   if (edOp === 'invierte' || edOp === 'une') return;
   if (edOp === 'mover') {
     const c = masCercanoEnTraza(edPts, e.latlng);
@@ -5574,6 +5599,8 @@ function cierraPlanificador() {
 }
 
 function clicPlan(e) {
+  /* v108: ese clic es para colocar un punto, no para la ruta */ if (window._marcandoPunto) return;
+
   const primero = !puntosPlan.length;
   puntosPlan.push([e.latlng.lat, e.latlng.lng]);
   recalculaPlan();
@@ -5597,6 +5624,8 @@ async function guardaPlan() {
   const id = 'g' + Date.now().toString(36) + 'p';
   /* salvaPuntosGpx no devuelve nada: si la caché está llena, lanza */
   const wpt = pasosComoWpt();
+  /* v108: los puntos marcados a menos de 500 m de la ruta la acompañan como waypoints (para el Garmin) */
+  try { leePuntos().forEach(p => { if (r.red.some(q => mapa.distance([q[0], q[1]], p.g) < 500)) wpt.push({ lat: p.g[0], lon: p.g[1], nom: p.nom, ele: p.alt }); }); } catch (e) {}
   try {
     await salvaPuntosGpx(id, r.red);
     if (wpt.length) await salvaWptGpx(id, wpt);
@@ -7576,13 +7605,13 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v100';
+const VERSION = 'v109';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
 const ANCHA = matchMedia('(min-width:760px)').matches;
 const BLOQUES = { ver:['Visualización', /^(mapa$|legibilidad)/i], ruta:['Preparar ruta', /^(mis objetivos|esta pantalla|descargar la zona)/i],
-  mis:['Rutas y zonas', /^(mis rutas|mis zonas|senderos)/i], tiempo:['Tiempo y seguridad', /^(el tiempo|seguridad)/i], mas:['Ajustes', /^(manual|ruta y almacenamiento)/i] };
+  mis:['Rutas y zonas', /^(mis rutas|mis zonas|senderos)/i], tiempo:['Tiempo y seguridad', /^(el tiempo|seguridad)/i], mas:['Ajustes', /^(manual|acerca de)/i] };
 let bloqueAbierto = null;
 function montaBloques() {
   if (!ANCHA) return;
@@ -7592,13 +7621,34 @@ function montaBloques() {
   const nueva = (titulo, nodos) => { const sec = document.createElement('section'); sec.innerHTML = '<h3></h3><div class="cuerpo"></div>';
     sec.querySelector('h3').textContent = titulo; nodos.forEach(n => n && sec.querySelector('.cuerpo').appendChild(n)); hoja.insertBefore(sec, primera); return sec; };
   /* lo que en el móvil vive en la pastilla «🗺 Mapas» pasa aquí a sus bloques */
-  nueva('Esta pantalla: descargarla o mandarla al móvil', ['pm-nom', 'pm-baja', 'pm-envia', 'pm-baja-txt'].map(i => document.getElementById(i)));
-  nueva('Mapa', [...document.querySelectorAll('#panel-mapas .fila')]);
+  nueva('Esta pantalla: descargarla o mandarla al móvil', ['pm-nom', 'pm-foto-caja', 'pm-baja', 'pm-envia', 'pm-baja-txt'].map(i => document.getElementById(i)));
+  const mapaSec = nueva('Mapa', [...document.querySelectorAll('#panel-mapas .fila')]);
+  /* v101: Track · Rutas · Sendas pasan a «Visualización». En ordenador (sin pantalla táctil) SOS y Punto se quitan: son de campo */
+  const ver = document.createElement('div'); ver.className = 'fila vermos'; ver.innerHTML = '<span>Ver</span>';
+  ['tog-gpx', 'tog-rutas', 'tog-sendas'].forEach(i => { const l = document.getElementById(i).closest('label'); if (l) ver.appendChild(l); });
+  mapaSec.querySelector('.cuerpo').appendChild(ver);
+  if (!(navigator.maxTouchPoints > 0)) {
+    document.body.classList.add('sintacto');
+    /* v108, ordenador: el punto se coloca con un clic en el mapa (aquí no hay GPS que valga) y va junto al selector de mapas */
+    const $pt = document.getElementById('tog-punto'); document.getElementById('selectores').appendChild($pt);
+    $pt.title = 'Marcar un punto en el mapa: irá como waypoint con la ruta que guardes';
+    const fin = () => { window._marcandoPunto = false; $pt.classList.remove('activo'); mapa.getContainer().style.cursor = ''; mapa.off('click', pon); };
+    const pon = e => { fin(); const ps = leePuntos();
+      const pt = { id: 'p' + Date.now().toString(36), nom: 'Punto ' + (ps.length + 1), g: [+e.latlng.lat.toFixed(5), +e.latlng.lng.toFixed(5)], alt: null, t: Date.now() };
+      ps.push(pt); salvaPuntos(ps); pintaPuntos(); pintaListaPuntos(); avisa('Marcado «' + pt.nom + '». Haz clic en él para ponerle nombre'); };
+    $pt.onclick = ev => { ev.stopPropagation(); if (window._marcandoPunto) { fin(); avisa('Cancelado'); return; }
+      window._marcandoPunto = true; $pt.classList.add('activo'); mapa.getContainer().style.cursor = 'crosshair'; mapa.on('click', pon); avisa('Haz clic en el mapa donde quieres el punto'); };
+  }
   hoja.querySelectorAll('section').forEach(sec => { const t = (sec.querySelector('h3') || {}).textContent || '';
     sec.dataset.bloque = Object.keys(BLOQUES).find(k => BLOQUES[k][1].test(t.trim())) || 'mas'; });
   /* en «Preparar ruta» primero se dibuja y al final se descarga o se manda al móvil */
   const obj = [...hoja.querySelectorAll('section')].find(x => /^mis objetivos/i.test(x.querySelector('h3').textContent.trim()));
   if (obj) hoja.insertBefore(obj, hoja.querySelector('section'));
+  /* v102: la descarga detallada es casi lo mismo que «Esta pantalla»: queda plegada como «Más opciones» */
+  const det = [...hoja.querySelectorAll('section')].find(x => /^descargar la zona/i.test(x.querySelector('h3').textContent.trim()));
+  if (det) { det.classList.add('masop'); const h = det.querySelector('h3'); h.textContent = 'Más opciones: nivel de detalle o dibujar la zona';
+    h.addEventListener('click', e => { e.stopPropagation(); det.classList.toggle('abta'); }, true); }
+  { const man = document.getElementById('btn-manual').closest('section'); if (man) man.classList.add('sintit'); }
   document.querySelectorAll('#bloques button').forEach(b => b.onclick = () => abreBloque(b.dataset.b, true));
   document.getElementById('sel-mapas').onclick = () => abreBloque('ver', true);
   const abreP = abrePanel, cierraP = cierraPanel, abreS = abreSeccion;
@@ -7607,6 +7657,7 @@ function montaBloques() {
   abreSeccion = function (i, desplaza) { const sec = document.querySelector('#hoja section[data-sec="' + i + '"]');
     if (sec && $panel.classList.contains('abierto') && sec.dataset.bloque !== bloqueAbierto) abreBloque(sec.dataset.bloque);
     else if (sec && !$panel.classList.contains('abierto')) { bloqueAbierto = null; pendienteBloque = sec.dataset.bloque; }
+    if (sec && sec.classList.contains('masop')) sec.classList.add('abta');
     abreS(i, false); if (sec && desplaza !== false) setTimeout(() => sec.scrollIntoView({ block:'start', behavior:'smooth' }), 60); };
   document.getElementById('cerrar').onclick = () => cierraPanel();
   mapa.on('click', () => { if ($panel.classList.contains('abierto') && !bajando) cierraPanel(); });
@@ -7704,6 +7755,7 @@ async function traeAvisos(silencioso) {
   const clave = claveAemet();
   if (!clave) throw new Error('falta la clave de AEMET, más abajo en esta misma sección');
   const p1 = await leeAemet(RUTA_AVISOS + '?api_key=' + encodeURIComponent(clave), 'La petición de avisos');
+  if (p1.estado === 401) throw new Error('la clave de AEMET ha caducado o no vale (desde julio de 2026 caducan a los 3 meses). Pide una nueva en opendata.aemet.es y pégala más abajo, en «Clave de AEMET OpenData»');
   if (!p1.j || !p1.j.datos) throw new Error(p1.estado === 429
     ? 'AEMET está limitando las peticiones; espera un minuto'
     : 'AEMET no ha dicho dónde están los avisos (respondió ' + p1.estado + ')');
@@ -7905,7 +7957,7 @@ async function verBoletin() {
         const r = await leeAemet(base + area + '/dia/0?api_key=' + encodeURIComponent(clave),
                                  'la primera llamada');
         if (r.estado === 429) throw new Error('AEMET está limitando las peticiones. Espera un minuto y repite.');
-        if (r.estado === 401) throw new Error('la clave de AEMET no vale');
+        if (r.estado === 401) throw new Error('la clave de AEMET ha caducado o no vale (desde julio de 2026 caducan a los 3 meses). Pide una nueva en opendata.aemet.es y pégala más abajo, en «Clave de AEMET OpenData»');
         if (r.j && r.j.datos) { p1 = r; break; }
         ultimo = 'AEMET respondió ' + r.estado + ' a la primera llamada';
       } catch (e) {
@@ -7933,6 +7985,54 @@ document.getElementById('btn-tiempo').onclick  = verTiempoAqui;
 document.getElementById('btn-avisos').onclick  = botonAvisos;
 document.getElementById('btn-mejor').onclick   = dondeMejor;
 document.getElementById('btn-boletin').onclick = verBoletin;
+
+/* ---- v107: parte de nieve y aludes ----------------------------------------
+   AEMET OpenData solo lo sirve para las dos zonas del Pirineo (0 y 1). Viene como
+   texto corrido. Se guarda el último para verlo sin cobertura. */
+const LS_ALUDES = 'ign.aludes';
+const ZONAS_ALUDES = { '1':'Pirineo navarro y aragonés', '0':'Pirineo catalán' };
+function pintaAludesGuardado(abrir) {
+  const $s = document.getElementById('aludes-sal'); let g = null;
+  try { g = JSON.parse(localStorage.getItem(LS_ALUDES)); } catch (e) {}
+  if (!g || !g.txt) return;
+  const nom = ZONAS_ALUDES[g.zona] || g.zona;
+  if ($s) { $s.innerHTML = '<div class="pista">Último parte: ' + nom + ', ' + cuandoSe(g.t).replace('consultada', 'consultado') + '. <a href="#" id="alu-verlo">Verlo</a></div>';
+    document.getElementById('alu-verlo').onclick = ev => { ev.preventDefault(); pintaAludesGuardado(true); }; }
+  if (!abrir) return;
+  const pre = document.createElement('pre'); pre.textContent = g.txt;
+  pre.style.cssText = 'white-space:pre-wrap;font:inherit;font-size:14px;line-height:1.45;margin:0 0 10px';
+  abreHoja('Peligro de aludes', nom + ' · ' + cuandoSe(g.t).replace('consultada', 'consultado'),
+    pre.outerHTML + '<div class="pista">© AEMET. Autorizado el uso de la información y su reproducción citando a AEMET como autora.</div>');
+}
+async function verAludes() {
+  const $b = document.getElementById('btn-aludes'), $s = document.getElementById('aludes-sal');
+  const zona = document.getElementById('aludes-zona').value;
+  if (zona.indexOf('web:') === 0) { window.open('https://www.aemet.es/es/eltiempo/prediccion/montana?p=' + zona.slice(4), '_blank', 'noopener'); return; }
+  const clave = claveAemet();
+  if (!clave) { $s.innerHTML = '<div class="viejo">Falta la clave de AEMET.</div>'; return; }
+  $b.disabled = true; $s.innerHTML = '<div class="pista">Pidiendo el parte…</div>';
+  try {
+    const p1 = await leeAemet('https://opendata.aemet.es/opendata/api/prediccion/especifica/nivologica/' + zona + '?api_key=' + encodeURIComponent(clave), 'la primera llamada');
+    if (p1.estado === 429) throw new Error('AEMET está limitando las peticiones. Espera un minuto y repite.');
+    if (p1.estado === 401) throw new Error('la clave de AEMET ha caducado o no vale. Pide una nueva en opendata.aemet.es y pégala más abajo.');
+    if (!p1.j || !p1.j.datos) throw new Error(p1.estado === 404 || (p1.j && p1.j.estado === 404)
+      ? 'AEMET no tiene parte de aludes ahora para esa zona (fuera de temporada de nieve no se publica)'
+      : 'AEMET respondió ' + p1.estado + ' y no ha dicho dónde está el parte');
+    let r;
+    try { r = await fetch(String(p1.j.datos).replace(/^http:\/\//i, 'https://')); }
+    catch (e) { throw new Error('la segunda llamada no ha llegado a AEMET (' + e.message + ')'); }
+    if (!r.ok) throw new Error('la segunda llamada respondió ' + r.status);
+    const buf = await r.arrayBuffer(); let txt;
+    try { txt = new TextDecoder('iso-8859-15').decode(buf); } catch (e) { txt = new TextDecoder().decode(buf); }
+    txt = txt.replace(/\r/g, '').trim();
+    if (!txt) throw new Error('el parte ha venido vacío');
+    try { const j = JSON.parse(txt); if (j && j.descripcion && !Array.isArray(j)) throw new Error('AEMET dice: ' + j.descripcion); } catch (e) { if (/^AEMET dice/.test(e.message)) throw e; }
+    guarda(LS_ALUDES, { t: Date.now(), zona, txt });
+    pintaAludesGuardado(true);
+  } catch (e) { $s.innerHTML = '<div class="viejo">No se ha podido. ' + e.message + '</div>'; }
+  finally { $b.disabled = false; }
+}
+document.getElementById('btn-aludes').onclick = verAludes;
 
 /* ---------- 11. Panel plegable ----------------------------------------
    Seis secciones abiertas a la vez eran un muro de texto. Ahora cada una se
@@ -8035,6 +8135,25 @@ function abrePor(texto) {
   /* el tiempo: se enseña lo último consultado, que sin red es lo único que hay */
   const $ac = document.getElementById('aemet-clave');
   if ($ac) $ac.value = localStorage.getItem(LS_AEMET) || '';
+  /* v106: la clave nueva se guarda al pegarla, y si trae fecha de caducidad se avisa */
+  const LS_AEMET_T = 'ign.aemet.t';
+  const caducaAemet = () => { const c = ($ac && $ac.value.trim()) || ''; if (!c) return null;
+    const mas3 = t => { const d = new Date(t); d.setMonth(d.getMonth() + 3); return d.getTime(); };
+    try { const p = JSON.parse(atob((c.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/')));
+      if (p && p.exp) return { t: p.exp * 1000, seguro: true };
+      if (p && p.iat) return { t: mas3(p.iat * 1000), seguro: false }; } catch (e) {}
+    let g = null; try { g = JSON.parse(localStorage.getItem(LS_AEMET_T)); } catch (e) {}
+    if (!g || g.c !== c.slice(-12)) { g = { c: c.slice(-12), t: Date.now() }; guarda(LS_AEMET_T, g); }
+    return { t: mas3(g.t), seguro: false }; };
+  const cadAemet = alAbrir => { const $c = document.getElementById('aemet-cad'); if (!$c) return; let t = '';
+    const k = caducaAemet();
+    if (k) { const d = Math.round((k.t - Date.now()) / 86400000), f = new Date(k.t).toLocaleDateString('es-ES'), ap = k.seguro ? '' : ' (aprox.: 3 meses desde que se pidió)';
+      t = d < 0 ? '⚠ Esta clave caducó el ' + f + ap + '. Pide una nueva.' : d <= 14 ? '⚠ Esta clave caduca el ' + f + ' (quedan ' + d + ' días)' + ap + '.' : 'Esta clave vale hasta el ' + f + ' (quedan ' + d + ' días)' + ap + '.';
+      if (alAbrir && d <= 10) setTimeout(() => avisa(d < 0 ? 'La clave de AEMET ha caducado: pide una nueva (Tiempo → Clave de AEMET)' : 'La clave de AEMET caduca en ' + d + ' días: conviene pedir otra'), 2500); }
+    $c.textContent = t; $c.style.color = t.charAt(0) === '⚠' ? '#b3261e' : ''; };
+  if ($ac) { $ac.addEventListener('change', () => { const v = $ac.value.trim(); if (v) guarda(LS_AEMET, v); cadAemet(); }); cadAemet(true); pintaAludesGuardado();
+    const c = mapa.getCenter(), $z = document.getElementById('aludes-zona');
+    if ($z) $z.value = (c.lat > 42.2 && c.lng > -2) ? (c.lng < 0.75 ? '1' : '0') : (c.lat > 42.8 && c.lng < -4) ? 'web:peu1' : 'web:mad2'; }
   montaMacizos(); pintaTiempoGuardado(); pintaBoletinGuardado();
   /* los avisos: primero lo guardado, que es lo único que hay sin cobertura, y
      con eso ya se puede avisar; luego, si hay red, se mira si hay algo nuevo */
@@ -8067,7 +8186,7 @@ function abrePor(texto) {
   pintaListaRenombres();
   pintaAnadidas();
   pintaRutas();
-  if (!zs.length) setTimeout(() => avisa('Pulsa ☰ para descargar tu primera zona'), 900);
+  if (!zs.length) setTimeout(() => avisa(document.body.classList.contains('ancha') ? 'En «Preparar ruta» puedes descargar tu primera zona' : 'Pulsa ☰ para descargar tu primera zona'), 900);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 

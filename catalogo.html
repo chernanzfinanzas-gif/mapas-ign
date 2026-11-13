@@ -102,6 +102,16 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #gps.on,#loc.on{background:#2f6b4f;border-color:#2f6b4f;color:#fff}
 #loc{position:absolute;top:54px;right:8px;bottom:auto;z-index:1000;font-size:22px;line-height:1}
 #cerca{position:absolute;top:100px;right:8px;bottom:auto;z-index:1000;height:40px;border:0;border-radius:10px;padding:0 12px;font:700 13.5px system-ui;background:#4f46e5;color:#fff;box-shadow:0 2px 8px #0006;cursor:pointer;display:flex;align-items:center;gap:2px}
+#radio{position:absolute;top:146px;right:8px;z-index:1000;width:40px;display:flex;flex-direction:column;border:1px solid rgba(22,33,28,.16);border-radius:10px;overflow:hidden;background:#fbfaf7;box-shadow:0 1px 4px rgba(0,0,0,.22)}
+#radio button{height:36px;border:0;border-top:1px solid rgba(22,33,28,.12);background:none;font:700 13px system-ui;color:#57544e;cursor:pointer;padding:0;line-height:1.05}
+#radio button:first-child{border-top:0} #radio button small{display:block;font:500 9px system-ui;opacity:.75}
+#radio button.on{background:#2f6b4f;color:#fff}
+/* 13-nov l: el tiempo de los próximos 10 días en la ficha, en una tira */
+.tmp{display:flex;gap:2px;margin:8px 0 6px;min-height:0} .tmp:empty{display:none}
+.tmp div{flex:1 1 0;min-width:0;text-align:center;background:#f3f5f4;border-radius:7px;padding:3px 0 4px;font:600 11px system-ui;color:#3f3d38;line-height:1.25}
+.tmp div.finde{background:#e8efe9} .tmp i{display:block;font-style:normal;font-size:17px;line-height:1.2}
+.tmp small{display:block;white-space:nowrap;font:500 10px system-ui;color:#8a877f} .tmp u{display:block;text-decoration:none;color:#8a877f;font-weight:500}
+.tmp em{display:block;font-style:normal;font:600 10px system-ui;color:#1d6fb8;height:12px} .tmp em.v{color:#b3261e}
 #cerca-n{display:none;margin-left:6px;background:#22a447;border-radius:999px;padding:1px 7px;font-size:12px}
 #cerca-n.hay{display:inline-block}
 #cor{display:none!important}
@@ -146,6 +156,7 @@ ul{padding-left:18px;margin:6px 0}
 <div id="dlg"><div id="dlgc"></div></div>
 <button id="loc" title="Llevar el mapa a donde estoy">&#8982;</button>
 <button id="cerca" onclick="cerca()" title="Qué hay cerca de aquí">📍<span class="tx"> Qué hay cerca</span><b id="cerca-n"></b></button>
+<div id="radio" title="Encuadrar lo que hay a esa distancia del centro de la pantalla"><button data-km="10">10<small>km</small></button><button data-km="25">25<small>km</small></button><button data-km="50">50<small>km</small></button></div>
 <button id="cor" onclick="lista()"></button>
 <div id="aviso"></div>
 <div id="sheet"></div>
@@ -198,7 +209,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov j';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov l';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -592,7 +603,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov j</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov l</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -625,6 +636,7 @@ function ficha_(p){
   else if (!ap && f.posicion_nota) h += '<div class="sub" style="margin:6px 0">📍 '+esc(f.posicion_nota)+'</div>';
   else if (ap) h += '<div class="aviso">❓ '+esc(f.posicion_nota||'Ubicación sin confirmar: el punto marca el pueblo, no el sitio.')+'</div>';
   if (ap) h += '<div class="btns" style="margin-top:4px"><button onclick="fijaGPS(\''+id+'\')">📍 Estoy aquí, fijar posición</button><button class="sec" onclick="fijaMapa(\''+id+'\')">📌 Marcarlo en el mapa</button>'+(COR[id]?'<button class="sec" onclick="deshaz(\''+id+'\')">↩ Deshacer</button>':'')+'</div>';
+  h += '<div class="tmp" id="tmp"></div>';
   if (esRuta(c)){
     h += '<div class="stats">';
     if (f.esf!=null) h += '<span class="lv" style="background:'+NIV[f.esf].c+'">'+NIV[f.esf].e+' '+NIV[f.esf].n+'</span>';
@@ -661,6 +673,23 @@ function ficha_(p){
   h += '</div>';
   if (f.fuentes && f.fuentes.length) h += '<div class="src">Fuentes: '+f.fuentes.map(u=>'<a target="_blank" rel="noopener" href="'+esc(u)+'">'+esc(u.replace(/^https?:\/\/(www\.)?/,'').slice(0,50))+'</a>').join(' · ')+'</div>';
   const s = document.getElementById('sheet'); s.innerHTML = h; s.scrollTop = 0; s.classList.add('on');
+  tiempoFicha(id, ap&&f.lat_pueblo ? +f.lat_pueblo : lat, ap&&f.lat_pueblo ? +f.lon_pueblo : lon);
+}
+/* El tiempo de la ficha: Open-Meteo, sin clave. Se guarda una hora por zona (cuadros de ~5 km) para no repetir peticiones. */
+const TMP = {}; let tmpDe = null;
+const TMP_IC = c => c===0?'☀️':c<=2?'🌤️':c===3?'☁️':c<=48?'🌫️':c<=57?'🌦️':c<=67?'🌧️':c<=77?'🌨️':c<=82?'🌧️':c<=86?'🌨️':'⛈️';
+function tiempoFicha(id, lat, lon){
+  tmpDe = id; if (!navigator.onLine || lat==null) return;
+  const k = (Math.round(lat*20)/20).toFixed(2)+','+(Math.round(lon*20)/20).toFixed(2), g = TMP[k];
+  const pinta = d => { const $t = document.getElementById('tmp'); if (!$t || tmpDe !== id || !d || !d.time) return;
+    $t.title = 'Previsión de Open-Meteo para este punto';
+    $t.innerHTML = d.time.map((t,i) => { const f = new Date(t+'T12:00'), ds = f.getDay(), ll = d.precipitation_sum[i]||0, r = d.wind_gusts_10m_max[i]||0;
+      return '<div'+(ds===0||ds===6?' class="finde"':'')+'><small>'+(i===0?'hoy':['D','L','M','X','J','V','S'][ds]+' '+f.getDate())+'</small><i>'+TMP_IC(d.weather_code[i])+'</i>'
+        +Math.round(d.temperature_2m_max[i])+'°<u>'+Math.round(d.temperature_2m_min[i])+'°</u>'
+        +(r>=60 ? '<em class="v">💨'+Math.round(r)+'</em>' : '<em>'+(ll>=1 ? Math.round(ll)+' mm' : '')+'</em>')+'</div>'; }).join(''); };
+  if (g && Date.now()-g.t < 3600000) return pinta(g.d);
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat.toFixed(3)+'&longitude='+lon.toFixed(3)+'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max&timezone=auto&forecast_days=10')
+    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.daily) { TMP[k] = {t:Date.now(), d:j.daily}; pinta(j.daily); } }).catch(()=>{});
 }
 function cierra(){ document.getElementById('sheet').classList.remove('on'); sel=null; pintaTracks(); marcaPunto(null); }
 function marcaAqui(ll){ const id=modo; modo=null; avisa(''); pon(id,ll.lat,ll.lng,null,'mapa'); }
@@ -856,6 +885,11 @@ function gpx(id){
 let yo=null;
 /* GPS encendido (((•))) = se ve y se va actualizando mi posición; ⌖ = llevar el mapa a donde estoy (y enciende el GPS si hace falta) */
 let gpsOn=false, yoLL=null, centraAlLlegar=false;
+/* 13-nov k: 10 · 25 · 50 km — encuadra el mapa a esa distancia alrededor del centro de la pantalla */
+{ let zr=null; const bs=[...document.querySelectorAll('#radio button')];
+  bs.forEach(b=>b.onclick=()=>{ const c=map.getCenter(), km=+b.dataset.km; zr=map.getBoundsZoom(c.toBounds(km*2000)); map.setView(c,zr);
+    bs.forEach(x=>x.classList.toggle('on',x===b)); });
+  map.on('zoomend',()=>{ if(zr!==null&&map.getZoom()!==zr){ zr=null; bs.forEach(x=>x.classList.remove('on')); } }); }
 const $gps=document.getElementById('gps'), $loc=document.getElementById('loc');
 function gpsPon(si){ gpsOn=si; $gps.classList.toggle('on',si); try{localStorage.setItem('catGps',si?'1':'0');}catch(e){}
   if (si) map.locate({watch:true,setView:false,enableHighAccuracy:true,maximumAge:15000});
