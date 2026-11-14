@@ -150,6 +150,16 @@
    "municipio": "Peralta de Calasanz",
    "fecha": "14/11/2026 04:07",
    "t": 1794625663380
+  },
+  "t:lo-pilaret-peralta-de-calasanz": {
+   "lat": 41.992702,
+   "lon": 0.383942,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Lo Pilaret",
+   "municipio": "Peralta de Calasanz",
+   "fecha": "14/11/2026 04:10",
+   "t": 1794625845109
   }
  }
 }
