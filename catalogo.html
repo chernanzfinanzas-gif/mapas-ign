@@ -259,7 +259,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov n';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov o';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -337,10 +337,11 @@ let PT = null;   /* capa Patrimonio (14-nov): iglesias, ermitas, lavaderos, puen
 let UT = null;   // capa Útil: fuentes, miradores y refugios de OpenStreetMap (se carga al encenderla)
 const esRuta = c => c==='r' || c==='m';
 const grupo = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:50, disableClusteringAtZoom:14, showCoverageOnHover:false, spiderfyOnMaxZoom:false,
-  iconCreateFunction:cl=>{const ms=cl.getAllChildMarkers(), n=ms.length, s=n<10?30:n<100?36:44, c={h:0,n:0,r:0,m:0,t:0};
-    ms.forEach(m=>c[m.capa]++); let a=0, g=[];
+  iconCreateFunction:cl=>{const ms=cl.getAllChildMarkers(), n=ms.length, c={h:0,n:0,r:0,m:0,t:0}; let mej=0;
+    ms.forEach(m=>{ c[m.capa]++; if (m.est<=5 && m.est>mej) mej=m.est; }); let a=0, g=[];
+    const s=(n<10?30:n<100?36:44)+(mej===5?6:mej===4?2:0);   /* 14-nov ñ: el grupo lleva el color de la mejor estrella que tiene dentro */
     for (const k of ['m','r','n','h','t']) if (c[k]){ const b=a+c[k]/n*360; g.push(CAPAS[k].c+' '+a+'deg '+b+'deg'); a=b; }
-    return L.divIcon({className:'',iconSize:[s,s],html:'<div class="cl" style="width:'+s+'px;height:'+s+'px;background:conic-gradient('+g.join(',')+')"><span style="background:#1d2125;border-radius:50%;width:'+(s-12)+'px;height:'+(s-12)+'px;display:flex;align-items:center;justify-content:center">'+n+'</span></div>'});}});
+    return L.divIcon({className:'',iconSize:[s,s],html:'<div class="cl" style="width:'+s+'px;height:'+s+'px;background:conic-gradient('+g.join(',')+')"><span style="background:'+(mej?ECOL[mej]:'#1d2125')+';color:'+(mej===5?'#3a2c00':'#fff')+';border-radius:50%;width:'+(s-10)+'px;height:'+(s-10)+'px;display:flex;align-items:center;justify-content:center">'+n+'</span></div>'});}});
 map.addLayer(grupo);
 let COR = {}; try { COR = JSON.parse(localStorage.getItem('correcciones')||'{}') || {}; } catch(e) { COR = {}; }
 let BORR = {}; try { BORR = JSON.parse(localStorage.getItem('correcciones_borradas')||'{}') || {}; } catch(e) { BORR = {}; }
@@ -376,12 +377,14 @@ for (const p of D.p){
   m.capa = c; m.est = esRuta(c) ? 9 : (p[8]||1); m.on('click',e=>{ if (modo) return marcaAqui(e.latlng); ficha(p); }); MK[id] = m;
   marcas[c].push(m); cuenta[c]++;
 }
-let eVis = minE(map.getZoom());
-function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k]).map(k=>marcas[k].filter(m=>m.est>=eVis)))); }
+/* 14-nov o: rutas, mis rutas y naturaleza no salen (ni agrupadas) hasta el zoom 10 */
+const ZRN = 10, tardia = k => k==='r' || k==='m' || k==='n';
+let eVis = minE(map.getZoom()), rnVis = map.getZoom() >= ZRN;
+function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k] && (rnVis || !tardia(k))).map(k=>marcas[k].filter(m=>m.est>=eVis)))); }
 rellena();
 function pintaLeye(){ const d = document.getElementById('leye'); if (d) d.innerHTML = '<span>Importancia</span>'+[5,4,3,2,1].map(e=>'<b class="'+(e<Math.max(eVis,1)?'no':'')+'" style="background:'+ECOL[e]+(e===5?';color:#3a2c00':'')+'">'+e+'★</b>').join(''); }
 pintaLeye();
-map.on('zoomend',()=>{ const e = minE(map.getZoom()); if (e!==eVis) { eVis = e; rellena(); pintaLeye(); } });
+map.on('zoomend',()=>{ const e = minE(map.getZoom()), rn = map.getZoom() >= ZRN; if (e!==eVis || rn!==rnVis) { eVis = e; rnVis = rn; rellena(); pintaLeye(); } });
 function ponEstrella(id, e){            // e = 1..5, o null para volver a la calculada
   const p = busca(id); if (!p || esRuta(p[1])) return;
   if (e && e!==EORIG[id]) MIS[id] = {e, t:Date.now()}; else MIS[id] = {borrado:true, t:Date.now()};
@@ -612,7 +615,7 @@ async function pintaUtiles(avisar){
     for (let o=Math.floor(b.getWest()*20); o<=Math.floor(b.getEast()*20); o++)
       for (const i of (GU[a+'_'+o]||[])) { if (n > 600) break; const u = UT[i]; if (!b.contains([u[0],u[1]])) continue;
         const [sy,col] = UTIL[u[2]];
-        const m = L.marker([u[0],u[1]],{title:u[3]||tipoUtil(u), icon:L.divIcon({className:'',iconSize:[32,32],iconAnchor:[16,16],html:'<div class="ut" style="border-color:'+col+'">'+sy+'</div>'})});
+        const m = L.marker([u[0],u[1]],{title:u[3]||tipoUtil(u), zIndexOffset:-2500, icon:L.divIcon({className:'',iconSize:[32,32],iconAnchor:[16,16],html:'<div class="ut" style="border-color:'+col+'">'+sy+'</div>'})});
         m.on('click',()=>fichaUtil(i)); capaU.addLayer(m); n++; }
 }
 map.on('moveend zoomend',()=>pintaUtiles(false));
@@ -635,13 +638,18 @@ async function pintaPat(avisar){
     for (let o=Math.floor(b.getWest()*20); o<=Math.floor(b.getEast()*20); o++)
       for (const i of (GP[a+'_'+o]||[])) { const u = PT[i]; if (b.contains([u[0],u[1]])) ids.push(i); }
   ids.sort((x,y)=>x-y);
-  for (const i of ids.slice(0, 500)) { const u = PT[i];
+  /* 14-nov ñ: lo que no tiene estrellas solo se pinta si cabe. En un pueblo hay cuatro cosas y salen a zoom 13;
+     en una ciudad hay cientos y esperan a que se acerque más (o a zoom 16, donde ya salen siempre). */
+  let lista = ids, callados = 0;
+  if (z < 16) { const cero = ids.filter(i=>!((PT[i][6]||{}).e)); if (cero.length > 90) { callados = cero.length; lista = ids.filter(i=>(PT[i][6]||{}).e); } }
+  for (const i of lista.slice(0, 500)) { const u = PT[i];
     const e = (u[6]||{}).e||0, t = ESZ[e];
-    const m = L.marker([u[0],u[1]],{title:u[3], zIndexOffset: e*100, icon: e
+    const m = L.marker([u[0],u[1]],{title:u[3], zIndexOffset: e ? e*100 : -2000, icon: e
       ? L.divIcon({className:'',iconSize:[t,t],iconAnchor:[t/2,t/2],html:'<div class="pt e e'+e+'" style="background:'+ECOL[e]+';box-shadow:0 0 0 2.5px '+CAPAS.o.c+',0 1px 5px #000c">'+e+'<small>★</small></div>'})
       : L.divIcon({className:'',iconSize:[32,32],iconAnchor:[16,16],html:'<div class="ut" style="border-color:'+CAPAS.o.c+'">'+PAT[u[2]][0]+'</div>'})});
     m.on('click',()=>fichaPat(i)); capaP.addLayer(m); }
-  if (avisar && ids.length>500) avisa('⛪ Hay '+ids.length+' aquí: se ven los 500 más destacados. Acerca más para verlos todos.', 4000);
+  if (avisar && callados) avisa('⛪ Hay '+callados+' elementos menores aquí: acerca el mapa para verlos', 3500);
+  else if (avisar && lista.length>500) avisa('⛪ Hay '+lista.length+' aquí: se ven los 500 más destacados. Acerca más para verlos todos.', 4000);
 }
 map.on('moveend zoomend',()=>pintaPat(false)); if (on.o) setTimeout(()=>pintaPat(false),0);
 function fichaPat(i){
@@ -736,7 +744,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov n</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov o</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
