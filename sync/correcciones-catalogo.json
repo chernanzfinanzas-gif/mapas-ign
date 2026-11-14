@@ -160,6 +160,16 @@
    "municipio": "Peralta de Calasanz",
    "fecha": "14/11/2026 04:10",
    "t": 1794625845109
+  },
+  "t:cueva-del-polvorin-alcazar-de-san-juan": {
+   "lat": 39.370278,
+   "lon": -3.193824,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Cueva del Polvorín",
+   "municipio": "Alcázar de San Juan",
+   "fecha": "14/11/2026 13:15",
+   "t": 1794658510011
   }
  }
 }
