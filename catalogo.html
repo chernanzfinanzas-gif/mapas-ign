@@ -65,7 +65,8 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 .pt.e{color:#fff;font:800 12px/1 system-ui;letter-spacing:-.3px;border:2px solid #fff}.pt.e small{font-size:.72em;margin-left:.5px}
 .pt.e5{width:40px;height:40px;font-size:16px;color:#3a2c00}.pt.e4{width:34px;height:34px;font-size:14px}.pt.e3{width:30px;height:30px;font-size:13px}.pt.e2{width:26px;height:26px;font-size:11.5px}.pt.e1{width:22px;height:22px;font-size:10.5px;border-width:1.5px}
 #leye{position:absolute;left:8px;bottom:112px;z-index:1000;background:#fffe;border-radius:6px;padding:4px 7px;font-size:11.5px;box-shadow:0 1px 4px #0003;display:flex;align-items:center;gap:4px;color:#4b4f55}
-#leye b{border-radius:50%;color:#fff;font:800 10px/1 system-ui;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;transition:opacity .2s}#leye b.no{opacity:.28}
+#leye b{border-radius:50%;color:#fff;font:800 11px/1 system-ui;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;transition:opacity .2s;cursor:pointer;user-select:none;box-sizing:border-box}#leye b.no{opacity:.28}
+#leye b.si{box-shadow:0 0 0 2px #fff,0 0 0 4px #1d2125}#leye b.fuera{background:#c9ced4 !important;color:#6b7280 !important;text-decoration:line-through}
 @media (max-width:700px){#leye{bottom:82px}#leye span{display:none}}
 .pt.sel{width:46px;height:46px;font-size:23px;border:4px solid #fff;box-shadow:0 0 0 4px #4f46e5,0 3px 12px #000c;position:relative;animation:latido 1.6s ease-in-out infinite}
 @keyframes latido{0%,100%{box-shadow:0 0 0 4px #4f46e5,0 0 0 4px #4f46e555,0 3px 12px #000c}50%{box-shadow:0 0 0 4px #4f46e5,0 0 0 14px #4f46e500,0 3px 12px #000c}}
@@ -182,7 +183,7 @@ ul{padding-left:18px;margin:6px 0}
 <div id="top"><button id="buscar" title="Buscar sitio o localidad">&#128269; <span>Buscar sitio o localidad</span></button><div role="navigation" class="apps" aria-label="Cambiar de pantalla"><a href="./" title="Mapas"><span class="ic">&#128506;</span><span class="tx">Mapas</span></a><a class="aqui" aria-current="page" title="Catálogo"><span class="ic">&#129406;</span><span class="tx">Catálogo</span></a><a href="fotos/" title="Fotos"><span class="ic">&#128247;</span><span class="tx">Fotos</span></a></div><button id="gps" title="GPS: ver mi posición en el mapa">((&#8226;))</button></div>
 <div id="bar"></div>
 <div id="info"></div>
-<div id="ley"></div><div id="leye" title="Importancia de cada sitio. Los niveles apagados aparecen al acercar el mapa."></div>
+<div id="ley"></div><div id="leye" title="Importancia de cada sitio. Los niveles apagados aparecen al acercar el mapa. Toca un nivel para verlo siempre u ocultarlo."></div>
 <div id="base"></div>
 <div id="fvis"><img id="fvimg" referrerpolicy="no-referrer" alt=""><div class="pie" id="fvpie"></div><button style="top:10px;right:10px" onclick="fvCierra()">✕</button><button style="left:8px;top:45%" onclick="fvPaso(-1)">‹</button><button style="right:8px;top:45%" onclick="fvPaso(1)">›</button></div>
 <div id="bus"><input id="busq" type="search" placeholder="Buscar sitio o localidad…" autocomplete="off"><ul id="busr"></ul></div>
@@ -259,7 +260,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov o';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov p';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -380,9 +381,16 @@ for (const p of D.p){
 /* 14-nov o: rutas, mis rutas y naturaleza no salen (ni agrupadas) hasta el zoom 10 */
 const ZRN = 10, tardia = k => k==='r' || k==='m' || k==='n';
 let eVis = minE(map.getZoom()), rnVis = map.getZoom() >= ZRN;
-function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k] && (rnVis || !tardia(k))).map(k=>marcas[k].filter(m=>m.est>=eVis)))); }
+/* 14-nov p: selector de estrellas. Cada nivel puede ir «según el zoom» (lo normal), «siempre» o «oculto». Se toca en la leyenda. */
+let FE = {}; try { FE = JSON.parse(localStorage.getItem('estFiltro')||'{}') || {}; } catch(e) { FE = {}; }
+const visM = m => m.est>5 ? rnVis : FE[m.est]==='si' ? true : FE[m.est]==='no' ? false : (m.est>=eVis && (rnVis || !tardia(m.capa)));
+function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k]).map(k=>marcas[k].filter(visM)))); }
+function ciclaE(e){ const a = FE[e]; if (!a) FE[e]='si'; else if (a==='si') FE[e]='no'; else delete FE[e];
+  try { localStorage.setItem('estFiltro', JSON.stringify(FE)); } catch(x) {}
+  rellena(); pintaLeye(); if (typeof pintaPat==='function') pintaPat(false);
+  avisa(e+'★: '+(FE[e]==='si'?'se ven siempre, a cualquier zoom':FE[e]==='no'?'ocultos':'según el zoom (lo normal)'), 2500); }
 rellena();
-function pintaLeye(){ const d = document.getElementById('leye'); if (d) d.innerHTML = '<span>Importancia</span>'+[5,4,3,2,1].map(e=>'<b class="'+(e<Math.max(eVis,1)?'no':'')+'" style="background:'+ECOL[e]+(e===5?';color:#3a2c00':'')+'">'+e+'★</b>').join(''); }
+function pintaLeye(){ const d = document.getElementById('leye'); if (d) d.innerHTML = '<span>Importancia</span>'+[5,4,3,2,1].map(e=>'<b onclick="ciclaE('+e+')" title="'+(FE[e]==='si'?'Siempre visibles. Toca para ocultarlos':FE[e]==='no'?'Ocultos. Toca para que vuelvan a salir según el zoom':'Según el zoom. Toca para verlos siempre')+'" class="'+(FE[e]==='si'?'si':FE[e]==='no'?'fuera':(e<Math.max(eVis,1)?'no':''))+'" style="background:'+ECOL[e]+(e===5?';color:#3a2c00':'')+'">'+e+'★</b>').join(''); }
 pintaLeye();
 map.on('zoomend',()=>{ const e = minE(map.getZoom()), rn = map.getZoom() >= ZRN; if (e!==eVis || rn!==rnVis) { eVis = e; rnVis = rn; rellena(); pintaLeye(); } });
 function ponEstrella(id, e){            // e = 1..5, o null para volver a la calculada
@@ -631,12 +639,12 @@ async function pintaPat(avisar){
     GP = {}; PTE = []; PT.forEach((u,i)=>{ const k=Math.floor(u[0]*20)+'_'+Math.floor(u[1]*20); (GP[k]=GP[k]||[]).push(i); if (u[6] && u[6].e) PTE.push(i); }); }
   const z = map.getZoom(), b = map.getBounds(), ids = [];
   if (z < 13) {          /* 14-nov n: una sola regla para todo. Lo de Patrimonio que tiene estrellas sale a su zoom y con su icono de estrellas; lo demás, de cerca */
-    for (const i of PTE) { const u = PT[i]; if (z >= ZE[u[6].e] && b.contains([u[0],u[1]])) ids.push(i); }
+    for (const i of PTE) { const u = PT[i], e = u[6].e; if ((FE[e]==='si' || (FE[e]!=='no' && z >= ZE[e])) && b.contains([u[0],u[1]])) ids.push(i); }
     if (!ids.length) { if (avisar) avisa('⛪ Acerca el zoom para ver el patrimonio de los pueblos', 3000); return; }
   } else
   for (let a=Math.floor(b.getSouth()*20); a<=Math.floor(b.getNorth()*20); a++)
     for (let o=Math.floor(b.getWest()*20); o<=Math.floor(b.getEast()*20); o++)
-      for (const i of (GP[a+'_'+o]||[])) { const u = PT[i]; if (b.contains([u[0],u[1]])) ids.push(i); }
+      for (const i of (GP[a+'_'+o]||[])) { const u = PT[i]; if (b.contains([u[0],u[1]]) && FE[(u[6]||{}).e]!=='no') ids.push(i); }
   ids.sort((x,y)=>x-y);
   /* 14-nov ñ: lo que no tiene estrellas solo se pinta si cabe. En un pueblo hay cuatro cosas y salen a zoom 13;
      en una ciudad hay cientos y esperan a que se acerque más (o a zoom 16, donde ya salen siempre). */
@@ -744,7 +752,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov o</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov p</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
