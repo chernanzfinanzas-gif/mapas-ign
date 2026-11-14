@@ -130,6 +130,16 @@
    "municipio": "Ledanca",
    "fecha": "13/11/2026 09:35",
    "t": 1794558950513
+  },
+  "t:iglesia-de-la-asuncion-azanuy-azanuy-alins": {
+   "lat": 41.973674,
+   "lon": 0.311587,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Iglesia de la Asunción (Azanuy)",
+   "municipio": "Azanuy-Alins",
+   "fecha": "14/11/2026 04:03",
+   "t": 1794625426762
   }
  }
 }
