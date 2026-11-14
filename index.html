@@ -955,6 +955,8 @@ body.ancha #hoja-llena.grande{width:min(860px,calc(100vw - 16px))} body.ancha #h
 body.ancha #hoja-llena.pdf{height:calc(100vh - 70px)} body.ancha #hoja-llena.pdf .hl-cuerpo{padding:0;display:flex;flex-direction:column;overflow:hidden} #hoja-llena.pdf iframe{flex:1 1 auto;width:100%;border:0;background:#fff} #hoja-llena.pdf .pista{margin:6px 12px}
 body.ancha #hoja-llena .hl-cab{padding:10px 12px 8px} body.ancha #hoja-llena .hl-tit h3{font-size:15px} body.ancha #hoja-llena .hl-x{width:32px;height:32px}
 .dosb{display:flex;gap:6px} .dosb>button{flex:1 1 0;min-width:0}
+.bol-nav{display:flex;gap:6px;position:sticky;top:0;background:var(--papel);padding:2px 0 8px;z-index:2} .bol-nav button{flex:1 1 0;padding:7px 4px;border:1px solid var(--linea);border-radius:9px;background:#fff;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer} .bol-nav button:disabled{opacity:.4}
+.bol-dia{margin:14px 0 6px;padding:5px 10px;border-radius:8px;background:var(--verde);color:#fff;font-size:14px;scroll-margin-top:48px}
 .av-grupo{margin:10px 0 4px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5d5a53}
 .av-lista li.aqui{outline:2px solid var(--verde);outline-offset:1px;border-radius:8px} .av-lista li{cursor:pointer}
 /* v115: lo mismo para el cuadro de dibujar una zona */
@@ -1644,7 +1646,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <label class="campo">Macizo
         <select id="aemet-area"></select>
       </label>
-      <button class="sec" id="btn-boletin">Ver el boletín</button>
+      <button class="sec" id="btn-boletin">Ver el boletín (hoy y 3 días)</button>
       <h4>Peligro de aludes</h4>
       <p class="pista">El parte de nieve y aludes de AEMET, en temporada de nieve. Los del Pirineo se traen a la app y se guardan; los demás se abren como PDF de AEMET (hace falta cobertura). Mira siempre la fecha del parte: fuera de temporada queda colgado el último del invierno anterior.</p>
       <label class="campo">Zona
@@ -7732,7 +7734,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v122';
+const VERSION = 'v123';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -8138,11 +8140,24 @@ function pintaBoletinGuardado(abrir) {
     if ($v) $v.onclick = ev => { ev.preventDefault(); pintaBoletinGuardado(true); };
   }
   if (!abrir) return;
+  /* v123: los cuatro días (hoy y los tres siguientes) juntos en la misma ventana, con atajos arriba para saltar de uno a otro */
+  const dias = g.dias || [g.b], DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const rot = d => { const f = new Date(g.t + d * 86400000); return (d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : DS[f.getDay()]) + ' ' + f.getDate(); };
+  let h = dias.length > 1 ? '<div class="bol-nav">' + dias.map((b, d) => '<button data-d="' + d + '"' + (b ? '' : ' disabled') + '>' + rot(d) + '</button>').join('') + '</div>' : '';
+  dias.forEach((b, d) => {
+    if (dias.length > 1) h += '<h4 class="bol-dia" id="bol-dia-' + d + '">' + rot(d) + '</h4>';
+    h += b ? htmlBoletin(b) : '<p class="pista">AEMET no tiene publicado el boletín de este día.</p>';
+  });
+  h += '<div class="pista">© AEMET. Autorizado el uso de la información y su reproducción '
+     + 'citando a AEMET como autora.</div>';
+  abreHoja('Boletín de montaña', (m ? m.n : g.area) + ' · '
+    + cuandoSe(g.t).replace('consultada', 'consultado'), h);
+  document.querySelectorAll('#hoja-llena .bol-nav button').forEach(bt => bt.onclick = () => { const e = document.getElementById('bol-dia-' + bt.dataset.d); if (e) e.scrollIntoView({ block:'start', behavior:'smooth' }); });
+}
+/* un boletín → su texto. Se recorre la estructura sin dar por hecho su detalle: cada sección con sus apartados */
+function htmlBoletin(b) {
   let h = '';
-  /* se recorre la estructura sin dar por hecho su detalle: cada sección con
-     sus apartados, y de cada apartado su nombre y su texto */
-  const secs = (g.b.seccion || []);
-  for (const sec of secs) {
+  for (const sec of (b.seccion || [])) {
     const titulo = sec.nombre || sec.lugar || '';
     let cuerpo = '';
     for (const ap of (sec.apartado || [])) {
@@ -8153,10 +8168,34 @@ function pintaBoletinGuardado(abrir) {
     if (sec.texto && !cuerpo) cuerpo = '<p class="bol-ap">' + sec.texto + '</p>';
     if (cuerpo) h += '<div class="bol-sec"><h5>' + titulo + '</h5>' + cuerpo + '</div>';
   }
-  h += '<div class="pista">© AEMET. Autorizado el uso de la información y su reproducción '
-     + 'citando a AEMET como autora.</div>';
-  abreHoja('Boletín de montaña', (m ? m.n : g.area) + ' · '
-    + cuandoSe(g.t).replace('consultada', 'consultado'), h);
+  return h || '<p class="pista">El boletín ha venido vacío.</p>';
+}
+
+/* pide el boletín de UN día (0 = hoy … 3). Devuelve el boletín, o lanza un error con el motivo */
+async function pideBoletinDia(area, dia, clave) {
+  /* La eñe va escrita a mano como %C3%B1 en vez de dejar que la codifique el
+     navegador: así se pide exactamente lo mismo desde el móvil y desde el
+     ordenador. Y por si acaso, se prueba también la grafía «montanya». */
+  const RUTAS = ['monta%C3%B1a', 'montanya'].map(g =>
+    'https://opendata.aemet.es/opendata/api/prediccion/especifica/' + g + '/pasada/area/');
+  let p1 = null, ultimo = null;
+  for (const base of RUTAS) {
+    try {
+      const r = await leeAemet(base + area + '/dia/' + dia + '?api_key=' + encodeURIComponent(clave), 'la primera llamada');
+      if (r.estado === 429) throw new Error('AEMET está limitando las peticiones. Espera un minuto y repite.');
+      if (r.estado === 401) throw new Error('la clave de AEMET ha caducado o no vale (desde julio de 2026 caducan a los 3 meses). Pide una nueva en opendata.aemet.es y pégala más abajo, en «Clave de AEMET OpenData»');
+      if (r.j && r.j.datos) { p1 = r; break; }
+      ultimo = 'AEMET respondió ' + r.estado + ' a la primera llamada';
+    } catch (e) {
+      if (/limitando|clave/.test(e.message)) throw e;      // eso no se reintenta
+      ultimo = e.message;
+    }
+  }
+  if (!p1) throw new Error(ultimo || 'AEMET no ha respondido');
+  /* si la URL de datos viene en http, desde una página https el navegador la bloquea — se sube a https */
+  const p2 = await leeAemet(String(p1.j.datos).replace(/^http:\/\//i, 'https://'), 'la segunda llamada (los datos)');
+  if (!p2.j) throw new Error('la segunda llamada respondió ' + p2.estado + ' y no se ha podido leer el boletín');
+  return Array.isArray(p2.j) ? p2.j[0] : p2.j;
 }
 
 async function verBoletin() {
@@ -8165,37 +8204,17 @@ async function verBoletin() {
   const clave = claveAemet();
   if (!clave) { $s.innerHTML = '<div class="viejo">Falta la clave de AEMET.</div>'; return; }
   guarda(LS_AEMET, clave);
-  $b.disabled = true; $s.innerHTML = '<div class="pista">Pidiendo el boletín…</div>';
-  /* La eñe va escrita a mano como %C3%B1 en vez de dejar que la codifique el
-     navegador: así se pide exactamente lo mismo desde el móvil y desde el
-     ordenador, sin depender de cómo normalice cada plataforma. Y por si acaso,
-     se prueba también la grafía «montanya», que usan algunos ejemplos. */
-  const RUTAS = ['monta%C3%B1a', 'montanya'].map(g =>
-    'https://opendata.aemet.es/opendata/api/prediccion/especifica/' + g + '/pasada/area/');
+  $b.disabled = true;
   try {
-    let p1 = null, ultimo = null;
-    for (const base of RUTAS) {
-      try {
-        const r = await leeAemet(base + area + '/dia/0?api_key=' + encodeURIComponent(clave),
-                                 'la primera llamada');
-        if (r.estado === 429) throw new Error('AEMET está limitando las peticiones. Espera un minuto y repite.');
-        if (r.estado === 401) throw new Error('la clave de AEMET ha caducado o no vale (desde julio de 2026 caducan a los 3 meses). Pide una nueva en opendata.aemet.es y pégala más abajo, en «Clave de AEMET OpenData»');
-        if (r.j && r.j.datos) { p1 = r; break; }
-        ultimo = 'AEMET respondió ' + r.estado + ' a la primera llamada';
-      } catch (e) {
-        if (/limitando|clave/.test(e.message)) throw e;      // eso no se reintenta
-        ultimo = e.message;
-      }
+    const dias = [];
+    for (let d = 0; d < 4; d++) {
+      $s.innerHTML = '<div class="pista">Pidiendo el boletín… día ' + (d + 1) + ' de 4</div>';
+      try { dias.push(await pideBoletinDia(area, d, clave)); }
+      catch (e) { if (d === 0 || /clave/.test(e.message)) throw e;     // sin el de hoy, o sin clave, no hay nada que enseñar
+        dias.push(null); if (/limitando/.test(e.message)) { while (dias.length < 4) dias.push(null); break; } }
+      if (d < 3) await new Promise(r => setTimeout(r, 500));           // sin prisa: AEMET corta si se le pide muy seguido
     }
-    if (!p1) throw new Error(ultimo || 'AEMET no ha respondido');
-    /* si la URL de datos viene en http, desde una página https el navegador la
-       bloquea por contenido mixto — se sube a https antes de pedirla */
-    const urlDatos = String(p1.j.datos).replace(/^http:\/\//i, 'https://');
-    const p2 = await leeAemet(urlDatos, 'la segunda llamada (los datos)');
-    if (!p2.j) throw new Error('la segunda llamada respondió ' + p2.estado
-      + ' y no se ha podido leer el boletín');
-    const b = Array.isArray(p2.j) ? p2.j[0] : p2.j;
-    guarda(LS_BOLETIN, { t: Date.now(), area, b });
+    guarda(LS_BOLETIN, { t: Date.now(), area, b: dias[0], dias });
     pintaBoletinGuardado(true);
   } catch (e) {
     $s.innerHTML = '<div class="viejo">No se ha podido. ' + e.message + '</div>';

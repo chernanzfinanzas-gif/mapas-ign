@@ -116,9 +116,9 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 /* 13-nov n: en el móvil las capas van en UNA fila, solo con su icono, y la leyenda comparte línea con el aviso de tracks */
 #ley{bottom:56px;white-space:nowrap;max-width:calc(100vw - 16px);overflow:hidden} #ley-n{color:var(--mu);margin-left:2px}
 @media (max-width:640px){
-  #bar{flex-wrap:nowrap;gap:4px}
-  #bar .chip{flex:none;padding:6px 8px;gap:4px;font-size:15px} #bar .chip small,#bar .chip .nm{display:none}
-  #bar .chip i{width:9px;height:9px}
+  /* 14-nov: en móviles estrechos la última capa quedaba bajo el botón de centrar — sin el punto de color caben las siete a su izquierda */
+  #bar{flex-wrap:nowrap;gap:3px;right:54px;overflow-x:auto;scrollbar-width:none;pointer-events:auto} #bar::-webkit-scrollbar{display:none}
+  #bar .chip{flex:0 1 auto;min-width:30px;justify-content:center;padding:6px 7px;gap:0;font-size:15px;border-bottom:3px solid var(--cc,transparent)} #bar .chip small,#bar .chip .nm,#bar .chip i{display:none}
   #ley-n{display:none}
 }
 #cerca-n{display:none;margin-left:6px;background:#22a447;border-radius:999px;padding:1px 7px;font-size:12px}
@@ -218,7 +218,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 13-nov n';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov a';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -318,7 +318,7 @@ function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.key
 rellena();
 const $bar = document.getElementById('bar');
 for (const k of ['m','r','n','h','t','u']){
-  const b=document.createElement('button'); b.className='chip';
+  const b=document.createElement('button'); b.className='chip'; b.style.setProperty('--cc',CAPAS[k].c);
   b.innerHTML='<i style="background:'+CAPAS[k].c+'"></i>'+CAPAS[k].s+'<span class="nm"> '+CAPAS[k].n+'</span> <small>'+cuenta[k]+'</small>'; b.title=CAPAS[k].n;
   if (k==='u') { b.querySelector('small').textContent='77.742'; b.classList.add('off'); }
   b.onclick=()=>{on[k]=!on[k]; b.classList.toggle('off',!on[k]); if (k==='u') return pintaUtiles(true); rellena(); pintaTracks();};
@@ -614,7 +614,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 13-nov n</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov a</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
