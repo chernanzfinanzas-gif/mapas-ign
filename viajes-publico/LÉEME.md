@@ -33,6 +33,20 @@ personal, se cambia en `hacer_version_publica.py` (esta carpeta), nunca en la we
   `--con-privados` los incluye. Pendiente de la definición de datos con Carlos.
 - Cabecera: «← Historia» (vuelve a la portada de historiatotal.es) y «Viajes».
 - Escribe `.htaccess` (compresión: comprobado que funciona) y `huellas.json`.
+- Copia todos los ficheros sueltos de `catalogo/` (patrimonio, útiles, `cuadernos.js` y los que se añadan),
+  comprobando que ninguno traiga rutas de Carlos.
+- **Cuadernos de viaje** (`catalogo/cuadernos.js`, 15-nov-2026): en Viajes se guardan en el aparato del
+  visitante (clave `hk_cuadernos`) y se sincronizan con su código de historiatotal.es. El programa pone
+  `window.CUAD_PUBLICO=true` y `window.CUAD_SYNC_HT=true`. Encendido el 15-nov-2026, cuando el
+  chat de Historia publicó `api/sync.php` juntando por campos. Si el servidor volviera a sustituirlo
+  todo, hay que ponerlo a `false`, porque borraría los datos del usuario.
+  - Envía solo `{"cuadernos": …}` a `/api/sync.php?codigo=…`, 2,5 s después de cada cambio. Al abrir,
+    lee `d.cuadernos` y junta (gana lo más reciente; lo borrado va marcado).
+  - Si el visitante no tiene código, al crear su primer cuaderno se le crea uno como `generaCodigo()`:
+    7 caracteres de `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, en texto plano en `hk_codigo`. Se le enseña
+    en «Mis cuadernos».
+  - Si el servidor responde 413 (más de 600 KB por código), se avisa y quedan en el aparato.
+  En la App Mapas de Carlos se sincronizan con su GitHub (`sync/cuadernos.json`, repositorio público).
 - Comprobaciones: si queda algo personal o salen muy pocos puntos, se para.
 - Se apoya en textos concretos de `catalogo.html` para quitar lo personal. **Si se cambia `catalogo.html`
   en esas partes** (cabecera, botón de editar, botones de fijar posición o estrellas, sincronización,

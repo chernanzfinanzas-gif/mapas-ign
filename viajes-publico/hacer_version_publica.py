@@ -161,10 +161,14 @@ for tipo in ('f', 't', 'e'):
 for z, d in extra.items():
     escribe(os.path.join(OUT, 'catalogo', 'f', z + '.js'), "zonaCargada('f','%s'," % z + js(remapea(d)) + ');')
 
-for fn in ('patrimonio.js', 'utiles.js'):
-    s = open(os.path.join(CAT, fn), encoding='utf-8').read()
-    assert 'r:app-' not in s, fn + ' trae rutas de Carlos'
-    escribe(os.path.join(OUT, 'catalogo', fn), s)
+# el resto de ficheros sueltos de catalogo/ (patrimonio, útiles, cuadernos y los que se añadan)
+for fn in sorted(glob.glob(os.path.join(CAT, '*.js'))):
+    nom = os.path.basename(fn)
+    if nom == 'puntos.js':
+        continue
+    s = open(fn, encoding='utf-8').read()
+    assert 'r:app-' not in s, nom + ' trae rutas de Carlos'
+    escribe(os.path.join(OUT, 'catalogo', nom), s)
 
 # ── 3. La página ────────────────────────────────────────────────────────────
 h = open(os.path.join(SRC, 'catalogo.html'), encoding='utf-8').read()
@@ -216,6 +220,13 @@ cambia('<a class="sec" target="_blank" rel="noopener" style="background:#7c2d12;
        '<a class="sec" style="background:#7c2d12;')
 cambia('creator="Mapas Carlos"', 'creator="historiatotal.es/viajes"')
 cambia(r'versión (\d+-nov [a-zñ]+)', r'viajes · versión \1', regex=True)
+# cuadernos de viaje: en Viajes se guardan en el aparato del visitante («hk_cuadernos») y se
+# sincronizan con su código de historiatotal.es. CUAD_SYNC_HT encendido el 15-nov-2026, cuando el
+# chat de Historia publicó api/sync.php juntando por campos (antes sustituía todo y habría borrado
+# los datos del usuario). Si sync.php volviera a sustituir, poner False.
+if '<script src="catalogo/cuadernos.js"></script>' in h:
+    h = h.replace('<script src="catalogo/cuadernos.js"></script>',
+                  '<script>window.CUAD_PUBLICO=true; window.CUAD_SYNC_HT=true;</script>\n<script src="catalogo/cuadernos.js"></script>')
 # el aviso de los tracks privados ya no aplica en lo público (no llevan trazado)
 if not A.con_privados:
     cambia("if (f.privado) h += '<div class=\"aviso\">🔒 Track de Wikiloc/Komoot: solo uso personal.</div>';",
