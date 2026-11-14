@@ -132,6 +132,11 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #zbar:not(.abierto) input{display:none}
 @media (max-height:640px){ #zbar input{height:120px} }
 #zbar{top:262px;right:8px}
+.pf-svg{display:block;width:100%;height:96px;margin:8px 0 0;border-radius:8px;background:#f3f5f4}
+.pf-eje{display:flex;justify-content:space-between;font:500 11px system-ui;color:#8a877f;margin:2px 2px 0}
+.pf-nums{position:relative;height:0} .pf-nums b{position:absolute;top:-22px;transform:translateX(-50%);font:700 10.5px system-ui;color:#fff;background:#c2410c;border-radius:8px;min-width:15px;height:15px;line-height:15px;text-align:center}
+.pf-tab{width:100%;border-collapse:collapse;font-size:13px;margin:2px 0 6px} .pf-tab td{padding:3px 6px 3px 0;border-bottom:1px solid #eceae4;white-space:nowrap} .pf-tab td:first-child{color:#c2410c;font-weight:700;width:14px} .pf-tab td:last-child{text-align:right;color:#57544e}
+.pf-av{color:#9a3412;background:#fff7ed;border-radius:8px;padding:6px 9px} .pf-st{margin:6px 0 4px} .pf-t{font-size:13.5px;line-height:1.4;margin:4px 0;color:#33312d} .pf-m{display:inline-block;width:14px;height:4px;background:#c2410c;border-radius:2px;vertical-align:middle}
 #cerca-n{display:none;margin-left:6px;background:#22a447;border-radius:999px;padding:1px 7px;font-size:12px}
 #cerca-n.hay{display:inline-block}
 #cor{display:none!important}
@@ -246,7 +251,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov c';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov e';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -305,10 +310,10 @@ const F = {}, T = {};               // fichas y trazados: se cargan por zonas al
 const zona = (la,lo) => Math.floor(la*2)+'_'+Math.floor(lo*2);
 const ZP = {}; for (const p of D.p) ZP[p[0]] = zona(p[4],p[5]);
 const IDX = {}; for (const p of D.p) IDX[p[0]] = p;
-const pedidas = {f:{}, t:{}, u:{}}, esperando = {};
+const pedidas = {f:{}, t:{}, u:{}, e:{}}, esperando = {}, E = {};   // E: perfil de altitud de cada ruta (catalogo/e)
 /* Cada zona es un fichero .js que llama a zonaCargada(). Se carga con <script> y no con
    fetch para que la página funcione igual publicada que abierta desde la carpeta. */
-function zonaCargada(tipo, z, d){ if (tipo==='u') UT = d; else Object.assign(tipo==='f' ? F : T, d); const r = esperando[tipo+z]; if (r) { delete esperando[tipo+z]; r(d); } }
+function zonaCargada(tipo, z, d){ if (tipo==='u') UT = d; else Object.assign(tipo==='f' ? F : tipo==='e' ? E : T, d); const r = esperando[tipo+z]; if (r) { delete esperando[tipo+z]; r(d); } }
 function carga(tipo, z){
   if (!pedidas[tipo][z]) pedidas[tipo][z] = new Promise(res => {
     esperando[tipo+z] = res;
@@ -648,7 +653,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov c</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov e</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -695,6 +700,7 @@ function ficha_(p){
     if (f.tu_tiempo_horas) h += '<div class="sub">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
     if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
     if (f.veces>1) h += '<div class="sub">🔁 La has hecho '+f.veces+' veces: '+esc(f.fechas.join(', '))+'</div>';
+    h += '<div id="perf"></div>';
   }
   if (f.resumen) h += '<p>'+esc(f.resumen)+'</p>';
   if (p[8]) { const o=f.osm||{}, t=JSON.stringify([f.resumen,f.visita,f.ver_alli]); const r=[];
@@ -719,6 +725,68 @@ function ficha_(p){
   if (f.fuentes && f.fuentes.length) h += '<div class="src">Fuentes: '+f.fuentes.map(u=>'<a target="_blank" rel="noopener" href="'+esc(u)+'">'+esc(u.replace(/^https?:\/\/(www\.)?/,'').slice(0,50))+'</a>').join(' · ')+'</div>';
   const s = document.getElementById('sheet'); s.innerHTML = h; s.scrollTop = 0; s.classList.add('on');
   tiempoFicha(id, ap&&f.lat_pueblo ? +f.lat_pueblo : lat, ap&&f.lat_pueblo ? +f.lon_pueblo : lon);
+  if (esRuta(c)) perfilFicha(id, p);
+}
+/* ---- 14-nov: perfil de altitud, desnivel y duración a TU ritmo, en la ficha de cada ruta -------------------
+   La altitud de cada ruta viene calculada en catalogo/e (modelo Copernicus de 30 m): una serie a paso fijo por tramo.
+   El ritmo es el mismo de App Mapas (rutas/ritmo.json: tus minutos por km según la pendiente, y cuánto alargan las paradas). */
+let RITMO = null, ritmoPed = null;
+function pideRitmo(){ if (!ritmoPed) ritmoPed = fetch('rutas/ritmo.json').then(r=>r.ok?r.json():null).then(d=>{ if (d&&d.minKm&&d.factor) RITMO=d; }).catch(()=>{}); return ritmoPed; }
+const hm = h => { const m=Math.round(h*12)*5; return m<60 ? m+' min' : Math.floor(m/60)+' h'+(m%60?' '+String(m%60).padStart(2,'0'):''); };
+function calculaPerfil(e){
+  const paso=e[0], n=Math.max(1, Math.round(250/paso)|1), xs=[], ys=[]; let x=0, sub=0, baj=0, min=0;
+  const c=RITMO?RITMO.minKm:null, cortes=[]; let pasos=0, bruscos=0;
+  for (const cr of e.slice(1)) for (let i=1;i<cr.length;i++){ pasos++; if (Math.abs(cr[i]-cr[i-1])/paso>0.45) bruscos++; }
+  for (const cruda of e.slice(1)){
+    const a=cruda.map((_,i)=>{ let s=0,k=0; for(let j=Math.max(0,i-(n>>1)); j<=Math.min(cruda.length-1,i+(n>>1)); j++){ s+=cruda[j]; k++; } return s/k; });
+    let ref=a[0]; for (const v of a){ if (v-ref>=5){ sub+=v-ref; ref=v; } else if (ref-v>=5){ baj+=ref-v; ref=v; } }
+    const salto=Math.max(1, Math.round(100/paso));
+    for (let i=0;i<a.length;i++){ xs.push(x+i*paso); ys.push(a[i]);
+      if (c && i>0 && (i%salto===0 || i===a.length-1)){ const i0=i%salto===0?i-salto:i-(i%salto), m=(i-i0)*paso; if (m>0){ const g=(a[i]-a[i0])/m*100, kk=Math.max(-40,Math.min(40,Math.round(g/5)*5)); min+=(c[String(kk)]||c['0'])*m/1000; } } }
+    x+=(a.length-1)*paso; cortes.push(xs.length);
+  }
+  /* 14-nov e: TODAS las subidas que son algo más que un repecho (80 m o más). Una subida se da por acabada cuando el terreno
+     baja 40 m desde lo más alto; empieza en el punto más bajo anterior, así que no arrastra llano por delante. */
+  const subs=[]; let i0=0, ipico=0; const H=(RITMO&&RITMO.tramoH)||40;
+  const cierra=()=>{ const g=ys[ipico]-ys[i0]; if (g<80 || ipico<=i0) return; if (g<150 && g/(xs[ipico]-xs[i0])<0.04) return;   /* un falso llano largo no es una subida */ const s={g, a:i0, b:ipico, km0:xs[i0]/1000, km:(xs[ipico]-xs[i0])/1000};
+    if (c){ let m=0; for (let k=i0+1;k<=ipico;k++){ const d=xs[k]-xs[k-1]; if(d<=0) continue; const p=(ys[k]-ys[k-1])/d*100, kk=Math.max(-40,Math.min(40,Math.round(p/5)*5)); m+=(c[String(kk)]||c['0'])*d/1000; } s.h=m/60; }
+    subs.push(s); };
+  for (let i=1;i<ys.length;i++){
+    if (ys[i]>ys[ipico]) ipico=i;
+    if (ys[i]<ys[i0] && ipico<=i0) { i0=i; ipico=i; }
+    if (ys[ipico]-ys[i]>=H){ cierra(); i0=i; ipico=i; }
+  }
+  cierra();
+  /* desfiladeros y cortados: el modelo de 30 m mezcla el sendero con las paredes y el perfil sale a saltos */
+  return {dudoso: pasos>10 && bruscos/pasos>0.04, xs, ys, km:x/1000, sub, baj, max:Math.max(...ys), min_:Math.min(...ys), and:c?min/60:null, subs};
+}
+function svgPerfil(r){
+  const W=600, Hh=110, mi=Math.floor(r.min_/50)*50, ma=Math.max(mi+100, Math.ceil(r.max/50)*50), X=v=>(v/(r.km*1000||1))*W, Y=v=>Hh-4-(v-mi)/(ma-mi)*(Hh-14);
+  const paso=Math.max(1, Math.floor(r.xs.length/300)); let d='';
+  for (let i=0;i<r.xs.length;i+=paso) d+=(d?'L':'M')+X(r.xs[i]).toFixed(1)+' '+Y(r.ys[i]).toFixed(1);
+  d+='L'+W+' '+Y(r.ys[r.ys.length-1]).toFixed(1);
+  let s='<svg viewBox="0 0 '+W+' '+Hh+'" preserveAspectRatio="none" class="pf-svg"><path d="'+d+'L'+W+' '+Hh+'L0 '+Hh+'Z" fill="#2f6b4f22"/><path d="'+d+'" fill="none" stroke="#2f6b4f" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+  r.subs.forEach(u=>{ s+='<path d="M'+X(r.xs[u.a]).toFixed(1)+' '+(Hh-2)+'H'+X(r.xs[u.b]).toFixed(1)+'" stroke="#c2410c" stroke-width="4" vector-effect="non-scaling-stroke"/>'; });
+  s+='</svg>'; if (r.subs.length>1) s+='<div class="pf-nums">'+r.subs.map((u,k)=>'<b style="left:'+(100*(r.xs[u.a]+r.xs[u.b])/2/(r.km*1000||1)).toFixed(1)+'%">'+(k+1)+'</b>').join('')+'</div>';
+  return s+'<div class="pf-eje"><span>0 km</span><span>'+Math.round(mi)+'–'+Math.round(ma)+' m</span><span>'+r.km.toLocaleString('es',{maximumFractionDigits:1})+' km</span></div>';
+}
+function perfilFicha(id, p){
+  const z=ZP[id]; if (!z) return;
+  Promise.all([carga('e',z), pideRitmo()]).then(()=>{
+    const $p=document.getElementById('perf'), e=E[id]; if (!$p || tmpDe!==id) return;
+    if (!e || e.length<2) return;
+    const r=calculaPerfil(e); if (r.xs.length<3) return;
+    const bici=p[3]==='en_bici'; if (r.dudoso) r.subs=[]; const ff=F[id]||{};   /* si la ficha ya trae su desnivel oficial no se enseña otro distinto al lado: el del modelo sale algo más bajo porque el trazado está simplificado */
+    let h=svgPerfil(r)+'<div class="stats pf-st">'+(ff.desnivel_positivo_m!=null?'':'<span>↗ '+Math.round(r.sub)+' m de subida</span>')+(r.baj>=10?'<span>↘ '+Math.round(r.baj)+' m de bajada</span>':'')+'<span>⛰ de '+Math.round(r.min_)+' a '+Math.round(r.max)+' m</span></div>';
+    if (!bici && r.and){ const F2=RITMO.factor;
+      h+='<div class="pf-t">🥾 <b>A tu ritmo:</b> andando '+hm(r.and)+' · con paradas <b>'+hm(r.and*F2.p50)+'</b> (entre '+hm(r.and*F2.p25)+' y '+hm(r.and*F2.p75)+')</div>';
+    }
+    if (r.subs.length){ const km1=v=>v.toLocaleString('es',{minimumFractionDigits:1,maximumFractionDigits:1}), tot=r.subs.reduce((a,u)=>a+u.g,0);
+      h+='<div class="pf-t"><i class="pf-m"></i> <b>'+(r.subs.length===1?'Una subida':r.subs.length+' subidas')+'</b> de 80 m o más'+(r.subs.length>1?' · '+Math.round(tot)+' m entre todas':'')+'</div><table class="pf-tab">'
+        +r.subs.map((u,k)=>'<tr><td>'+(r.subs.length>1?(k+1):'')+'</td><td>km '+km1(u.km0)+' → '+km1(u.km0+u.km)+'</td><td><b>+'+Math.round(u.g)+' m</b></td><td>'+Math.round(u.g/(u.km*10))+' %</td><td>'+(!bici&&u.h?hm(u.h):'')+'</td></tr>').join('')+'</table>'; }
+    if (r.dudoso) h+='<div class="pf-t pf-av">⚠ Perfil poco fiable: la ruta va por un desfiladero o junto a cortados, y ahí el modelo del terreno confunde el sendero con las paredes. El desnivel y el tiempo pueden salir de más.</div>';
+    $p.innerHTML=h;
+  });
 }
 /* El tiempo de la ficha: Open-Meteo, sin clave. Se guarda una hora por zona (cuadros de ~5 km) para no repetir peticiones. */
 const TMP = {}; let tmpDe = null;
