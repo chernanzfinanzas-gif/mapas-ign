@@ -19,6 +19,25 @@
      "t": 1794698987471
     }
    }
+  },
+  "mwh1ilvgrc4c": {
+   "id": "mwh1ilvgrc4c",
+   "nombre": "Lagunas",
+   "creado": 1794699117628,
+   "t": 1794699117628,
+   "s": {
+    "r:s40-senda-de-las-lagunas-de-puebla-de-belena-lagunas-de-puebla-de-belena--guadalajara": {
+     "id": "r:s40-senda-de-las-lagunas-de-puebla-de-belena-lagunas-de-puebla-de-belena--guadalajara",
+     "n": "S40 Senda de las Lagunas de Puebla de Beleña (Lagunas de Puebla de Beleña)",
+     "c": "r",
+     "tp": "ruta local popular",
+     "la": 40.8817,
+     "lo": -3.24705,
+     "m": "Puebla de Beleña",
+     "o": 1794699117628,
+     "t": 1794699117628
+    }
+   }
   }
  }
 }
