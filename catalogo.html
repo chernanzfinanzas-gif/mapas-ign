@@ -264,7 +264,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov t';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov u';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -771,7 +771,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov t</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov u</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -809,19 +809,19 @@ function ficha_(p){
   if (esRuta(c)){
     h += '<div class="stats">';
     if (f.esf!=null) h += '<span class="lv" style="background:'+NIV[f.esf].c+'">'+NIV[f.esf].e+' '+NIV[f.esf].n+'</span>';
-    if (f.distancia_km) h += '<span>'+(+f.distancia_km).toLocaleString('es',{maximumFractionDigits:1})+' km</span>';
-    if (f.desnivel_positivo_m!=null) h += '<span>↗ '+Math.round(f.desnivel_positivo_m)+' m de subida</span>';
-    if (f.tiempo_estimado_horas) h += '<span>⏱ '+horas(f.tiempo_estimado_horas)+'</span>';
+    if (f.distancia_km) h += '<span id="st-km">'+(+f.distancia_km).toLocaleString('es',{maximumFractionDigits:1})+' km</span>';
+    if (f.desnivel_positivo_m!=null) h += '<span id="st-sub">↗ '+Math.round(f.desnivel_positivo_m)+' m de subida</span>';
+    if (f.tiempo_estimado_horas) h += '<span id="st-t">⏱ '+horas(f.tiempo_estimado_horas)+'</span>';
     if (!f.fo && f.tipo_recorrido) h += '<span>'+esc(f.tipo_recorrido)+'</span>';
     if (f.altitud_max_m) h += '<span>⛰ hasta '+Math.round(f.altitud_max_m)+' m</span>';
     h += '</div>';
     if (f.fo) h += textoForma(f.fo, c==='m', f.distancia_km, vaIV(id));
-    if (f.tu_tiempo_horas) h += '<div class="sub">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
+    if (f.tu_tiempo_horas) h += '<div class="sub" id="tu-t">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
     if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
     if (f.veces>1) h += '<div class="sub">🔁 La has hecho '+f.veces+' veces: '+esc(f.fechas.join(', '))+'</div>';
     h += plega('perf', '📈 Perfil, tiempos y subidas', '<div id="perf"></div>', true);
   }
-  if (f.resumen) h += '<p>'+esc(f.resumen)+'</p>';
+  if (f.resumen) h += '<p id="resu">'+esc(f.resumen)+'</p>';
   if (!esRuta(c) && p[8]) { const o=f.osm||{}, t=JSON.stringify([f.resumen,f.visita,f.ver_alli]); const r=[];
     if (PBI.has(id)) r.push('uno de Los Pueblos más Bonitos de España');
     if (/Patrimonio (de la Humanidad|Mundial)|UNESCO|Unesco/.test(t)) r.push('Patrimonio de la Humanidad');
@@ -938,6 +938,14 @@ function pintaPerfil(id, p, e, real){
         +r.subs.map((u,k)=>'<tr><td>'+(r.subs.length>1?(k+1):'')+'</td><td>km '+km1(u.km0)+' → '+km1(u.km0+u.km)+'</td><td><b>+'+Math.round(u.g)+' m</b></td><td>'+Math.round(u.g/(u.km*10))+' %</td><td>'+(!bici&&u.h?hm(u.h):'')+'</td></tr>').join('')+'</table>'; }
     if (r.dudoso) h+='<div class="pf-t pf-av">⚠ Perfil poco fiable: la ruta va por un desfiladero o junto a cortados, y ahí el modelo del terreno confunde el sendero con las paredes. El desnivel y el tiempo pueden salir de más.</div>';
     $p.innerHTML=h; if ($p.parentElement && $p.parentElement.tagName==='DETAILS') $p.parentElement.style.display='';
+    if (real) {   /* 14-nov u: en tus rutas manda lo que midió el GPS; la ficha se corrige con esos datos */
+      const g = i => document.getElementById(i), km = real.km!=null ? (+real.km).toLocaleString('es',{maximumFractionDigits:1}) : null;
+      if (km && g('st-km')) g('st-km').textContent = km+' km';
+      if (real.sube!=null && g('st-sub')) g('st-sub').textContent = '↗ '+Math.round(real.sube)+' m de subida';
+      if (real.mov && g('st-t')) g('st-t').textContent = '⏱ '+hm(real.mov)+' andando';
+      if (real.mov && g('tu-t')) g('tu-t').style.display = 'none';
+      if (km && real.sube!=null && g('resu')) g('resu').textContent = g('resu').textContent.replace(/\d+(?:[.,]\d+)? km, \d+ m de subida/, km+' km, '+Math.round(real.sube)+' m de subida');
+    }
   }
 }
 /* El tiempo de la ficha: Open-Meteo, sin clave. Se guarda una hora por zona (cuadros de ~5 km) para no repetir peticiones. */
