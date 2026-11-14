@@ -1075,6 +1075,11 @@ function ajustaCapas(){
   $("mapa").style.cursor = lejos && calorOn ? "zoom-in" : "";
 }
 /* 14-nov: barra de zoom (la misma idea que en App Mapas). Se cierra sola a los 5 s. */
+/* 14-nov: al cambiar de pestaña (Mapas · Catálogo · Fotos) la otra página se abre en el mismo sitio del mapa.
+   Se pasa por sessionStorage, que es de esta pestaña del navegador y vale para las tres páginas. */
+function dejaSalto(m){ try{ if(!m) return; const c=m.getCenter(); sessionStorage.setItem('ign.salto', JSON.stringify({lat:+c.lat.toFixed(5), lon:+c.lng.toFixed(5), z:Math.round(m.getZoom()), t:Date.now()})); }catch(e){} }
+function tomaSalto(){ try{ const s=JSON.parse(sessionStorage.getItem('ign.salto')); sessionStorage.removeItem('ign.salto'); if(s && isFinite(s.lat) && isFinite(s.lon) && Date.now()-s.t<20000) return s; }catch(e){} return null; }
+let saltoPend=null;
 function barraZoom(m, host, min, max){
   const d=document.createElement('div'); d.id='zbar';
   d.innerHTML='<button title="Zoom del mapa" aria-expanded="false"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg><span></span></button>'
@@ -1118,13 +1123,14 @@ function pintaMapa(encuadra){
       gradient:{0.2:"#2c7bb6",0.4:"#00a6ca",0.6:"#90eb9d",0.8:"#f9d057",1:"#d7191c"}});
     controlCapas.addOverlay(calor,"Mapa de calor");
   }
-  if(encuadra!==false && pts.length){ mapa.invalidateSize();
+  if(encuadra!==false && (pts.length || saltoPend)){ mapa.invalidateSize();
     /* 14-nov: se encuadra donde está el grueso de las fotos (del 2 % al 98 %). Antes, unas pocas fotos lejanas
        —un viaje, o alguna con el GPS mal— obligaban a alejarse hasta ver el mundo entero. */
     let lim=L.latLngBounds(pts);
     if(pts.length>=40){ const la=pts.map(p=>p[0]).sort((a,b)=>a-b), lo=pts.map(p=>p[1]).sort((a,b)=>a-b), q=(v,f)=>v[Math.min(v.length-1,Math.floor(v.length*f))];
       lim=L.latLngBounds([q(la,.02),q(lo,.02)],[q(la,.98),q(lo,.98)]); }
-    mapa.fitBounds(lim,{padding:[30,30], maxZoom:14}); }
+    if(saltoPend){ mapa.setView([saltoPend.lat,saltoPend.lon],Math.max(3,Math.min(19,saltoPend.z)),{animate:false}); if(pts.length) saltoPend=null; }   // vienes de Mapas o Catálogo: mismo sitio
+    else mapa.fitBounds(lim,{padding:[30,30], maxZoom:14}); }
   ajustaCapas(); pintaPanel();
 }
 
@@ -1458,6 +1464,9 @@ zonaFoto.addEventListener("pointercancel",sueltaDedo);
 recupera();
 aplicar();
 try{ const v=localStorage.getItem("visorVista"); if(v && v!=="vFotos" && $(v)) cambia(v); }catch(e){}
+/* 14-nov: si llegas desde Mapas o Catálogo, se abre el mapa de fotos en ese mismo sitio; y al salir se deja apuntado el tuyo */
+try{ saltoPend=tomaSalto(); if(saltoPend) cambia("vMapa"); }catch(e){}
+document.querySelectorAll("#aRutas a[href]").forEach(a=>a.addEventListener("click",()=>{ if(mapa && document.querySelector("#vMapa.activa")) dejaSalto(mapa); }));
 } // fin de iniciar
 </script>
 </body>

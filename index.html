@@ -939,6 +939,8 @@ body.bloq:not(.sintacto) #selectores{display:none}
 #abajo-der{position:absolute;right:8px;bottom:calc(46px + var(--safe-b));z-index:630;display:flex;gap:8px;align-items:center}
 #abajo-der #tog-rec{position:static;padding:11px 16px;font-size:15.5px;font-weight:700} #abajo-der #tog-rec .pt{width:14px;height:14px}
 #abajo-der #tog-punto{padding:11px 12px;font-size:15px;font-weight:700}
+#coche-menu{position:absolute;right:8px;bottom:calc(96px + var(--safe-b));z-index:640;width:min(280px,calc(100vw - 16px));background:var(--papel);border:1px solid var(--linea);border-radius:14px;padding:6px;box-shadow:0 8px 26px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:2px}
+#coche-menu[hidden]{display:none} #coche-menu button{height:46px;border:0;border-radius:10px;background:none;font:inherit;font-size:15.5px;font-weight:600;text-align:left;padding:0 12px;cursor:pointer;color:#33312d} #coche-menu button:active{background:#e7efe9} #coche-menu .pista{margin:2px 10px 4px;font-size:12.5px} #coche-menu .pista:empty{display:none}
 #tog-coche{padding:11px 12px;font-size:15px;font-weight:700;border-color:#2c5a86;color:#2c5a86;background:rgba(251,250,247,.94)} #tog-coche.puesto{background:#2c5a86;color:#fff}
 body.sintacto #abajo-der{display:none}
 /* con la fila de botones abajo, las coordenadas van en la última línea, a la derecha del crédito del mapa */
@@ -1692,6 +1694,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
         </label>
         <p class="pista">Se guarda solo en este navegador. Usa un token restringido a este repositorio con permiso de contenidos.</p>
         <div id="gh-estado"></div>
+        <p class="pista" id="gh-cad"></p>
       </div>
 
       <div id="repo-sendas" hidden>
@@ -2494,6 +2497,8 @@ function pintaLista() {
     ir.onclick = () => { entraEnZona(z); cierraPanel(); };
     const bo = document.createElement('button'); bo.textContent = 'Borrar';
     bo.onclick = () => borraZona(z, bo);
+    if (z.tiempo && z.tiempo.d) { const tb = document.createElement('button'); tb.textContent = '⛅'; tb.title = 'Previsión guardada con la zona, ' + cuandoSe(z.tiempo.t);
+      tb.onclick = () => { guarda(LS_TIEMPO, z.tiempo); pintaTiempoGuardado(true); }; li.append(tb); }
     li.append(ir, bo); ul.appendChild(li);
   });
 }
@@ -2674,6 +2679,7 @@ async function descarga(opc) {
       b:[bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()],
       n:hechos, bytes: bytes || estimaZona(bounds, zmax, ids).bytes, fecha:Date.now() });
     salvaZonas(zonas);
+    guardaTiempoZona(zonas[zonas.length - 1].id);   // v124: la previsión (y el boletín del macizo) se guardan con la zona
     pintaLista();
     entraEnZona(zonas[zonas.length - 1]);
   }
@@ -6564,6 +6570,19 @@ function marcaCoche() {
   pintaCoche(); pintaSeguridad();
   avisa('Punto de partida marcado');
 }
+/* v124: ruta a pie desde donde estás hasta el coche, por caminos y calles (necesita cobertura) */
+let capaRutaCoche = null;
+function quitaRutaCoche() { if (capaRutaCoche) { mapa.removeLayer(capaRutaCoche); capaRutaCoche = null; } }
+async function rutaAlCoche(c) {
+  const gpx = await pideRuta([[ultimaPos[0], ultimaPos[1]], [c[0], c[1]]], 'hiking-beta');
+  const pts = [...new DOMParser().parseFromString(gpx, 'application/xml').getElementsByTagName('trkpt')].map(p => [+p.getAttribute('lat'), +p.getAttribute('lon')]).filter(p => isFinite(p[0]) && isFinite(p[1]));
+  if (pts.length < 2) throw new Error('el servidor no ha devuelto un camino');
+  quitaRutaCoche();
+  capaRutaCoche = L.layerGroup([ L.polyline(pts, { color:'#fff', weight:8, opacity:.85, interactive:false }), L.polyline(pts, { color:'#2c5a86', weight:4.5, opacity:1, dashArray:'2,9', lineCap:'round', interactive:false }) ]).addTo(mapa);
+  let m = 0; for (let i = 1; i < pts.length; i++) m += metrosEntre(pts[i - 1], pts[i]);
+  mapa.fitBounds(L.latLngBounds(pts), { padding:[50, 50], maxZoom:17 });
+  return fmtDist(m) + ' andando';
+}
 function borraCoche() { localStorage.removeItem(LS_COCHE); pintaCoche(); pintaSeguridad(); }
 
 /* ---- grabación ---- */
@@ -7346,6 +7365,25 @@ function pintaTiempoGuardado(abrir) {
    planificar: miras la sierra en el mapa desde el sofá y quieres el tiempo de
    lo que estás mirando, no el de tu salón. Para el tiempo de donde estás basta
    con centrar el mapa en tu punto azul. */
+/* v124: al descargar una zona se guarda su previsión, y si cae en un macizo con boletín y hay clave, el boletín de 4 días.
+   Así se consultan allí, sin cobertura. No avisa ni estorba: si falla, la zona queda descargada igual. */
+async function guardaTiempoZona(id) {
+  try {
+    if (!navigator.onLine) return;
+    const zs = leeZonas(), z = zs.find(x => x.id === id); if (!z) return;
+    const pt = [(z.b[0] + z.b[2]) / 2, (z.b[1] + z.b[3]) / 2];
+    const [r] = await pideTiempo([pt], 7);
+    const zs2 = leeZonas(), z2 = zs2.find(x => x.id === id); if (!z2) return;
+    z2.tiempo = { t: Date.now(), nom: z2.nom, pt, d: r.daily }; salvaZonas(zs2);
+    guarda(LS_TIEMPO, z2.tiempo); pintaLista(); try { pintaTiempoGuardado(); } catch (e) {}
+    const mz = macizoDe(pt), clave = claveAemet();
+    if (clave && mz && (mz.dentro || mz.lejos < 30000)) {
+      const dias = [];
+      for (let d = 0; d < 4; d++) { try { dias.push(await pideBoletinDia(mz.m.c, d, clave)); } catch (e) { dias.push(null); if (d === 0) break; } await new Promise(r => setTimeout(r, 500)); }
+      if (dias[0]) { while (dias.length < 4) dias.push(null); guarda(LS_BOLETIN, { t: Date.now(), area: mz.m.c, b: dias[0], dias }); try { pintaBoletinGuardado(); } catch (e) {} }
+    }
+  } catch (e) {}
+}
 async function verTiempoAqui() {
   const $b = document.getElementById('btn-tiempo'), $s = document.getElementById('tiempo-sal');
   const c = mapa.getCenter(), pt = [c.lat, c.lng];
@@ -7734,7 +7772,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v123';
+const VERSION = 'v124';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */
@@ -7835,10 +7873,24 @@ function montaBloques() {
     const fila = document.getElementById('interruptores'); fila.insertBefore(document.getElementById('sel-mapas'), fila.firstChild);
     const caja = document.createElement('div'); caja.id = 'abajo-der'; const rec = document.getElementById('tog-rec'); rec.parentNode.insertBefore(caja, rec);
     const co = document.createElement('button'); co.id = 'tog-coche'; co.className = 'tog';
-    const pinta = () => { const c = leeCoche(); co.classList.toggle('puesto', !!c); co.textContent = c ? '🚗 Aparcado' : '🚗 Aparcar'; co.title = c ? 'Punto de regreso marcado. Toca para cambiarlo o quitarlo' : 'Marcar aquí el coche o el punto al que quieres volver'; };
-    co.onclick = () => { if (!leeCoche()) { marcaCoche(); setTimeout(pinta, 300); return; }
-      if (co.dataset.arm === '1') { co.dataset.arm = ''; borraCoche(); pinta(); avisa('Marca de regreso quitada'); return; }
-      co.dataset.arm = '1'; co.textContent = '¿Quitar la marca?'; setTimeout(() => { co.dataset.arm = ''; pinta(); }, 3500); };
+    /* v124: con el coche marcado el botón dice a cuánto está y hacia dónde; al tocarlo, menú con la ruta a pie hasta él */
+    const pinta = () => { const c = leeCoche(); co.classList.toggle('puesto', !!c);
+      if (!c) { co.textContent = '🚗 Aparcar'; co.title = 'Marcar aquí el coche o el punto al que quieres volver'; return; }
+      if (ultimaPos) { const d = metrosEntre(ultimaPos, c), g = rumboEntre(ultimaPos, c);
+        co.innerHTML = '🚗 ' + fmtDist(d) + ' <span style="display:inline-block;font-size:19px;line-height:1;font-weight:800;transform:rotate(' + Math.round(g) + 'deg)">↑</span>'; co.title = 'El coche está a ' + fmtDist(d) + ' hacia el ' + puntoCardinal(g) + '. Toca para ver opciones'; }
+      else { co.textContent = '🚗 Aparcado'; co.title = 'Punto de regreso marcado. Toca para ver opciones'; } };
+    const menu = document.createElement('div'); menu.id = 'coche-menu'; menu.hidden = true;
+    menu.innerHTML = '<button data-a="ruta">🥾 Ruta a pie hasta el coche</button><button data-a="ver">📍 Verlo en el mapa</button><button data-a="quitar">✕ Quitar la marca</button><div class="pista" id="coche-txt"></div>';
+    document.body.appendChild(menu);
+    mapa.on('click movestart', () => { menu.hidden = true; });
+    co.onclick = ev => { ev.stopPropagation(); if (!leeCoche()) { marcaCoche(); setTimeout(pinta, 300); return; } menu.hidden = !menu.hidden; document.getElementById('coche-txt').textContent = ''; };
+    menu.onclick = async ev => { const a = ev.target.dataset && ev.target.dataset.a, c = leeCoche(), $t = document.getElementById('coche-txt'); if (!a || !c) return;
+      if (a === 'quitar') { borraCoche(); quitaRutaCoche(); menu.hidden = true; pinta(); avisa('Marca del coche quitada'); return; }
+      if (a === 'ver') { menu.hidden = true; mapa.setView([c[0], c[1]], Math.max(mapa.getZoom(), 16)); return; }
+      if (!ultimaPos) { $t.textContent = 'Aún no sé dónde estás: enciende el GPS y espera a tener posición.'; return; }
+      $t.textContent = 'Calculando la ruta…';
+      try { const km = await rutaAlCoche(c); menu.hidden = true; avisa('Ruta al coche: ' + km); }
+      catch (e) { $t.textContent = 'No se ha podido calcular (' + e.message + '). Sin cobertura, sigue la flecha del botón: marca la dirección y la distancia en línea recta.'; } };
     const pu = document.getElementById('tog-punto'); pu.textContent = '⚑ Punto'; caja.appendChild(pu); caja.appendChild(co); caja.appendChild(rec); pinta(); setInterval(pinta, 5000);
   }
   document.getElementById('sel-mapas').onclick = () => abreBloque('ver', true);
@@ -7883,6 +7935,44 @@ function abreBloque(k, alterna) {
   if (!ANCHA) fuera($('btn-sendas-vista'));
   const sec = $('sendas-lista') && $('sendas-lista').closest('section'); if (sec) { const p = sec.querySelector('p.pista'); if (p) p.innerHTML = 'Sendas, pistas y escaleras de OpenStreetMap dibujadas sobre el mapa. <b>Se descargan solas con cada zona.</b>'; }
 })();
+/* 14-nov: al cambiar de pestaña (Mapas · Catálogo · Fotos) la otra página se abre en el mismo sitio del mapa.
+   Se pasa por sessionStorage, que es de esta pestaña del navegador y vale para las tres páginas. */
+function dejaSalto(m){ try{ if(!m) return; const c=m.getCenter(); sessionStorage.setItem('ign.salto', JSON.stringify({lat:+c.lat.toFixed(5), lon:+c.lng.toFixed(5), z:Math.round(m.getZoom()), t:Date.now()})); }catch(e){} }
+function tomaSalto(){ try{ const s=JSON.parse(sessionStorage.getItem('ign.salto')); sessionStorage.removeItem('ign.salto'); if(s && isFinite(s.lat) && isFinite(s.lon) && Date.now()-s.t<20000) return s; }catch(e){} return null; }
+document.querySelectorAll('.apps a[href]').forEach(a => a.addEventListener('click', () => dejaSalto(mapa)));
+{ const s0 = tomaSalto(); if (s0) { const va = () => mapa.setView([s0.lat, s0.lon], Math.max(6, Math.min(19, s0.z)), { animate:false }); va(); setTimeout(va, 700); } }
+/* v124: ¿cuándo caduca el token de GitHub? GitHub lo dice en una cabecera de sus respuestas. Se mira como mucho cada 12 h. */
+const LS_GHCAD = 'ign.gh.cad';
+function pintaCadGh(alAbrir) {
+  const $c = document.getElementById('gh-cad'); let g = null; try { g = JSON.parse(localStorage.getItem(LS_GHCAD)); } catch (e) {}
+  let t = '';
+  if (!tokenGh()) t = '';
+  else if (g && g.mal) t = '⚠ GitHub rechaza este token: ha caducado o se ha revocado. Crea uno nuevo y pégalo aquí.';
+  else if (g && g.exp) { const d = Math.round((g.exp - Date.now()) / 86400000), f = new Date(g.exp).toLocaleDateString('es-ES');
+    t = d < 0 ? '⚠ Este token caducó el ' + f + '. Crea uno nuevo.' : d <= 14 ? '⚠ Este token caduca el ' + f + ' (quedan ' + d + ' días).' : 'Este token vale hasta el ' + f + ' (quedan ' + d + ' días).';
+    if (alAbrir && d <= 10) setTimeout(() => avisa(d < 0 ? 'El token de GitHub ha caducado: hay que crear otro (Ajustes)' : 'El token de GitHub caduca en ' + d + ' días'), 4500); }
+  else if (g && g.ok) t = g.sinFecha === 'nunca' ? 'Token válido. No tiene fecha de caducidad.' : 'Token válido. GitHub no deja ver desde aquí cuándo caduca.';
+  if (alAbrir && g && g.mal) setTimeout(() => avisa('GitHub rechaza el token: hay que crear otro (Ajustes)'), 4500);
+  if ($c) { $c.textContent = t; $c.style.color = t.charAt(0) === '⚠' ? '#b3261e' : ''; }
+}
+async function miraCadGh(fuerza) {
+  const tk = tokenGh(); if (!tk || !navigator.onLine) { pintaCadGh(); return; }
+  let g = null; try { g = JSON.parse(localStorage.getItem(LS_GHCAD)); } catch (e) {}
+  const huella = tk.slice(-8);
+  if (!fuerza && g && g.h === huella && Date.now() - g.t < 12 * 3600000) { pintaCadGh(true); return; }
+  try {
+    const r = await fetch('https://api.github.com/rate_limit', { headers:{ Authorization:'Bearer ' + tk, Accept:'application/vnd.github+json' }, cache:'no-store' });
+    const n = { t: Date.now(), h: huella };
+    if (r.status === 401) n.mal = true;
+    else if (r.ok) { n.ok = true; const cab = r.headers.get('github-authentication-token-expiration');
+      if (cab) { const f = Date.parse(cab.replace(' UTC', 'Z').replace(' ', 'T')); if (isFinite(f)) n.exp = f; }
+      else if ((r.headers.get('access-control-expose-headers') || '').toLowerCase().indexOf('github-authentication-token-expiration') >= 0) n.sinFecha = 'nunca'; }
+    else return;
+    guarda(LS_GHCAD, n);
+  } catch (e) {}
+  pintaCadGh(!fuerza);
+}
+{ const $t = document.getElementById('gh-token'); if ($t) $t.addEventListener('change', () => setTimeout(() => miraCadGh(true), 400)); setTimeout(() => miraCadGh(false), 2500); }
 montaBloques();
 const LS_AVISOS = 'ign.avisos';        // { t, url, lista }
 const RUTA_AVISOS = 'https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp';

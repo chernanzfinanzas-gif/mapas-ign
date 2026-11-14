@@ -246,7 +246,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov b';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov c';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -258,6 +258,12 @@ function sinDesplazar(){ if (scrollX||scrollY||document.documentElement.scrollTo
 window.addEventListener('scroll', sinDesplazar, {passive:true}); document.body.addEventListener('scroll', sinDesplazar, {passive:true});
 window.addEventListener('resize', ()=>setTimeout(()=>{ sinDesplazar(); map.invalidateSize(); },150));
 map.on('layeradd', ()=>setTimeout(()=>{ for (const c of map.getPane('overlayPane').querySelectorAll('canvas')) if (c!==rend._container) c.style.pointerEvents='none'; },0));
+/* 14-nov: al cambiar de pestaña (Mapas · Catálogo · Fotos) la otra página se abre en el mismo sitio del mapa.
+   Se pasa por sessionStorage, que es de esta pestaña del navegador y vale para las tres páginas. */
+function dejaSalto(m){ try{ if(!m) return; const c=m.getCenter(); sessionStorage.setItem('ign.salto', JSON.stringify({lat:+c.lat.toFixed(5), lon:+c.lng.toFixed(5), z:Math.round(m.getZoom()), t:Date.now()})); }catch(e){} }
+function tomaSalto(){ try{ const s=JSON.parse(sessionStorage.getItem('ign.salto')); sessionStorage.removeItem('ign.salto'); if(s && isFinite(s.lat) && isFinite(s.lon) && Date.now()-s.t<20000) return s; }catch(e){} return null; }
+const SALTO=tomaSalto(); if(SALTO) map.setView([SALTO.lat,SALTO.lon],Math.max(5,Math.min(19,SALTO.z)),{animate:false});
+document.querySelectorAll('.apps a[href]').forEach(a=>a.addEventListener('click',()=>dejaSalto(map)));
 try{ const h=location.hash.slice(1).split(',').map(Number); if(h.length===3&&h.every(isFinite)) map.setView([h[0],h[1]],Math.max(6,Math.min(16,h[2]))); }catch(e){}
 let fondoN='IGN Topográfico', encimaN='', opacidad=50;
 try { const g=localStorage.getItem('catFondo'); if (MAPAS[g] && !SOLO_ENCIMA.has(g)) fondoN=g; encimaN=localStorage.getItem('catEncima')||''; if(!MAPAS[encimaN]) encimaN=''; opacidad=+(localStorage.getItem('catOpac')||50); } catch(e) {}
@@ -642,7 +648,7 @@ function pintaCerca(){
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov b</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov c</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -945,7 +951,7 @@ map.on('locationfound',e=>{ yoLL=e.latlng; if(yo) map.removeLayer(yo); yo=puntoY
   if (centraAlLlegar){ centraAlLlegar=false; avisa(''); map.setView(yoLL, Math.max(map.getZoom(),14)); $loc.classList.add('on'); } });
 map.on('locationerror',()=>{ if (centraAlLlegar||gpsOn) avisa('No se pudo saber dónde estás (¿permiso de ubicación?).',5000); centraAlLlegar=false; gpsPon(false); });
 map.on('dragstart',()=>$loc.classList.remove('on'));
-try { if (localStorage.getItem('catGps')==='1' && !location.hash) gpsPon(true); } catch(e) {}
+try { if (localStorage.getItem('catGps')==='1' && !location.hash && !SALTO) gpsPon(true); } catch(e) {}
 </script>
 </body>
 </html>
