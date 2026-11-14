@@ -147,6 +147,17 @@ body.enMapa.mapaGrande #mapaZona{height:calc(100vh - var(--barra) - env(safe-are
 .popup b{display:block;font-size:13px}
 .popup a{color:var(--verde2);font-size:12.5px;cursor:pointer}
 
+/* 14-nov: barra de zoom como la de App Mapas — un botón con el nivel que abre un deslizador vertical */
+#zbar{position:absolute;z-index:1000;display:flex;flex-direction:column;align-items:center;gap:6px;touch-action:none}
+#zbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border-radius:50%;cursor:pointer;color:#57544e;
+  font:700 12.5px system-ui;line-height:1.1;background:rgba(251,250,247,.92);border:1px solid rgba(22,33,28,.16);box-shadow:0 1px 4px rgba(0,0,0,.22)}
+#zbar button svg{opacity:.75;margin-bottom:-1px}
+#zbar.abierto button{border-color:#2f6b4f;color:#2f6b4f}
+#zbar input{writing-mode:vertical-rl;direction:rtl;-webkit-appearance:slider-vertical;appearance:slider-vertical;width:26px;height:170px;margin:0;accent-color:#2f6b4f;
+  padding:8px 4px;border-radius:13px;background:rgba(251,250,247,.92);border:1px solid rgba(22,33,28,.16);box-shadow:0 1px 4px rgba(0,0,0,.22)}
+#zbar:not(.abierto) input{display:none}
+@media (max-height:640px){ #zbar input{height:120px} }
+#mapa #zbar{top:8px;left:8px}
 .busca{position:absolute;top:10px;left:56px;z-index:1000;width:min(340px,calc(100% - 120px))}
 .busca input{width:100%;background:var(--papel);color:var(--tinta);border:1px solid var(--linea);border-radius:10px;padding:8px 11px;font:inherit;box-shadow:var(--sombra)}
 .busca ul{list-style:none;margin:4px 0 0;padding:4px;background:var(--papel);border-radius:10px;box-shadow:var(--sombra);max-height:300px;overflow:auto}
@@ -723,7 +734,9 @@ function iniciaMapa(){
   if(mapaListo) { mapa.invalidateSize(); pintaMapa(true); return; }
   if(!window.L){ $("mapa").innerHTML='<div class="vacio">El mapa necesita conexión a internet.</div>'; return; }
   document.documentElement.style.setProperty("--hfiltros", $("filtros").offsetHeight+"px");
-  mapa=L.map("mapa",{zoomControl:true, worldCopyJump:true, maxZoom:19}).setView([40.4,-3.7],6);
+  /* 14-nov: zoom mínimo 3 (por debajo salían varios mapamundis seguidos) y la barra de zoom propia en vez del + y − */
+  mapa=L.map("mapa",{zoomControl:false, worldCopyJump:true, minZoom:3, maxZoom:19}).setView([40.4,-3.7],6);
+  barraZoom(mapa, $("mapa"), 3, 19);
   /* Los MISMOS mapas que la App Mapas IGN, con sus atribuciones y pedidos con la misma URL:
      así, dentro de esa app, el móvil aprovecha también las zonas descargadas para ir sin cobertura.
      Los de OpenStreetMap y derivados exigen saber desde qué web se piden (referer): a ellos se les
@@ -1061,6 +1074,22 @@ function ajustaCapas(){
   if(lejos && !calorOn && !mapa.hasLayer(capa)) mapa.addLayer(capa);
   $("mapa").style.cursor = lejos && calorOn ? "zoom-in" : "";
 }
+/* 14-nov: barra de zoom (la misma idea que en App Mapas). Se cierra sola a los 5 s. */
+function barraZoom(m, host, min, max){
+  const d=document.createElement('div'); d.id='zbar';
+  d.innerHTML='<button title="Zoom del mapa" aria-expanded="false"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg><span></span></button>'
+    +'<input type="range" min="'+min+'" max="'+max+'" step="1" aria-label="Nivel de zoom del mapa">';
+  host.appendChild(d);
+  if(window.L&&L.DomEvent){ L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); }
+  const b=d.querySelector('button'), v=d.querySelector('span'), r=d.querySelector('input'); let reloj=null;
+  const cierra=()=>{ d.classList.remove('abierto'); b.setAttribute('aria-expanded','false'); clearTimeout(reloj); };
+  const espera=()=>{ clearTimeout(reloj); reloj=setTimeout(cierra,5000); };
+  const pon=()=>{ const z=Math.round(m.getZoom()); v.textContent=z; r.value=z; };
+  b.onclick=()=>{ if(d.classList.toggle('abierto')){ b.setAttribute('aria-expanded','true'); espera(); } else cierra(); };
+  r.oninput=()=>{ v.textContent=r.value; espera(); };
+  r.onchange=()=>{ m.setZoom(+r.value); espera(); };
+  m.on('zoomend',pon); pon();
+}
 function pintaMapa(encuadra){
   if(capa) mapa.removeLayer(capa);
   if(calor){ if(controlCapas) controlCapas.removeLayer(calor); mapa.removeLayer(calor); calor=null; }
@@ -1089,7 +1118,13 @@ function pintaMapa(encuadra){
       gradient:{0.2:"#2c7bb6",0.4:"#00a6ca",0.6:"#90eb9d",0.8:"#f9d057",1:"#d7191c"}});
     controlCapas.addOverlay(calor,"Mapa de calor");
   }
-  if(encuadra!==false && pts.length){ mapa.invalidateSize(); mapa.fitBounds(L.latLngBounds(pts),{padding:[30,30], maxZoom:14}); }
+  if(encuadra!==false && pts.length){ mapa.invalidateSize();
+    /* 14-nov: se encuadra donde está el grueso de las fotos (del 2 % al 98 %). Antes, unas pocas fotos lejanas
+       —un viaje, o alguna con el GPS mal— obligaban a alejarse hasta ver el mundo entero. */
+    let lim=L.latLngBounds(pts);
+    if(pts.length>=40){ const la=pts.map(p=>p[0]).sort((a,b)=>a-b), lo=pts.map(p=>p[1]).sort((a,b)=>a-b), q=(v,f)=>v[Math.min(v.length-1,Math.floor(v.length*f))];
+      lim=L.latLngBounds([q(la,.02),q(lo,.02)],[q(la,.98),q(lo,.98)]); }
+    mapa.fitBounds(lim,{padding:[30,30], maxZoom:14}); }
   ajustaCapas(); pintaPanel();
 }
 
