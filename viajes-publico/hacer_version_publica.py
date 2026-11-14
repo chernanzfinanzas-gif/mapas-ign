@@ -82,13 +82,25 @@ if not A.con_privados:
         _, d, _ = lee_js(fn)
         PRIV.update(k for k, f in d.items() if f.get('privado') and not MIA(k))
 
-# identificadores cortos: «t:iglesia-de-…-navacerrada» → «t:1kx»
-def b36(n):
+# identificadores cortos y FIJOS: «t:iglesia-de-…-navacerrada» → «t:3kx9q0a».
+# Salen de una huella del id completo, así que un sitio conserva siempre el mismo aunque
+# entren o salgan otros (lo necesitan los cuadernos de viaje y cualquier enlace guardado).
+# 7 caracteres: con ~54.000 sitios la probabilidad de que dos coincidan es ~2 %; si pasa,
+# esos dos llevan 10 caracteres (también fijos).
+def b36(n, largo):
     s = ''
-    while True:
+    for _ in range(largo):
         n, r = divmod(n, 36); s = '0123456789abcdefghijklmnopqrstuvwxyz'[r] + s
-        if not n: return s
-NUEVO = {p[0]: p[0].split(':', 1)[0] + ':' + b36(i) for i, p in enumerate(D['p'])}
+    return s
+def corto(i, largo):
+    h = int(hashlib.md5(i.encode('utf-8')).hexdigest(), 16)
+    return i.split(':', 1)[0] + ':' + b36(h, largo)
+NUEVO = {p[0]: corto(p[0], 7) for p in D['p']}
+from collections import Counter
+_rep = {v for v, n in Counter(NUEVO.values()).items() if n > 1}
+for k in [k for k, v in NUEVO.items() if v in _rep]:
+    NUEVO[k] = corto(k, 10)
+assert len(set(NUEVO.values())) == len(NUEVO), 'identificadores cortos repetidos'
 HIST = {NUEVO[p[0]]: p[0][2:] for p in D['p'] if p[1] == 'h'}   # el enlace «Su historia» usaba el id
 
 def remapea(x):

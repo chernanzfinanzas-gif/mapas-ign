@@ -5585,6 +5585,38 @@ function fmtHoras(h) {
   return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
 }
 
+/* v125: lo que contesta el servidor de rutas cuando no puede, dicho en castellano.
+   «island» = el punto cae en un camino suelto, que no enlaza con la red (finca cerrada, tramo aislado). */
+function traduceRuta(t) {
+  const m = /(target|start) island detected(?: for section (\d+))?/i.exec(t);
+  if (m) { const n = m[2] != null ? +m[2] + (m[1].toLowerCase() === 'target' ? 2 : 1) : 0;
+    return (n ? 'el punto ' + n : 'uno de los puntos') + ' cae en un camino suelto, que no enlaza con los demás '
+      + '(suele ser una finca cerrada o un tramo aislado). Muévelo a otro camino.'; }
+  if (/not mapped|position not mapped/i.test(t)) return 'uno de los puntos está fuera de la zona con caminos conocidos. Muévelo.';
+  if (/no track found|track not found/i.test(t)) return 'no hay camino que una esos puntos con este tipo de ruta. Prueba otro tipo o mueve un punto.';
+  if (/watchdog|timeout|timed out|too long/i.test(t)) return 'la ruta es demasiado larga para calcularla de una vez. Pon algún punto intermedio.';
+  return null;
+}
+const rutaSinCamino = e => /camino suelto|fuera de la zona|no hay camino/.test(e && e.message || '');
+/* v125: si la ruta entera falla, se calcula tramo a tramo; el tramo que no tiene camino va en línea recta
+   y se avisa de cuál es. Devuelve {gpx, rectos:[[desde,hasta,km],…]}. */
+async function pideRutaPorTramos(pts, perfil) {
+  const trozos = [], rectos = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1]; let ps = null;
+    try { const r = leeGpxDoc(await pideRuta([a, b], perfil), 'tramo.gpx'); if (r && r.pts && r.pts.length > 1) ps = r.pts; }
+    catch (e) { if (!rutaSinCamino(e)) throw e; }
+    if (!ps) { ps = [[a[0], a[1]], [b[0], b[1]]]; rectos.push([i + 1, i + 2, mapa.distance(a, b) / 1000]); }
+    trozos.push(ps);
+  }
+  /* a los tramos rectos se les da la altura de sus vecinos, para que el perfil no se rompa */
+  const todos = []; let ult = null;
+  trozos.forEach((ps, k) => { const sig = (trozos[k + 1] || []).find(q => q[2] != null);
+    ps.forEach((q, j) => { if (k && !j) return; const h = q[2] != null ? q[2] : (ult != null ? ult : (sig ? sig[2] : null)); if (h != null) ult = h; todos.push([q[0], q[1], h]); }); });
+  const gpx = '<?xml version="1.0"?><gpx><trk><trkseg>' + todos.map(q => '<trkpt lat="' + q[0] + '" lon="' + q[1] + '">'
+    + (q[2] != null ? '<ele>' + q[2] + '</ele>' : '') + '</trkpt>').join('') + '</trkseg></trk></gpx>';
+  return { gpx, rectos };
+}
 async function pideRuta(pts, perfil) {
   const lonlats = pts.map(p => p[1].toFixed(6) + ',' + p[0].toFixed(6)).join('|');
   const u = servidorRutas() + '?lonlats=' + lonlats + '&profile=' + encodeURIComponent(perfil)
@@ -5601,10 +5633,10 @@ async function pideRuta(pts, perfil) {
       : 'no hay cobertura: el planificador necesita conexión.');
   }
   const txt = await r.text();
-  if (!r.ok) throw new Error('el servidor de rutas respondió ' + r.status
-    + (txt ? ': ' + txt.slice(0, 120) : ''));
+  if (!r.ok) throw new Error(traduceRuta(txt) || ('el servidor de rutas respondió ' + r.status
+    + (txt ? ': ' + txt.slice(0, 120) : '')));
   /* cuando no encuentra camino no da error HTTP: devuelve un texto plano */
-  if (!/<gpx/i.test(txt)) throw new Error(txt.slice(0, 160).trim()
+  if (!/<gpx/i.test(txt)) throw new Error(traduceRuta(txt) || txt.slice(0, 160).trim()
     || 'el servidor no ha devuelto una ruta');
   return txt;
 }
@@ -5672,7 +5704,12 @@ async function recalculaPlan() {
   const mios = puntosPlan.slice();          // para descartar respuestas viejas
   pidiendoPlan = true;
   try {
-    const gpx = await pideRuta(mios, perfil);
+    let gpx, rectos = [];
+    try { gpx = await pideRuta(mios, perfil); }
+    catch (e) { if (!rutaSinCamino(e)) throw e;
+      pistaPlan('Algún tramo no tiene camino: calculando tramo a tramo…');
+      const t = await pideRutaPorTramos(mios, perfil); gpx = t.gpx; rectos = t.rectos;
+      if (rectos.length === mios.length - 1) throw e; }      // ningún tramo tiene camino: se deja el aviso original
     if (mios.length !== puntosPlan.length) return;   // ya hay otra petición
     const r = leeGpxDoc(gpx, 'ruta.gpx');
     if (!r) throw new Error('la ruta ha vuelto vacía');
@@ -5680,7 +5717,9 @@ async function recalculaPlan() {
     pintaPlan();
     pistaPlan('<b>' + fmtN(+r.km.toFixed(1)) + ' km</b> · ' + fmtN(r.d) + ' m de subida<br>'
       + textoEstima(estimaRuta(r.pts, r.km, r.d))
-      + (() => { const l = lineaSubidas(tramosDe(calculaPerfil(r.pts))); return l ? '<br>' + l : ''; })());
+      + (() => { const l = lineaSubidas(tramosDe(calculaPerfil(r.pts))); return l ? '<br>' + l : ''; })()
+      + (rectos.length ? '<br><span class="mal">⚠️ ' + rectos.map(x => 'Entre los puntos ' + x[0] + ' y ' + x[1] + ' no hay camino enlazado: van en línea recta (' + fmtN(+x[2].toFixed(1)) + ' km).').join(' ')
+          + ' Suele ser una finca cerrada o un camino suelto; mueve el punto para evitarlo.</span>' : ''));
     $g.disabled = false; $d.disabled = false;
     document.getElementById('pl-ver-perfil').disabled = false;
   } catch (e) {
@@ -7772,7 +7811,7 @@ function pintaMejores(zonas, dejadas, radio) {
    o el navegador me sirve lo viejo?» sale una y otra vez, y adivinarla cuesta
    más que enseñarla. Va junto a la caché del sw.js: si no coinciden, es que el
    service worker todavía no se ha renovado. */
-const VERSION = 'v124';
+const VERSION = 'v125';
 /* ---- v100: bloques de la pantalla ancha -----------------------------------------------
    Las secciones del menú ☰ no cambian: solo se muestran por grupos, colgando del botón de su bloque.
    En el móvil (pantalla estrecha) todo sigue como estaba. */

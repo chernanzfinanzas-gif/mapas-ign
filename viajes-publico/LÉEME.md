@@ -25,7 +25,10 @@ personal, se cambia en `hacer_version_publica.py` (esta carpeta), nunca en la we
 - Quita: «Mis rutas» de Carlos, menciones, fechas y tiempos suyos, textos tipo «Carlos ha hecho este
   recorrido», «Mis fotos», edición, token, su ritmo, y los enlaces a la App Mapas y la App Fotos.
 - Mete dentro de los datos sus correcciones de posición y sus estrellas (`sync/`).
-- Acorta los identificadores internos para adelgazar el índice (7,2 → 4,7 MB; 1,3 MB comprimido).
+- Acorta los identificadores internos para adelgazar el índice (7,2 → 4,9 MB; ~1,3 MB comprimido).
+  Son FIJOS (salen de una huella del id completo): un sitio conserva siempre el mismo aunque entren o
+  salgan otros, para que los cuadernos de viaje y los enlaces guardados no se desvíen. Comprobado el
+  14-nov quitando 1.000 sitios: ninguno de los demás cambió.
 - Por defecto no publica los 514 trazados de Wikiloc/Komoot (uso personal): sale su ficha.
   `--con-privados` los incluye. Pendiente de la definición de datos con Carlos.
 - Cabecera: «← Historia» (vuelve a la portada de historiatotal.es) y «Viajes».
