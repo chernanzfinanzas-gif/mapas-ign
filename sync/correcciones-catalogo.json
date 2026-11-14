@@ -180,6 +180,16 @@
    "municipio": "Alcázar de San Juan",
    "fecha": "14/11/2026 13:20",
    "t": 1794658819027
+  },
+  "t:casa-de-infantes-y-casa-de-oficios-aranjuez": {
+   "lat": 40.033685,
+   "lon": -3.603945,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Casa de Infantes y Casa de Oficios",
+   "municipio": "Aranjuez",
+   "fecha": "14/11/2026 17:31",
+   "t": 1794673862207
   }
  }
 }
