@@ -182,14 +182,14 @@
    "t": 1794658819027
   },
   "t:casa-de-infantes-y-casa-de-oficios-aranjuez": {
-   "lat": 40.033685,
-   "lon": -3.603945,
+   "lat": 40.033841,
+   "lon": -3.605479,
    "acc": null,
    "como": "mapa",
    "nombre": "Casa de Infantes y Casa de Oficios",
    "municipio": "Aranjuez",
    "fecha": "14/11/2026 17:31",
-   "t": 1794673862207
+   "t": 1794673911558
   }
  }
 }
