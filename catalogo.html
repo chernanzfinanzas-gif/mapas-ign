@@ -260,7 +260,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov p';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov r';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -422,8 +422,8 @@ function cierraBus(){ $bus.style.display='none'; }
 function enCatalogo(q){
   if (!NOMS) NOMS = D.p.map(p=>norm(p[2]));
   const w = norm(q).split(/\s+/).filter(Boolean), r = [];
-  for (let i=0;i<D.p.length;i++){ const n=NOMS[i]; if (w.every(x=>n.includes(x))) r.push([(n.startsWith(w[0])?0:1) - (D.p[i][8]?(4-D.p[i][8])/10:0), i]); }
-  return r.sort((a,b)=>a[0]-b[0]).slice(0,10).map(x=>D.p[x[1]]);
+  for (let i=0;i<D.p.length;i++){ const n=NOMS[i]; if (w.every(x=>n.includes(x))) r.push([(n.startsWith(w[0])?0:1) - (esRuta(D.p[i][1])?0:(D.p[i][8]||0)/10) + n.length/10000, i]); }
+  return r.sort((a,b)=>a[0]-b[0]).slice(0,40).map(x=>D.p[x[1]]);   /* 14-nov q: hasta 40 resultados, primero los de más estrellas */
 }
 function pintaBus(cat, locs, cargando){
   let h='';
@@ -705,13 +705,17 @@ function datosOsm(o){
   return h;
 }
 function kmTxt(x){ return x<1 ? Math.round(x*1000/50)*50+' m' : (+x).toLocaleString('es',{maximumFractionDigits:1})+' km'; }
-function textoForma(fo, mia, D){
+/* 14-nov r: una ruta de solo ida de hasta 12,5 km se puede hacer de ida y vuelta por el mismo camino.
+   Se dejan fuera las que acaban a menos de 1 km de la salida (casi circulares) y las etapas de rutas largas. */
+function vaIV(id){ const f = F[id]||{}, fo = f.fo, p = pid(id);
+  return !!(fo && fo[0]==='l' && fo[3]<=12.5 && fo[1]>=1 && p && p[1]==='r' && !/^GR[\s-]?\d|\betapa\b|\btramo\s*\d/i.test(p[2])); }
+function textoForma(fo, mia, D, iv){
   const [k,d,nota,L] = fo; let t;
   if (k==='c')   t = '<b>⭕ Circular</b>'+(mia?'Acabaste':'Acaba')+' en el punto de salida'+(d>=0.15?' (a '+kmTxt(d)+')':'')+'.';
   if (k==='iv')  t = '<b>↩ Ida y vuelta</b>Se vuelve por el mismo camino hasta la salida.';
   if (k==='ivt') t = '<b>↩ Ida y vuelta</b>El trazado dibuja solo la ida ('+kmTxt(L)+'); la vuelta es por el mismo camino'+(D&&D>L*1.3?' ('+kmTxt(D)+' en total)':'')+'.';
   if (k==='l')   t = mia ? '<b>➡ De un sitio a otro</b>Acabaste a '+kmTxt(d)+' de donde empezaste.'
-                         : '<b>➡ Solo ida: NO vuelve a la salida</b>Acaba a '+kmTxt(d)+' de donde empieza. Hay que volver andando o tener transporte.';
+                         : '<b>➡ Solo ida: NO vuelve a la salida</b>Acaba a '+kmTxt(d)+' de donde empieza. Hay que volver andando o tener transporte.'+(iv?' <b style="display:inline">Ida y vuelta por el mismo camino: '+kmTxt(L*2)+'.</b>':'');
   if (k==='x')   t = '<b>❓ Trazado incompleto</b>No se puede saber si vuelve a la salida: el trazado está cortado o es más corto que la ruta.';
   if (nota) t += ' '+esc(nota);
   return '<div class="forma '+k+'">'+t+'</div>';
@@ -752,7 +756,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov p</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov r</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -796,7 +800,7 @@ function ficha_(p){
     if (!f.fo && f.tipo_recorrido) h += '<span>'+esc(f.tipo_recorrido)+'</span>';
     if (f.altitud_max_m) h += '<span>⛰ hasta '+Math.round(f.altitud_max_m)+' m</span>';
     h += '</div>';
-    if (f.fo) h += textoForma(f.fo, c==='m', f.distancia_km);
+    if (f.fo) h += textoForma(f.fo, c==='m', f.distancia_km, vaIV(id));
     if (f.tu_tiempo_horas) h += '<div class="sub">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
     if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
     if (f.veces>1) h += '<div class="sub">🔁 La has hecho '+f.veces+' veces: '+esc(f.fechas.join(', '))+'</div>';
@@ -819,9 +823,11 @@ function ficha_(p){
   if (f.requiere_reserva) h += '<div class="aviso">Requiere reserva o permiso.</div>';
   if (f.privado) h += '<div class="aviso">🔒 Track de Wikiloc/Komoot: solo uso personal.</div>';
   h += '<div class="btns">';
-  if (T[id]) h += '<button onclick="gpx(\''+id+'\')">⬇ Descargar GPX</button>';
+  if (T[id]) h += vaIV(id) ? '<button onclick="gpx(\''+id+'\')">⬇ GPX solo ida</button><button onclick="gpx(\''+id+'\',true)">⬇ GPX ida y vuelta</button>' : '<button onclick="gpx(\''+id+'\')">⬇ Descargar GPX</button>';
   if (ap) h += '<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(nom+', '+(f.municipio||''))+'">🔎 Buscar en Google Maps</a>';
   h += '<a class="sec" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='+(ap&&f.lat_pueblo?f.lat_pueblo+','+f.lon_pueblo:lat+','+lon)+'">🚗 Cómo llegar'+(ap?' al pueblo':'')+'</a>';
+  { const hk = c==='h' ? id.slice(2) : (D.hi||{})[id];      /* 14-nov r: la historia del sitio, en historiatotal.es */
+    if (hk) h += '<a class="sec" target="_blank" rel="noopener" style="background:#7c2d12;color:#fff" href="https://historiatotal.es/#/l/'+encodeURIComponent(hk)+'">📖 Su historia</a>'; }
   if (f.web || (f.osm&&f.osm.w)) h += '<a class="sec" target="_blank" rel="noopener" href="'+esc(f.web||f.osm.w)+'">Web</a>';
   if (f.osm && f.osm.wp) h += '<a class="sec" target="_blank" rel="noopener" href="'+esc(f.osm.wp)+'">Wikipedia</a>';
   h += '</div>';
@@ -907,7 +913,9 @@ function pintaPerfil(id, p, e, real){
     if (real){ const t=[]; if (real.dur) t.push('<b>'+hm(real.dur)+'</b> en total'); if (real.mov) t.push(hm(real.mov)+' en movimiento'); if (real.parado>=0.08) t.push(hm(real.parado)+' parado');
       h+='<div class="pf-t">📍 Perfil y tiempos <b>medidos con tu GPS</b></div>'+(t.length?'<div class="pf-t">⏱ <b>Tardaste:</b> '+t.join(' · ')+(real.ini&&real.fin?' <small>(de '+esc(real.ini)+' a '+esc(real.fin)+')</small>':'')+'</div>':''); }
     else if (!bici && r.and){ const F2=RITMO.factor;
-      h+='<div class="pf-t">🥾 <b>A tu ritmo:</b> andando '+hm(r.and)+' · con paradas <b>'+hm(r.and*F2.p50)+'</b> (entre '+hm(r.and*F2.p25)+' y '+hm(r.and*F2.p75)+')</div>';
+      h+='<div class="pf-t">🥾 <b>A tu ritmo'+(vaIV(id)?' (solo ida)':'')+':</b> andando '+hm(r.and)+' · con paradas <b>'+hm(r.and*F2.p50)+'</b> (entre '+hm(r.and*F2.p25)+' y '+hm(r.and*F2.p75)+')</div>';
+      if (vaIV(id) && !r.dudoso) { const r2 = calculaPerfil([e[0]].concat(e.slice(1).reverse().map(a=>a.slice().reverse()))), tt = r.and+(r2.and||r.and), L2 = (F[id].fo[3]*2);
+        h+='<div class="pf-t">↩ <b>Ida y vuelta:</b> '+L2.toLocaleString('es',{maximumFractionDigits:1})+' km · ↗ '+Math.round(r.sub+r.baj)+' m · andando '+hm(tt)+' · con paradas <b>'+hm(tt*F2.p50)+'</b> (entre '+hm(tt*F2.p25)+' y '+hm(tt*F2.p75)+')</div>'; }
     }
     if (r.subs.length){ const km1=v=>v.toLocaleString('es',{minimumFractionDigits:1,maximumFractionDigits:1}), tot=r.subs.reduce((a,u)=>a+u.g,0);
       h+='<div class="pf-t"><i class="pf-m"></i> <b>'+(r.subs.length===1?'Una subida':r.subs.length+' subidas')+'</b> de 80 m o más'+(r.subs.length>1?' · '+Math.round(tot)+' m entre todas':'')+'</div><table class="pf-tab">'
@@ -1153,15 +1161,18 @@ async function subeEst(){
 }
 (async () => { try { const R = await leeEst(); if (juntaEst(R.c) && tokenGh()) subeEst(); } catch(e) {} })();
 
-function gpx(id){
-  const p = idxRuta[id], f = F[id]||{}, x = s=>esc(s).replace(/'/g,'&apos;');
+function gpx(id, iv){
+  const p = idxRuta[id], f = F[id]||{}, x0 = s=>esc(s).replace(/'/g,'&apos;'), x = s=>x0(s)+(iv&&s===p[2]?' (ida y vuelta)':'');
   let g = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Mapas Carlos" xmlns="http://www.topografix.com/GPX/1/1">\n';
   g += '<metadata><name>'+x(p[2])+'</name></metadata>\n';
   g += '<wpt lat="'+p[4]+'" lon="'+p[5]+'"><name>Inicio</name></wpt>\n<trk><name>'+x(p[2])+'</name>'+(f.resumen?'<desc>'+x(f.resumen)+'</desc>':'')+'\n';
-  for (const s of T[id]){ g += '<trkseg>\n'; for (const q of s) g += '<trkpt lat="'+q[0]+'" lon="'+q[1]+'"/>\n'; g += '</trkseg>\n'; }
+  if (iv) { const ida = [].concat(...T[id]), todo = ida.concat(ida.slice(0,-1).reverse()), fin = ida[ida.length-1];
+    g = g.replace('<trk>','<wpt lat="'+fin[0]+'" lon="'+fin[1]+'"><name>Media vuelta</name></wpt>\n<trk>');
+    g += '<trkseg>\n'; for (const q of todo) g += '<trkpt lat="'+q[0]+'" lon="'+q[1]+'"/>\n'; g += '</trkseg>\n'; }
+  else for (const s of T[id]){ g += '<trkseg>\n'; for (const q of s) g += '<trkpt lat="'+q[0]+'" lon="'+q[1]+'"/>\n'; g += '</trkseg>\n'; }
   g += '</trk>\n</gpx>\n';
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([g],{type:'application/gpx+xml'}));
-  a.download = p[2].normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase()+'.gpx';
+  a.download = p[2].normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'').toLowerCase()+(iv?'-ida-y-vuelta':'')+'.gpx';
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
 }
 
