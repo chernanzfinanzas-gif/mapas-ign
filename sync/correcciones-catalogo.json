@@ -140,6 +140,16 @@
    "municipio": "Azanuy-Alins",
    "fecha": "14/11/2026 04:03",
    "t": 1794625426762
+  },
+  "t:pozo-de-hielo-y-salinas-de-calasanz-peralta-de-calasanz": {
+   "lat": 42.026567,
+   "lon": 0.376754,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Pozo de hielo y salinas de Calasanz",
+   "municipio": "Peralta de Calasanz",
+   "fecha": "14/11/2026 04:07",
+   "t": 1794625663380
   }
  }
 }
