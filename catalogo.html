@@ -59,6 +59,9 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 .pt.m2{border:3px solid #fff;box-shadow:0 0 0 1.5px #7b8794,0 1px 6px #000c}
 .pt.m3{font-size:12px;border:3px solid #fff;box-shadow:0 0 0 1.5px #7a4a1e,0 1px 6px #000c}
 .medalla{margin:6px 0;font-size:13.5px;color:#4b4f55}
+.est{color:#d9a400;letter-spacing:1px;font-size:15px}.est i{color:#c9ced4;font-style:normal}
+.estbt{margin:4px 0 8px;font-size:12.5px;color:#6b7280;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.estbt button{border:1px solid #c9ced4;background:#fff;border-radius:6px;padding:3px 8px;font:600 12.5px system-ui;cursor:pointer;color:#1d2125}.estbt button.on{background:#d9a400;border-color:#d9a400;color:#fff}
 .pt.sel{width:46px;height:46px;font-size:23px;border:4px solid #fff;box-shadow:0 0 0 4px #4f46e5,0 3px 12px #000c;position:relative;animation:latido 1.6s ease-in-out infinite}
 @keyframes latido{0%,100%{box-shadow:0 0 0 4px #4f46e5,0 0 0 4px #4f46e555,0 3px 12px #000c}50%{box-shadow:0 0 0 4px #4f46e5,0 0 0 14px #4f46e500,0 3px 12px #000c}}
 @media (prefers-reduced-motion:reduce){.pt.sel{animation:none}}
@@ -153,7 +156,7 @@ textarea.cl2{width:100%;height:180px;font:12px/1.35 ui-monospace,monospace;borde
 #sheet{position:absolute;left:0;right:0;bottom:0;z-index:1100;background:var(--bg);border-radius:14px 14px 0 0;box-shadow:0 -2px 12px #0004;max-height:58vh;overflow:auto;padding:12px 16px 18px;transform:translateY(105%);transition:transform .2s}
 #sheet.on{transform:none}
 @media(min-width:760px){#sheet{left:auto;right:12px;bottom:12px;top:60px;width:380px;max-height:none;border-radius:12px}}
-#sheet .x{float:right;border:0;background:var(--li);border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer}
+#sheet button.x{float:right;border:0;background:var(--li);border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer}
 .tag{display:inline-block;font:700 11px system-ui;color:#fff;border-radius:4px;padding:2px 6px;text-transform:uppercase;letter-spacing:.03em}
 h2{font-size:18px;margin:8px 0 2px}
 .sub{color:var(--mu);font-size:13px}
@@ -187,7 +190,7 @@ ul{padding-left:18px;margin:6px 0}
 <div id="sheet"></div>
 <script src="catalogo/puntos.js"></script>
 <script>
-const CAPAS = {h:{n:'Historia',c:'#8a5a2b',s:'🏛'}, n:{n:'Naturaleza',c:'#0f766e',s:'🌲'}, r:{n:'Rutas',c:'#3a3f45',s:'🥾'}, m:{n:'Mis rutas',c:'#c0157f',s:'👣'}, t:{n:'Turismo',c:'#7c3aed',s:'⭐'}, u:{n:'Útil',c:'#0284c7',s:'💧'}};
+const CAPAS = {h:{n:'Historia',c:'#8a5a2b',s:'🏛'}, n:{n:'Naturaleza',c:'#0f766e',s:'🌲'}, r:{n:'Rutas',c:'#3a3f45',s:'🥾'}, m:{n:'Mis rutas',c:'#c0157f',s:'👣'}, t:{n:'Turismo',c:'#7c3aed',s:'⭐'}, u:{n:'Útil',c:'#0284c7',s:'💧'}, o:{n:'Patrimonio',c:'#a16207',s:'⛪'}};
 const NIV = [{n:'Fácil',c:'#22a447',e:'🟢'},{n:'Moderada',c:'#1e6fd9',e:'🔵'},{n:'Difícil',c:'#d32f2f',e:'🔴'},{n:'Muy difícil',c:'#111111',e:'⚫'}];
 const IGN = (u)=>'https://www.ign.es/wmts/'+u+'&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix={z}&TileCol={x}&TileRow={y}';
 /* Los MISMOS mapas que la App Mapas (13-nov): fondo + otro encima con transparencia */
@@ -251,7 +254,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov e';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov j';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -309,20 +312,23 @@ const F = {}, T = {};               // fichas y trazados: se cargan por zonas al
    (antes de cualquier corrección tuya), que es la que usa la carpeta de datos. */
 const zona = (la,lo) => Math.floor(la*2)+'_'+Math.floor(lo*2);
 const ZP = {}; for (const p of D.p) ZP[p[0]] = zona(p[4],p[5]);
+Object.assign(F, D.pb||{}); const PBI = new Set(D.pbi||[]);   /* 14-nov j: los 126 de «Los Pueblos más Bonitos de España» */
 const IDX = {}; for (const p of D.p) IDX[p[0]] = p;
-const pedidas = {f:{}, t:{}, u:{}, e:{}}, esperando = {}, E = {};   // E: perfil de altitud de cada ruta (catalogo/e)
+const pedidas = {f:{}, t:{}, u:{}, e:{}, o:{}}, esperando = {}, E = {};   // E: perfil de altitud de cada ruta (catalogo/e)
 /* Cada zona es un fichero .js que llama a zonaCargada(). Se carga con <script> y no con
    fetch para que la página funcione igual publicada que abierta desde la carpeta. */
-function zonaCargada(tipo, z, d){ if (tipo==='u') UT = d; else Object.assign(tipo==='f' ? F : tipo==='e' ? E : T, d); const r = esperando[tipo+z]; if (r) { delete esperando[tipo+z]; r(d); } }
+function zonaCargada(tipo, z, d){ if (tipo==='u') UT = d; else if (tipo==='o') PT = d; else Object.assign(tipo==='f' ? F : tipo==='e' ? E : T, d); const r = esperando[tipo+z]; if (r) { delete esperando[tipo+z]; r(d); } }
 function carga(tipo, z){
   if (!pedidas[tipo][z]) pedidas[tipo][z] = new Promise(res => {
     esperando[tipo+z] = res;
-    const s = document.createElement('script'); s.src = tipo==='u' ? 'catalogo/utiles.js' : 'catalogo/'+tipo+'/'+z+'.js';
+    const s = document.createElement('script'); s.src = tipo==='u' ? 'catalogo/utiles.js' : tipo==='o' ? 'catalogo/patrimonio.js' : 'catalogo/'+tipo+'/'+z+'.js';
     s.onerror = () => { delete esperando[tipo+z]; res({}); }; document.head.appendChild(s);
   });
   return pedidas[tipo][z];
 }
-const on = {h:true,n:true,r:true,m:true,t:true,u:false}, cuenta = {h:0,n:0,r:0,m:0,t:0,u:0}, marcas = {h:[],n:[],r:[],m:[],t:[],u:[]};
+const on = {h:true,n:true,r:true,m:true,t:true,u:false,o:false}, cuenta = {h:0,n:0,r:0,m:0,t:0,u:0,o:0}, marcas = {h:[],n:[],r:[],m:[],t:[],u:[],o:[]};
+try{ on.o = localStorage.getItem('catPat')==='1'; }catch(e){}
+let PT = null;   /* capa Patrimonio (14-nov): iglesias, ermitas, lavaderos, puentes, cuevas… de los pueblos, de OpenStreetMap; se carga al encenderla */
 let UT = null;   // capa Útil: fuentes, miradores y refugios de OpenStreetMap (se carga al encenderla)
 const esRuta = c => c==='r' || c==='m';
 const grupo = L.markerClusterGroup({chunkedLoading:true, maxClusterRadius:50, disableClusteringAtZoom:14, showCoverageOnHover:false, spiderfyOnMaxZoom:false,
@@ -336,9 +342,9 @@ let BORR = {}; try { BORR = JSON.parse(localStorage.getItem('correcciones_borrad
 function guardaCOR(){ try { localStorage.setItem('correcciones', JSON.stringify(COR)); localStorage.setItem('correcciones_borradas', JSON.stringify(BORR)); } catch(e) { avisa('⚠️ El móvil no deja guardar. Envía la lista ahora para no perderla.'); } botonCor(); }
 const MK = {}, ORIG = {};
 function icono(p){ const [id,c,,,,,ap,esf] = p;
-  const col = p[8] ? ['','linear-gradient(145deg,#ffe27a,#d9a400)','linear-gradient(145deg,#eef1f4,#a7b0ba)','linear-gradient(145deg,#d9935a,#9a5a26)'][p[8]] : (c==='r' && esf!=null ? NIV[esf].c : CAPAS[c].c);
+  const md = esRuta(c) ? 0 : ({5:1,4:2,3:3}[p[8]]||0);     /* 14-nov j: estrellas. 5★ oro y grande, 4★ plata, 3★ bronce; 2★ y 1★ con el color de su capa */
+  const col = md ? ['','linear-gradient(145deg,#ffe27a,#d9a400)','linear-gradient(145deg,#eef1f4,#a7b0ba)','linear-gradient(145deg,#d9935a,#9a5a26)'][md] : (c==='r' && esf!=null ? NIV[esf].c : CAPAS[c].c);
   const marcado = id===selPt;
-  const md = p[8]||0;
   const cls = 'pt '+(esRuta(c)?'r ':'')+(COR[id]?'fx':(ap?'ap':''))+(md?' m'+md:'')+(marcado?' sel':'');
   const sim = c==='m' && p[3]==='en_bici' ? '🚲' : CAPAS[c].s, t = marcado?46:(md===1?42:32);
   return L.divIcon({className:'',iconSize:[t,t],html:'<div class="'+cls+'" style="background:'+col+'">'+sim+'</div>'}); }
@@ -346,21 +352,41 @@ let selPt = null;
 function marcaPunto(id){ const ant = selPt; selPt = id;
   if (ant && MK[ant]) { MK[ant].setIcon(icono(busca(ant))); MK[ant].setZIndexOffset(0); }
   if (id && MK[id]) { MK[id].setIcon(icono(busca(id))); MK[id].setZIndexOffset(1000); } }
+/* ---- 14-nov j: ESTRELLAS. Cada sitio lleva de 1 a 5 (p[8]); cuantas más, antes aparece al alejar el mapa.
+   ZE[e] = zoom a partir del cual se ve un sitio de e estrellas (0 = capas Patrimonio y Útil).
+   MIS = las que Carlos cambia a mano en el ordenador; mandan sobre las calculadas y se comparten por GitHub. */
+const ZE = [13,13,12,10,8,0], ETXT = ['','De interés local','De interés','Destacado','Muy destacado','Imprescindible'];
+const minE = z => { for (let e=0;e<=5;e++) if (z>=ZE[e]) return e; return 5; };
+const estr = e => '<span class="est">'+'★'.repeat(e)+'<i>'+'★'.repeat(5-e)+'</i></span>';
+let MIS = {}; try { MIS = JSON.parse(localStorage.getItem('estrellas_mias')||'{}') || {}; } catch(e) { MIS = {}; }
+const EORIG = {}, PC = matchMedia('(hover:hover) and (pointer:fine)').matches;
 for (const p of D.p){
+  if (!esRuta(p[1])) { EORIG[p[0]] = p[8]||1; const k2 = MIS[p[0]]; if (k2 && k2.e) p[8] = k2.e; else if (!p[8]) p[8] = 1; }
   if (!esRuta(p[1])) { ORIG[p[0]] = [p[4],p[5]]; const k = COR[p[0]]; if (k) { p[4]=k.lat; p[5]=k.lon; } }
   const [id,c,nom,tipo,lat,lon,ap] = p;
-  const m = L.marker([lat,lon],{icon:icono(p), title:nom, zIndexOffset: p[8]===1?600:p[8]===2?300:p[8]===3?100:0});
-  m.capa = c; m.on('click',e=>{ if (modo) return marcaAqui(e.latlng); ficha(p); }); MK[id] = m;
+  const m = L.marker([lat,lon],{icon:icono(p), title:nom, zIndexOffset: esRuta(c)?0:p[8]===5?600:p[8]===4?300:p[8]===3?100:0});
+  m.capa = c; m.est = esRuta(c) ? 9 : (p[8]||1); m.on('click',e=>{ if (modo) return marcaAqui(e.latlng); ficha(p); }); MK[id] = m;
   marcas[c].push(m); cuenta[c]++;
 }
-function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k]).map(k=>marcas[k]))); }
+let eVis = minE(map.getZoom());
+function rellena(){ grupo.clearLayers(); grupo.addLayers([].concat(...Object.keys(on).filter(k=>on[k]).map(k=>marcas[k].filter(m=>m.est>=eVis)))); }
 rellena();
+map.on('zoomend',()=>{ const e = minE(map.getZoom()); if (e!==eVis) { eVis = e; rellena(); } });
+function ponEstrella(id, e){            // e = 1..5, o null para volver a la calculada
+  const p = busca(id); if (!p || esRuta(p[1])) return;
+  if (e && e!==EORIG[id]) MIS[id] = {e, t:Date.now()}; else MIS[id] = {borrado:true, t:Date.now()};
+  try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
+  aplicaEst(id); ficha(p); subeEst();
+}
+function aplicaEst(id){ const p = busca(id), m = MK[id]; if (!p || !m) return; const k = MIS[id];
+  p[8] = k && k.e ? k.e : EORIG[id]; m.est = p[8]; m.setIcon(icono(p)); m.setZIndexOffset(p[8]===5?600:p[8]===4?300:p[8]===3?100:0); rellena(); }
 const $bar = document.getElementById('bar');
-for (const k of ['m','r','n','h','t','u']){
+for (const k of ['m','r','n','h','t','o','u']){
   const b=document.createElement('button'); b.className='chip'; b.style.setProperty('--cc',CAPAS[k].c);
   b.innerHTML='<i style="background:'+CAPAS[k].c+'"></i>'+CAPAS[k].s+'<span class="nm"> '+CAPAS[k].n+'</span> <small>'+cuenta[k]+'</small>'; b.title=CAPAS[k].n;
   if (k==='u') { b.querySelector('small').textContent='77.742'; b.classList.add('off'); }
-  b.onclick=()=>{on[k]=!on[k]; b.classList.toggle('off',!on[k]); if (k==='u') return pintaUtiles(true); rellena(); pintaTracks();};
+  if (k==='o') { b.querySelector('small').textContent='113.643'; b.classList.toggle('off',!on.o); b.title='Patrimonio de los pueblos: iglesias, ermitas, lavaderos, puentes, cuevas, molinos, cruceros… (IGN y OpenStreetMap). Se ve al acercar el zoom.'; }
+  b.onclick=()=>{on[k]=!on[k]; b.classList.toggle('off',!on[k]); if (k==='u') return pintaUtiles(true); if (k==='o') { try{localStorage.setItem('catPat',on.o?'1':'0');}catch(e){} return pintaPat(true); } rellena(); pintaTracks();};
   $bar.appendChild(b);
 }
 
@@ -580,6 +606,48 @@ async function pintaUtiles(avisar){
         m.on('click',()=>fichaUtil(i)); capaU.addLayer(m); n++; }
 }
 map.on('moveend zoomend',()=>pintaUtiles(false));
+/* ---- Capa Patrimonio (14-nov): lo pequeño de cada pueblo. Mismo sistema que Útil: un fichero que se carga al encender
+   la capa y se pinta solo de cerca. El fichero viene ordenado por importancia, así que si no caben todos salen los mejores. */
+const capaP = L.layerGroup().addTo(map); let GP = null, PTE = [];
+const PAT = {i:['⛪','Iglesia'],e:['🛐','Ermita o capilla'],l:['🧺','Lavadero'],p:['🌉','Puente'],c:['🕳️','Cueva'],y:['🏺','Yacimiento arqueológico'],r:['🏚️','Ruinas'],k:['🏰','Castillo o fortaleza'],z:['✝️','Cruz o crucero'],n:['⚙️','Molino de agua'],f:['⛲','Fuente'],a:['🏛','Casa solariega o palacio'],m:['🗿','Monumento conmemorativo'],o:['📜','Elemento histórico'],q:['🕌','Lugar de culto']};
+const tipoPat = u => u[5] || PAT[u[2]][1];
+async function pintaPat(avisar){
+  capaP.clearLayers(); if (!on.o) return;
+  if (!PT) { avisa('Cargando el patrimonio de los pueblos…'); await carga('o','todo'); avisa('');
+    if (!PT) { if (avisar) avisa('No se ha podido cargar el patrimonio de los pueblos', 4000); return; }
+    GP = {}; PTE = []; PT.forEach((u,i)=>{ const k=Math.floor(u[0]*20)+'_'+Math.floor(u[1]*20); (GP[k]=GP[k]||[]).push(i); if (u[6] && u[6].e) PTE.push(i); }); }
+  const z = map.getZoom(), b = map.getBounds(), ids = [];
+  if (z < 13) {          /* de lejos solo lo que tiene estrellas, cada nivel a partir de su zoom */
+    for (const i of PTE) { const u = PT[i]; if (z >= ZE[u[6].e] && b.contains([u[0],u[1]])) ids.push(i); }
+    if (!ids.length) { if (avisar) avisa('⛪ Acerca el zoom para ver el patrimonio de los pueblos', 3000); return; }
+  } else
+  for (let a=Math.floor(b.getSouth()*20); a<=Math.floor(b.getNorth()*20); a++)
+    for (let o=Math.floor(b.getWest()*20); o<=Math.floor(b.getEast()*20); o++)
+      for (const i of (GP[a+'_'+o]||[])) { const u = PT[i]; if (b.contains([u[0],u[1]])) ids.push(i); }
+  ids.sort((x,y)=>x-y);
+  for (const i of ids.slice(0, 500)) { const u = PT[i];
+    const m = L.marker([u[0],u[1]],{title:u[3], icon:L.divIcon({className:'',iconSize:[24,24],iconAnchor:[12,12],html:'<div class="ut" style="border-color:'+(({5:'#d9a400',4:'#8a94a0',3:'#9a5a26'})[(u[6]||{}).e]||CAPAS.o.c)+((u[6]||{}).e>=3?';border-width:3px':'')+'">'+PAT[u[2]][0]+'</div>'})});
+    m.on('click',()=>fichaPat(i)); capaP.addLayer(m); }
+  if (avisar && ids.length>500) avisa('⛪ Hay '+ids.length+' aquí: se ven los 500 más destacados. Acerca más para verlos todos.', 4000);
+}
+map.on('moveend zoomend',()=>pintaPat(false)); if (on.o) setTimeout(()=>pintaPat(false),0);
+function fichaPat(i){
+  const u = PT[i], x = u[6]||{}; sel=null; pintaTracks(); marcaPunto(null);
+  let h = '<button class="x" onclick="cierra()">✕</button><span class="tag" style="background:'+CAPAS.o.c+'">'+PAT[u[2]][0]+' Patrimonio</span>';
+  h += '<h2>'+esc(u[3])+'</h2><div class="sub">'+esc(tipoPat(u))+(u[4]?' · '+esc(u[4]):'')+'</div>';
+  if (x.e) h += '<div class="medalla">'+estr(x.e)+' <b>'+ETXT[x.e]+'</b></div>';
+  if (x.b) h += '<div class="sub" style="margin:6px 0">🏛 <b>Protegido como patrimonio</b> (según OpenStreetMap)</div>';
+  if (x.x && !/ruinas/i.test(tipoPat(u))) h += '<div class="sub" style="margin:6px 0">🏚️ En ruinas</div>';
+  if (x.d) h += '<div class="sub" style="margin:6px 0">📅 Fecha: '+esc(x.d)+'</div>';
+  if (x.g) h += '<div class="sub" style="margin:6px 0">No consta su nombre: se le ha puesto el del pueblo más cercano.</div>';
+  if (x.n==='i') h += '<div class="sub" style="margin:6px 0">Nombre tomado del mapa del IGN.</div>';
+  h += '<div class="sub" style="margin:8px 0">'+(x.s==='i'?'Dato del IGN (Base Topográfica Nacional)':'Dato de OpenStreetMap')+': puede faltar algo o no estar al día.</div>';
+  h += '<div class="btns"><a class="sec" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination='+u[0]+','+u[1]+'">🚗 Cómo llegar</a>';
+  if (x.p) { const k=x.p.indexOf(':'); h += '<a class="sec" target="_blank" rel="noopener" href="https://'+encodeURIComponent(x.p.slice(0,k))+'.wikipedia.org/wiki/'+encodeURIComponent(x.p.slice(k+1).replace(/ /g,'_'))+'">Wikipedia</a>'; }
+  else if (x.w) h += '<a class="sec" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/'+encodeURIComponent(x.w)+'">Wikidata</a>';
+  h += '</div>';
+  const s = document.getElementById('sheet'); s.innerHTML = h; s.scrollTop = 0; s.classList.add('on');
+}
 function fichaUtil(i){
   const u = UT[i]; sel=null; pintaTracks(); marcaPunto(null);
   let h = '<button class="x" onclick="cierra()">✕</button><span class="tag" style="background:'+UTIL[u[2]][1]+'">'+UTIL[u[2]][0]+' Útil</span>';
@@ -650,18 +718,21 @@ function pintaCerca(){
     const g = filCer==='todo' || (filCer==='rutas'?esRuta(q[1]):!esRuta(q[1])); if(!g) continue;
     const dy=(q[4]-la)*111.2, dx=(q[5]-lo)*111.2*k, d=Math.hypot(dx,dy); if(d>25) continue; R.push([d,q,dx,dy]); }
   if (on.u && UT && (filCer==='todo'||filCer==='util')) UT.forEach((u,i)=>{ const dy=(u[0]-la)*111.2, dx=(u[1]-lo)*111.2*k, d=Math.hypot(dx,dy); if (d<=25) R.push([d,['u'+i,'u',u[3]||tipoUtil(u),tipoUtil(u),u[0],u[1],0,null],dx,dy]); });
+  if (on.o && PT && (filCer==='todo'||filCer==='lugares'||filCer==='pat')) PT.forEach((u,i)=>{ const dy=(u[0]-la)*111.2; if (dy>25||dy<-25) return; const dx=(u[1]-lo)*111.2*k, d=Math.hypot(dx,dy); if (d<=25) R.push([d,['o'+i,'o',u[3],tipoPat(u)+(u[4]?' · '+u[4]:''),u[0],u[1],0,null],dx,dy]); });
   if (filCer==='util') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='u') R.splice(j,1);
+  if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov e</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov j</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
   h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
-  h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
+  h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.o&&PT?[['pat','⛪ Patrimonio']]:[]).concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
   h+='<ol>'+L60.map(([d,q,dx,dy])=>{ const r=esRuta(q[1]), col=r&&q[1]!=='m'&&q[7]!=null?NIV[q[7]].c:CAPAS[q[1]].c;
       const rb=RUMBO[Math.round(((Math.atan2(dx,dy)*180/Math.PI)+360)%360/45)%8];
+      if (q[1]==='o') { const u=PT[+q[0].slice(1)]; return '<li onclick="fichaPat('+q[0].slice(1)+')"><span class="ic" style="background:'+CAPAS.o.c+'">'+PAT[u[2]][0]+'</span><span class="n">'+esc(q[2])+'<span>'+esc(q[3])+'</span></span><span class="d">'+(d<0.05?'aquí':fd(d))+'<small>'+(d<0.05?'':rb)+'</small></span></li>'; }
       if (q[1]==='u') { const u=UT[+q[0].slice(1)]; return '<li onclick="fichaUtil('+q[0].slice(1)+')"><span class="ic" style="background:'+UTIL[u[2]][1]+'">'+UTIL[u[2]][0]+'</span><span class="n">'+esc(q[2])+'<span>'+esc(q[3])+'</span></span><span class="d">'+(d<0.05?'aquí':fd(d))+'<small>'+(d<0.05?'':rb)+'</small></span></li>'; }
       return '<li onclick="desdeLista=true;abre(\''+q[0]+'\')"><span class="ic" style="background:'+col+'">'+CAPAS[q[1]].s+'</span><span class="n">'+esc(q[2])+(q[6]?' <b title="ubicación sin confirmar">?</b>':'')+'<span>'+esc((q[3]||'').replace(/_/g,' '))+(r?' · salida':'')+(r&&q[7]!=null&&q[1]!=='m'?' · '+NIV[q[7]].n:'')+'</span></span><span class="d">'+(d<0.05?'aquí':fd(d))+'<small>'+(d<0.05?'':rb)+'</small></span></li>'; }).join('')+'</ol>';
   if(R.length>60) h+='<div class="sub">Se muestran los 60 más cercanos de '+R.length+' a menos de 25 km.</div>';
@@ -703,11 +774,14 @@ function ficha_(p){
     h += '<div id="perf"></div>';
   }
   if (f.resumen) h += '<p>'+esc(f.resumen)+'</p>';
-  if (p[8]) { const o=f.osm||{}, t=JSON.stringify([f.resumen,f.visita,f.ver_alli]); const r=[];
+  if (!esRuta(c) && p[8]) { const o=f.osm||{}, t=JSON.stringify([f.resumen,f.visita,f.ver_alli]); const r=[];
+    if (PBI.has(id)) r.push('uno de Los Pueblos más Bonitos de España');
     if (/Patrimonio (de la Humanidad|Mundial)|UNESCO|Unesco/.test(t)) r.push('Patrimonio de la Humanidad');
     if (o.bic || /Bien de Inter[eé]s Cultural|\bBIC\b|[Mm]onumento [Nn]acional|Monumento Hist[oó]rico/.test(t)) r.push('Bien de Interés Cultural');
     if (o.wp) r.push('artículo en Wikipedia'); if (p[1]==='h') r.push('en la colección de Historia');
-    h += '<div class="medalla">'+['','🥇 <b>Monumento de primer orden</b>','🥈 <b>Monumento destacado</b>','🥉 <b>Monumento de interés</b>'][p[8]]+(r.length?' · '+r.join(', '):'')+'</div>'; }
+    const mia = MIS[id] && MIS[id].e;
+    h += '<div class="medalla">'+estr(p[8])+' <b>'+ETXT[p[8]]+'</b>'+(mia?' · <b>puesta por ti</b>':'')+(r.length?' · '+r.join(', '):'')+'</div>';
+    if (PC) h += '<div class="estbt">Cambiar: '+[1,2,3,4,5].map(e=>'<button class="'+(e===p[8]?'on':'')+'" onclick="ponEstrella(\''+id+'\','+e+')">'+e+'★</button>').join('')+(mia?'<button onclick="ponEstrella(\''+id+'\',null)">↩ la calculada ('+EORIG[id]+'★)</button>':'')+'</div>'; }
   h += datosOsm(f.osm);
   h += listaPasa(f);
   h += utilesEnRuta(f.pu);
@@ -745,7 +819,7 @@ function calculaPerfil(e){
       if (c && i>0 && (i%salto===0 || i===a.length-1)){ const i0=i%salto===0?i-salto:i-(i%salto), m=(i-i0)*paso; if (m>0){ const g=(a[i]-a[i0])/m*100, kk=Math.max(-40,Math.min(40,Math.round(g/5)*5)); min+=(c[String(kk)]||c['0'])*m/1000; } } }
     x+=(a.length-1)*paso; cortes.push(xs.length);
   }
-  /* 14-nov e: TODAS las subidas que son algo más que un repecho (80 m o más). Una subida se da por acabada cuando el terreno
+  /* 14-nov h: TODAS las subidas que son algo más que un repecho (80 m o más). Una subida se da por acabada cuando el terreno
      baja 40 m desde lo más alto; empieza en el punto más bajo anterior, así que no arrastra llano por delante. */
   const subs=[]; let i0=0, ipico=0; const H=(RITMO&&RITMO.tramoH)||40;
   const cierra=()=>{ const g=ys[ipico]-ys[i0]; if (g<80 || ipico<=i0) return; if (g<150 && g/(xs[ipico]-xs[i0])<0.04) return;   /* un falso llano largo no es una subida */ const s={g, a:i0, b:ipico, km0:xs[i0]/1000, km:(xs[ipico]-xs[i0])/1000};
@@ -770,15 +844,40 @@ function svgPerfil(r){
   s+='</svg>'; if (r.subs.length>1) s+='<div class="pf-nums">'+r.subs.map((u,k)=>'<b style="left:'+(100*(r.xs[u.a]+r.xs[u.b])/2/(r.km*1000||1)).toFixed(1)+'%">'+(k+1)+'</b>').join('')+'</div>';
   return s+'<div class="pf-eje"><span>0 km</span><span>'+Math.round(mi)+'–'+Math.round(ma)+' m</span><span>'+r.km.toLocaleString('es',{maximumFractionDigits:1})+' km</span></div>';
 }
+/* 14-nov h: TUS rutas llevan el perfil de verdad, el que midió tu GPS (rutas/ana-*.json, lo deja «Rutas al día»),
+   y tus tiempos reales. Si una no lo tiene, se usa el del modelo del terreno como en las demás. */
+let APPIDX=null; const ANA={};
+function pideAna(ap){
+  if (!/^https?:$/.test(location.protocol)) return Promise.resolve(null);
+  if (!APPIDX) APPIDX=fetch('rutas/index.json').then(r=>r.ok?r.json():{}).then(d=>{ const m={}; for (const r of (d.rutas||[])) m[r.id]=r.c; return m; }).catch(()=>({}));
+  return APPIDX.then(m=>{ const c=m[ap]; if (!c) return null; if (!ANA[c]) ANA[c]=fetch('rutas/ana-'+c+'.json').then(r=>r.ok?r.json():{}).catch(()=>({})); return ANA[c].then(a=>a[ap]||null); });
+}
+function serieReal(a){
+  const d=a.perfil&&a.perfil.d, h=a.perfil&&a.perfil.h; if (!d || !h || d.length<5 || d.length!==h.length) return null;
+  const L=d[d.length-1], paso=Math.max(25, Math.round(L/(d.length-1)/5)*5), out=[]; let j=0;
+  for (let x=0; x<=L; x+=paso){ while (j<d.length-2 && d[j+1]<x) j++; const t=d[j+1]>d[j] ? (x-d[j])/(d[j+1]-d[j]) : 0; out.push(Math.round((h[j]+(h[j+1]-h[j])*Math.min(1,Math.max(0,t)))*10)/10); }
+  return out.length>2 ? [paso,out] : null;
+}
 function perfilFicha(id, p){
+  if (p[1]==='m'){ const ap=id.replace(/^r:(app|nueva)-/,'');
+    Promise.all([pideAna(ap), pideRitmo()]).then(([a])=>{ const e=a&&serieReal(a); if (e) pintaPerfil(id,p,e,a); else perfilModelo(id,p); }); return; }
+  perfilModelo(id,p);
+}
+function perfilModelo(id, p){
   const z=ZP[id]; if (!z) return;
-  Promise.all([carga('e',z), pideRitmo()]).then(()=>{
-    const $p=document.getElementById('perf'), e=E[id]; if (!$p || tmpDe!==id) return;
+  Promise.all([carga('e',z), pideRitmo()]).then(()=>pintaPerfil(id,p,E[id],null));
+}
+function pintaPerfil(id, p, e, real){
+  {
+    const $p=document.getElementById('perf'); if (!$p || tmpDe!==id) return;
     if (!e || e.length<2) return;
     const r=calculaPerfil(e); if (r.xs.length<3) return;
+    if (real) r.dudoso=false;
     const bici=p[3]==='en_bici'; if (r.dudoso) r.subs=[]; const ff=F[id]||{};   /* si la ficha ya trae su desnivel oficial no se enseña otro distinto al lado: el del modelo sale algo más bajo porque el trazado está simplificado */
     let h=svgPerfil(r)+'<div class="stats pf-st">'+(ff.desnivel_positivo_m!=null?'':'<span>↗ '+Math.round(r.sub)+' m de subida</span>')+(r.baj>=10?'<span>↘ '+Math.round(r.baj)+' m de bajada</span>':'')+'<span>⛰ de '+Math.round(r.min_)+' a '+Math.round(r.max)+' m</span></div>';
-    if (!bici && r.and){ const F2=RITMO.factor;
+    if (real){ const t=[]; if (real.dur) t.push('<b>'+hm(real.dur)+'</b> en total'); if (real.mov) t.push(hm(real.mov)+' en movimiento'); if (real.parado>=0.08) t.push(hm(real.parado)+' parado');
+      h+='<div class="pf-t">📍 Perfil y tiempos <b>medidos con tu GPS</b></div>'+(t.length?'<div class="pf-t">⏱ <b>Tardaste:</b> '+t.join(' · ')+(real.ini&&real.fin?' <small>(de '+esc(real.ini)+' a '+esc(real.fin)+')</small>':'')+'</div>':''); }
+    else if (!bici && r.and){ const F2=RITMO.factor;
       h+='<div class="pf-t">🥾 <b>A tu ritmo:</b> andando '+hm(r.and)+' · con paradas <b>'+hm(r.and*F2.p50)+'</b> (entre '+hm(r.and*F2.p25)+' y '+hm(r.and*F2.p75)+')</div>';
     }
     if (r.subs.length){ const km1=v=>v.toLocaleString('es',{minimumFractionDigits:1,maximumFractionDigits:1}), tot=r.subs.reduce((a,u)=>a+u.g,0);
@@ -786,7 +885,7 @@ function perfilFicha(id, p){
         +r.subs.map((u,k)=>'<tr><td>'+(r.subs.length>1?(k+1):'')+'</td><td>km '+km1(u.km0)+' → '+km1(u.km0+u.km)+'</td><td><b>+'+Math.round(u.g)+' m</b></td><td>'+Math.round(u.g/(u.km*10))+' %</td><td>'+(!bici&&u.h?hm(u.h):'')+'</td></tr>').join('')+'</table>'; }
     if (r.dudoso) h+='<div class="pf-t pf-av">⚠ Perfil poco fiable: la ruta va por un desfiladero o junto a cortados, y ahí el modelo del terreno confunde el sendero con las paredes. El desnivel y el tiempo pueden salir de más.</div>';
     $p.innerHTML=h;
-  });
+  }
 }
 /* El tiempo de la ficha: Open-Meteo, sin clave. Se guarda una hora por zona (cuadros de ~5 km) para no repetir peticiones. */
 const TMP = {}; let tmpDe = null;
@@ -988,6 +1087,42 @@ async function sube(){
         if (pend && tokenGh()) sube(); }
   catch(e) { syncEstado = '⚠️ No se han podido leer las correcciones de tus otros aparatos ('+e.message+').'; }
 })();
+
+/* ---- 14-nov j: mis estrellas, compartidas entre aparatos en sync/estrellas-catalogo.json ---- */
+const EST_RUTA = 'sync/estrellas-catalogo.json';
+async function leeEst(){
+  const r = repo(), tk = tokenGh();
+  if (tk) { const api = 'https://api.github.com/repos/'+r.duenio+'/'+r.repo+'/contents/'+EST_RUTA;
+    const res = await fetch(api,{headers:{Authorization:'Bearer '+tk, Accept:'application/vnd.github+json'}, cache:'no-store'});
+    if (res.status===404) return {c:{}, sha:null, api, tk};
+    if (!res.ok) throw new Error('GitHub respondió '+res.status);
+    const m = await res.json(); let c={};
+    try { c = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((m.content||'').replace(/\n/g,'')),ch=>ch.charCodeAt(0)))).c || {}; } catch(e){}
+    return {c, sha:m.sha, api, tk}; }
+  if (!/^https?:$/.test(location.protocol)) return {c:{}};
+  const res = await fetch(EST_RUTA+'?t='+Date.now(),{cache:'no-store'}); if (!res.ok) return {c:{}};
+  return {c: (await res.json()).c || {}};
+}
+function juntaEst(rem){ let pend=false, cambio=false;
+  for (const [id,k] of Object.entries(rem||{})) { const l = MIS[id]; if (!l || (l.t||0) < (k.t||0)) { MIS[id] = k; aplicaEst(id); cambio=true; } else if ((l.t||0) > (k.t||0)) pend = true; }
+  for (const id of Object.keys(MIS)) if (!(rem||{})[id]) pend = true;
+  if (cambio) try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(e) {}
+  return pend; }
+let subiendoEst = null;
+async function subeEst(){
+  if (!tokenGh()) return; if (subiendoEst) return subiendoEst;
+  subiendoEst = (async () => { for (let i=0;i<3;i++){ try {
+      const R = await leeEst(); juntaEst(R.c); const c = {...R.c};
+      for (const [id,k] of Object.entries(MIS)) if (!c[id] || (c[id].t||0) < (k.t||0)) c[id] = k;
+      const res = await fetch(R.api,{method:'PUT', headers:{Authorization:'Bearer '+R.tk, Accept:'application/vnd.github+json','Content-Type':'application/json'},
+        body: JSON.stringify({message:'Estrellas del catálogo puestas a mano', content:aB64(JSON.stringify({v:1, c}, null, 1)), sha:R.sha||undefined})});
+      if (res.status===409 || res.status===422) continue;
+      if (!res.ok) throw new Error('GitHub respondió '+res.status);
+      avisa('☁️ Estrella guardada para todos tus aparatos', 2500); return true;
+    } catch(e) { avisa('⚠️ La estrella queda guardada aquí; no se ha podido subir ('+e.message+')', 4000); return false; } } })();
+  try { return await subiendoEst; } finally { subiendoEst = null; }
+}
+(async () => { try { const R = await leeEst(); if (juntaEst(R.c) && tokenGh()) subeEst(); } catch(e) {} })();
 
 function gpx(id){
   const p = idxRuta[id], f = F[id]||{}, x = s=>esc(s).replace(/'/g,'&apos;');
