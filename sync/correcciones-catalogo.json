@@ -170,6 +170,16 @@
    "municipio": "Alcázar de San Juan",
    "fecha": "14/11/2026 13:15",
    "t": 1794658510011
+  },
+  "t:conjunto-arqueologico-de-piedrola-alcazar-de-san-juan": {
+   "lat": 39.453435,
+   "lon": -3.257661,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Conjunto arqueológico de Piédrola",
+   "municipio": "Alcázar de San Juan",
+   "fecha": "14/11/2026 13:20",
+   "t": 1794658819027
   }
  }
 }
