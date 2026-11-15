@@ -124,6 +124,16 @@ def remapea(x):
 
 D['tb'] = {NUEVO[k]: v for k, v in D['tb'].items() if k in NUEVO and k not in PRIV}
 D['am'] = []
+# 15-nov-2026: dificultad técnica de las rutas (1-5). Viene ya puesta en D.dt (las urbanas) y de lo que
+# Carlos marca a mano en la App Mapas (sync/estrellas-catalogo.json, campo «d»). Lo de Carlos manda.
+_dt = {NUEVO[k]: int(v) for k, v in (D.get('dt') or {}).items() if k in NUEVO}
+for k, e in EST.items():
+    if k in NUEVO and isinstance(e, dict) and NUEVO[k][0] == 'r':
+        if e.get('d') and not e.get('borrado'): _dt[NUEVO[k]] = int(e['d'])
+D['dt'] = _dt
+# dificultad física corregida a mano por Carlos (campo «f»); la que no corrige se propone sola en la página
+D['df'] = {NUEVO[k]: int(e['f']) for k, e in EST.items()
+           if k in NUEVO and isinstance(e, dict) and NUEVO[k][0] == 'r' and e.get('f') and not e.get('borrado')}
 D['pb'] = remapea(D.get('pb', {}))
 D['pbi'] = [NUEVO[i] for i in D.get('pbi', []) if i in NUEVO]
 hi = {NUEVO[k]: v for k, v in (D.get('hi') or {}).items() if k in NUEVO}
