@@ -251,8 +251,13 @@ escribe(os.path.join(OUT, '.htaccess'),
   AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json
 </IfModule>
 <IfModule mod_headers.c>
-  <FilesMatch "\\.(js|html)$">
+  <FilesMatch "\\.js$">
     Header set Cache-Control "max-age=3600"
+  </FilesMatch>
+  # 15-nov-2026: la página se comprueba SIEMPRE con el servidor (si no ha cambiado, no se vuelve a bajar).
+  # Antes se guardaba una hora y los cambios de la página tardaban en verse en el móvil.
+  <FilesMatch "\\.html$">
+    Header set Cache-Control "no-cache"
   </FilesMatch>
 </IfModule>
 """)
