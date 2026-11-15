@@ -29,10 +29,15 @@ personal, se cambia en `hacer_version_publica.py` (esta carpeta), nunca en la we
   Son FIJOS (salen de una huella del id completo): un sitio conserva siempre el mismo aunque entren o
   salgan otros, para que los cuadernos de viaje y los enlaces guardados no se desvíen. Comprobado el
   14-nov quitando 1.000 sitios: ninguno de los demás cambió.
-- Por defecto no publica los 514 trazados de Wikiloc/Komoot (uso personal): sale su ficha.
-  `--con-privados` los incluye. Pendiente de la definición de datos con Carlos.
+- Publica también los 514 trazados de Wikiloc/Komoot (decisión de Carlos, 15-nov-2026: «de momento»).
+  Más adelante quizá se sustituyan por senderos de OpenStreetMap. `--sin-privados` los quita y deja
+  solo la ficha. En esas fichas, en vez del aviso «solo uso personal», sale el crédito
+  «🗺️ Trazado: Wikiloc / Komoot / Wikiloc o Komoot, de sus autores» (según lo que diga la ficha).
+  Carlos decidió el 15-nov NO sustituirlos por senderos de OpenStreetMap (Viajes es para pocos amigos).
 - Cabecera: «← Historia» (vuelve a la portada de historiatotal.es) y «Viajes».
 - Escribe `.htaccess` (compresión: comprobado que funciona) y `huellas.json`.
+- Pide a los buscadores que no la indexen (`<meta name="robots" content="noindex,nofollow">`) y lleva el
+  mismo contador de visitas que historiatotal.es (GoatCounter `historiareal`), que la cuenta como «/viajes/».
 - Copia todos los ficheros sueltos de `catalogo/` (patrimonio, útiles, `cuadernos.js` y los que se añadan),
   comprobando que ninguno traiga rutas de Carlos.
 - **Cuadernos de viaje** (`catalogo/cuadernos.js`, 15-nov-2026): en Viajes se guardan en el aparato del

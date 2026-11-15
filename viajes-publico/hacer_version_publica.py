@@ -14,8 +14,8 @@ Qué hace (nada de esto toca el catálogo de origen):
   - Deja DENTRO de los datos sus correcciones de posición y sus estrellas
     (sync/), para que la página no dependa de GitHub al verse.
   - Acorta los identificadores internos (no se ven) para adelgazar el índice.
-  - Por defecto NO publica los trazados marcados «privado» (Wikiloc/Komoot,
-    solo uso personal): la ficha sí sale. --con-privados los incluye.
+  - Publica también los trazados de Wikiloc/Komoot (decisión de Carlos, 15-nov-2026);
+    --sin-privados los quita (sale solo la ficha).
   - Pone cabecera de historiatotal.es con «← Historia».
   - Escribe .htaccess (comprimir, si el servidor lo permite) y huellas.json.
 """
@@ -24,8 +24,12 @@ import os, sys, re, json, glob, shutil, hashlib, argparse
 ap = argparse.ArgumentParser()
 ap.add_argument('--origen', required=True)
 ap.add_argument('--salida', required=True)
-ap.add_argument('--con-privados', action='store_true')
+ap.add_argument('--con-privados', action='store_true')   # ya es lo normal; se deja por compatibilidad
+ap.add_argument('--sin-privados', action='store_true')   # vuelve a quitar los trazados de Wikiloc/Komoot
 A = ap.parse_args()
+# 15-nov-2026, decisión de Carlos: de momento Viajes publica también los trazados de Wikiloc/Komoot
+# (más adelante quizá se sustituyan por senderos de OpenStreetMap).
+A.con_privados = not A.sin_privados
 SRC, OUT = A.origen, A.salida
 CAT = os.path.join(SRC, 'catalogo')
 MIA = lambda i: isinstance(i, str) and (i.startswith('r:app-') or i.startswith('r:nueva-'))
@@ -194,6 +198,10 @@ cambia('<script src="catalogo/puntos.js"></script>\n<script>',
        ' removeItem:k=>{try{window.localStorage.removeItem("viajes."+k);}catch(e){}}};')
 h = h.replace('window.localStorage', '\0WLS').replace('localStorage.', 'LSX.').replace('\0WLS', 'window.localStorage')
 cambia('</style>', '#cor,#editar,.estbt{display:none!important}\n</style>')
+# 15-nov-2026: que los buscadores no la indexen (es para Carlos y unos pocos amigos) y el mismo
+# contador de visitas que historiatotal.es (GoatCounter), para ver quién entra en Viajes
+cambia('</head>', '<meta name="robots" content="noindex,nofollow">\n'
+       '<script data-goatcounter="https://historiareal.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>\n</head>')
 cambia("setTimeout(()=>{ const e=document.createElement('button'); e.id='editar';",
        "if(0)setTimeout(()=>{ const e=document.createElement('button'); e.id='editar';")
 cambia("""if (ap) h += '<div class="btns" style="margin-top:4px"><button onclick="fijaGPS(""",
@@ -228,9 +236,12 @@ if '<script src="catalogo/cuadernos.js"></script>' in h:
     h = h.replace('<script src="catalogo/cuadernos.js"></script>',
                   '<script>window.CUAD_PUBLICO=true; window.CUAD_SYNC_HT=true;</script>\n<script src="catalogo/cuadernos.js"></script>')
 # el aviso de los tracks privados ya no aplica en lo público (no llevan trazado)
-if not A.con_privados:
-    cambia("if (f.privado) h += '<div class=\"aviso\">🔒 Track de Wikiloc/Komoot: solo uso personal.</div>';",
-           "if (f.privado) h += '<div class=\"aviso\">Trazado no disponible aquí: consulta la ruta en su fuente original.</div>';")
+# el aviso «solo uso personal» de los tracks de Wikiloc/Komoot no tiene sentido en la web pública:
+# en su lugar, el crédito de dónde viene el trazado (15-nov-2026)
+CREDITO = ("if (f.privado) { const fu = JSON.stringify([f.fuentes, f.web]); "
+           "h += '<div class=\"sub\" style=\"margin:6px 0\">🗺️ Trazado: ' + (/komoot/i.test(fu) ? 'Komoot' : /wikiloc/i.test(fu) ? 'Wikiloc' : 'Wikiloc o Komoot') + ', de sus autores.</div>'; }")
+cambia("if (f.privado) h += '<div class=\"aviso\">🔒 Track de Wikiloc/Komoot: solo uso personal.</div>';",
+       CREDITO if A.con_privados else "if (f.privado) h += '<div class=\"aviso\">Trazado no disponible aquí: consulta la ruta en su fuente original.</div>';")
 escribe(os.path.join(OUT, 'index.html'), h)
 
 # ── 4. Servidor: comprimir si se puede, y caché corta para el índice ───────
