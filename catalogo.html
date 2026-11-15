@@ -201,6 +201,15 @@ ul{padding-left:18px;margin:6px 0}
 <div id="sheet"></div>
 <script src="catalogo/puntos.js"></script>
 <script>
+/* 15-nov i: D.cp = {ruta mía: su copia general}. Las copias (las «Ruta desde…» que salen en Viajes) NO se dibujan aquí,
+   porque duplican «Mis rutas» y se apilan encima. La dificultad que Carlos marca en su ruta se guarda en la copia.
+   En Viajes no existe D.cp (hacer_version_publica.py lo quita) y esto no hace nada. */
+var CPDE = {}, CPNOM = {};
+if (typeof D !== 'undefined' && D.cp) { for (const k in D.cp) CPDE[D.cp[k]] = k;
+  for (const p of D.p) if (CPDE[p[0]]) CPNOM[p[0]] = p[2];
+  D.p = D.p.filter(p => !CPDE[p[0]]); for (const k in CPDE) delete D.tb[k]; }
+</script>
+<script>
 const CAPAS = {h:{n:'Historia',c:'#8a5a2b',s:'🏛'}, n:{n:'Naturaleza',c:'#0f766e',s:'🌲'}, r:{n:'Rutas',c:'#3a3f45',s:'🥾'}, m:{n:'Mis rutas',c:'#c0157f',s:'👣'}, t:{n:'Turismo',c:'#7c3aed',s:'⭐'}, u:{n:'Útil',c:'#0284c7',s:'💧'}, o:{n:'Patrimonio',c:'#a16207',s:'⛪'}};
 /* 15-nov d: el color de una ruta dice el TERRENO por el que va, no una dificultad (que depende de quién ande). La duración va aparte, en horas. */
 const NIV = [{n:'Llano o suave',c:'#22a447',e:'🟢'},{n:'Urbana',c:'#1e6fd9',e:'🔵'},{n:'Montaña',c:'#d32f2f',e:'🔴'},{n:'Alta montaña',c:'#111111',e:'⚫'}];
@@ -266,7 +275,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 15-nov h';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 15-nov i';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -413,7 +422,7 @@ const DFX = ['', 'Paseo (menos de 1 h 30)', 'Corta (de 1 h 30 a 3 h)', 'Media jo
 function difFisProp(id){ const t = (F[id]||{}).tiempo_estimado_horas; return !t ? null : t<1.5 ? 1 : t<3 ? 2 : t<5 ? 3 : t<=8 ? 4 : 5; }
 function difFis(id){ const k = MIS[id]; return (k && k.f) || (D.df||{})[id] || difFisProp(id); }
 function ponDifX(id, campo, n){       // campo: 'd' técnica, 'f' física · n = 1..5, o null para quitar la tuya
-  const p = busca(id); if (!p || !esRuta(p[1])) return;
+  const p = busca(CPDE[id] || id); if (!p || !esRuta(p[1])) return;      // si es una copia, la ficha que se repinta es la de la ruta mía
   const k = {...(MIS[id]||{})}; delete k.borrado; if (n) k[campo] = n; else delete k[campo];
   MIS[id] = (k.d || k.f) ? {...k, t:Date.now()} : {borrado:true, t:Date.now()};
   try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
@@ -797,7 +806,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 15-nov h</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 15-nov i</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -842,12 +851,14 @@ function ficha_(p){
     if (f.altitud_max_m) h += '<span>⛰ hasta '+Math.round(f.altitud_max_m)+' m</span>';
     h += '<span id="st-cu" style="display:none"></span>';
     h += '</div>';
-    if (c==='r') { const df = difFis(id), miaF = MIS[id] && MIS[id].f, prop = difFisProp(id);
+    const did = c==='r' ? id : (D.cp||{})[id];      // la ruta a la que se le pone la dificultad: ella misma, o la copia general de una ruta mía
+    if (did && c==='m') h += '<div class="sub" style="margin:8px 0 0;color:#6b7280">Esta ruta tiene copia en Viajes («'+esc(CPNOM[did]||'Ruta general')+'»): lo que marques aquí se ve allí.</div>';
+    if (did) { const df = difFis(did), miaF = MIS[did] && MIS[did].f, prop = difFisProp(did);
       if (df) { h += '<div class="sub" style="margin:6px 0">💪 <b>Dificultad física:</b> '+nvl(df)+' <span style="color:'+DCOL[df]+';font-weight:700">'+DFX[df]+'</span>'+(miaF?' <span class="estbt" style="display:inline">(corregida por ti)</span>':'')+'</div>';
-        h += '<div class="estbt">Corregir: '+[1,2,3,4,5].map(n=>'<button style="'+(n===df?'background:'+DCOL[n]+';border-color:'+DCOL[n]+';color:#fff':'border-bottom:3px solid '+DCOL[n])+'" title="'+DFX[n]+'" onclick="ponFis(\''+id+'\','+n+')">'+n+'</button>').join('')+(miaF&&prop?'<button onclick="ponFis(\''+id+'\',null)">↩ la propuesta ('+prop+')</button>':'')+'</div>'; } }
-    if (c==='r') { const mia = MIS[id] && MIS[id].d, conf = difTec(id), dt = conf || f.dte || null;   /* 15-nov h: si nadie la ha confirmado, sale la ESTIMADA (f.dte: terreno + cuesta más dura + tipo de camino) */
+        h += '<div class="estbt">Corregir: '+[1,2,3,4,5].map(n=>'<button style="'+(n===df?'background:'+DCOL[n]+';border-color:'+DCOL[n]+';color:#fff':'border-bottom:3px solid '+DCOL[n])+'" title="'+DFX[n]+'" onclick="ponFis(\''+did+'\','+n+')">'+n+'</button>').join('')+(miaF&&prop?'<button onclick="ponFis(\''+did+'\',null)">↩ la propuesta ('+prop+')</button>':'')+'</div>'; } }
+    if (did) { const mia = MIS[did] && MIS[did].d, conf = difTec(did), dt = conf || (F[did]||{}).dte || null;   /* 15-nov h: si nadie la ha confirmado, sale la ESTIMADA (f.dte: terreno + cuesta más dura + tipo de camino) */
       h += '<div class="sub" style="margin:6px 0">🧗 <b>Dificultad técnica:</b> '+(dt ? nvl(dt)+' <span style="color:'+DCOL[dt]+';font-weight:700">'+DTX[dt]+'</span>'+(mia?' <span class="estbt" style="display:inline">(puesta por ti)</span>':conf?'':' <span style="color:#6b7280">(estimada)</span>') : 'pendiente de determinar')+'</div>';
-      h += '<div class="estbt">'+(mia?'Corregir: ':'¿La conoces? Confírmala o corrígela: ')+[1,2,3,4,5].map(n=>'<button style="'+(n===dt?'background:'+DCOL[n]+';border-color:'+DCOL[n]+';color:#fff':'border-bottom:3px solid '+DCOL[n])+'" title="'+DTX[n]+'" onclick="ponDif(\''+id+'\','+n+')">'+n+'</button>').join('')+(mia?'<button onclick="ponDif(\''+id+'\',null)">↩ quitar la mía</button>':'')+'</div>'; }
+      h += '<div class="estbt">'+(mia?'Corregir: ':'¿La conoces? Confírmala o corrígela: ')+[1,2,3,4,5].map(n=>'<button style="'+(n===dt?'background:'+DCOL[n]+';border-color:'+DCOL[n]+';color:#fff':'border-bottom:3px solid '+DCOL[n])+'" title="'+DTX[n]+'" onclick="ponDif(\''+did+'\','+n+')">'+n+'</button>').join('')+(mia?'<button onclick="ponDif(\''+did+'\',null)">↩ quitar la mía</button>':'')+'</div>'; }
     if (f.fo) h += textoForma(f.fo, c==='m', f.distancia_km, vaIV(id));
     if (f.tu_tiempo_horas) h += '<div class="sub" id="tu-t">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
     if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
