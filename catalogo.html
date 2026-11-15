@@ -275,7 +275,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 15-nov i';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 15-nov j';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -806,7 +806,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 15-nov i</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 15-nov j</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -962,6 +962,37 @@ function perfilModelo(id, p){
   const z=ZP[id]; if (!z) return;
   Promise.all([carga('e',z), pideRitmo()]).then(()=>pintaPerfil(id,p,E[id],null));
 }
+/* 15-nov j: PERFIL ENLAZADO CON EL MAPA. Al pasar el ratón (o arrastrar el dedo) por el perfil se pinta un punto en el trazado,
+   en el mismo tanto por ciento del recorrido, y se ve el km y la altitud. Sirve para saber dónde está cada cuesta y para cazar
+   trazados con saltos (el punto da un brinco). */
+let PFMK = null;
+function quitaPf(){ if (PFMK) { map.removeLayer(PFMK); PFMK = null; } const t = document.getElementById('pf-tip'); if (t) t.style.display = 'none'; const l = document.getElementById('pf-lin'); if (l) l.style.display = 'none'; }
+function enlazaPerfil(id, r){
+  const $p = document.getElementById('perf'), svg = $p && $p.querySelector('.pf-svg'), t = T[id]; quitaPf();
+  if (!svg || !t || !t.length) return;
+  const pts = [], acc = []; let LT = 0;
+  for (const sg of t) for (let i=0;i<sg.length;i++){ if (i>0) LT += map.distance(sg[i-1], sg[i]); pts.push(sg[i]); acc.push(LT); }
+  if (LT <= 0 || pts.length < 2) return;
+  $p.style.position = 'relative'; svg.style.cursor = 'crosshair'; svg.style.touchAction = 'pan-y';
+  $p.insertAdjacentHTML('beforeend', '<div id="pf-lin" style="display:none;position:absolute;width:0;border-left:2px solid #e8590c;pointer-events:none"></div><div id="pf-tip" style="display:none;position:absolute;background:#1d2125;color:#fff;font:600 12px system-ui;padding:2px 7px;border-radius:6px;white-space:nowrap;pointer-events:none;transform:translateX(-50%)"></div>');
+  const lin = document.getElementById('pf-lin'), tip = document.getElementById('pf-tip'), N = r.xs.length;
+  const mueve = cx => { const b = svg.getBoundingClientRect(), bp = $p.getBoundingClientRect(); if (!b.width) return;
+    const f = Math.max(0, Math.min(1, (cx-b.left)/b.width)), d = f*LT; let j = 0, k = acc.length-1;
+    while (k-j > 1) { const m = (j+k)>>1; if (acc[m] <= d) j = m; else k = m; }
+    const u = acc[k] > acc[j] ? (d-acc[j])/(acc[k]-acc[j]) : 0, ll = [pts[j][0]+(pts[k][0]-pts[j][0])*u, pts[j][1]+(pts[k][1]-pts[j][1])*u];
+    if (!PFMK) PFMK = L.marker(ll,{interactive:false,keyboard:false,zIndexOffset:2000,icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:'<div style="width:14px;height:14px;border-radius:50%;background:#e8590c;border:4px solid #fff;box-shadow:0 0 0 2px #000,0 2px 6px #0008"></div>'})}).addTo(map);
+    else PFMK.setLatLng(ll);
+    const sh = document.getElementById('sheet').getBoundingClientRect(), ancho = innerWidth > 700;   /* que el punto no quede debajo de la ficha */
+    const dcha = ancho && (sh.left+sh.right)/2 > innerWidth/2, izq = ancho && !dcha;      /* en pantalla ancha la ficha va a un lado; en el móvil, abajo */
+    try { map.panInside(ll, {paddingTopLeft:[izq ? sh.right+50 : 40, 120], paddingBottomRight:[dcha ? innerWidth-sh.left+50 : 70, ancho ? 70 : Math.max(40, innerHeight-sh.top+30)], animate:false}); } catch(x) {}
+    const x = b.left-bp.left+f*b.width, alt = r.ys[Math.min(N-1, Math.round(f*(N-1)))];
+    lin.style.cssText += ';display:block;left:'+x.toFixed(1)+'px;top:'+(b.top-bp.top)+'px;height:'+b.height+'px';
+    tip.textContent = 'km '+(f*r.km).toLocaleString('es',{minimumFractionDigits:1,maximumFractionDigits:1})+' · '+Math.round(alt)+' m';
+    tip.style.display = 'block'; tip.style.left = Math.max(46, Math.min(bp.width-46, x)).toFixed(1)+'px'; tip.style.top = (b.top-bp.top-22)+'px'; };
+  svg.addEventListener('mousemove', e => mueve(e.clientX)); svg.addEventListener('mouseleave', quitaPf);
+  const toca = e => { if (e.touches && e.touches[0]) mueve(e.touches[0].clientX); };
+  svg.addEventListener('touchstart', toca, {passive:true}); svg.addEventListener('touchmove', toca, {passive:true});
+}
 function pintaPerfil(id, p, e, real){
   {
     const $p=document.getElementById('perf'); if (!$p || tmpDe!==id) return;
@@ -982,6 +1013,7 @@ function pintaPerfil(id, p, e, real){
         +r.subs.map((u,k)=>'<tr><td>'+(r.subs.length>1?(k+1):'')+'</td><td>km '+km1(u.km0)+' → '+km1(u.km0+u.km)+'</td><td><b>+'+Math.round(u.g)+' m</b></td><td>'+Math.round(u.g/(u.km*10))+' %</td><td>'+(!bici&&u.h?hm(u.h):'')+'</td></tr>').join('')+'</table>'; }
     if (r.dudoso) h+='<div class="pf-t pf-av">⚠ Perfil poco fiable: la ruta va por un desfiladero o junto a cortados, y ahí el modelo del terreno confunde el sendero con las paredes. El desnivel y el tiempo pueden salir de más.</div>';
     $p.innerHTML=h; if ($p.parentElement && $p.parentElement.tagName==='DETAILS') $p.parentElement.style.display='';
+    enlazaPerfil(id, r);
     { const cu=document.getElementById('st-cu');   /* 15-nov e: la cuesta más empinada de las de 80 m o más */
       if (cu && r.subs.length){ const u=r.subs.reduce((a,b)=>(b.g/b.km>a.g/a.km?b:a));
         cu.textContent='📐 Cuesta más dura: '+u.km.toLocaleString('es',{minimumFractionDigits:1,maximumFractionDigits:1})+' km al '+Math.round(u.g/(u.km*10))+' %'; cu.style.display=''; } }
@@ -1017,7 +1049,7 @@ function tiempoFicha(id, lat, lon){
     .then(j => { if (j && j.daily && j.daily.time) { TMP[k] = {t:Date.now(), d:j.daily}; try { pinta(j.daily); } catch(e) { nota('El tiempo: no se ha podido pintar ('+e.message+')'); } } else nota('El tiempo: respuesta sin datos'); })
     .catch(e => nota('El tiempo no está disponible ahora ('+e.message+')'));
 }
-function cierra(){ document.getElementById('sheet').classList.remove('on'); sel=null; pintaTracks(); marcaPunto(null); }
+function cierra(){ document.getElementById('sheet').classList.remove('on'); sel=null; pintaTracks(); marcaPunto(null); quitaPf(); }
 function marcaAqui(ll){ const id=modo; modo=null; avisa(''); pon(id,ll.lat,ll.lng,null,'mapa'); }
 map.on('click',e=>{ if (modo) return marcaAqui(e.latlng); if (Date.now()-tocado > 400) cierra(); });
 
