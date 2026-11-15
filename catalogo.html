@@ -71,7 +71,7 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #leye{position:absolute;left:8px;bottom:112px;z-index:1000;background:#fffe;border-radius:6px;padding:4px 7px;font-size:11.5px;box-shadow:0 1px 4px #0003;display:flex;align-items:center;gap:4px;color:#4b4f55}
 #leye b{border-radius:50%;color:#fff;font:800 11px/1 system-ui;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;transition:opacity .2s;cursor:pointer;user-select:none;box-sizing:border-box}#leye b.no{opacity:.28}
 #leye b.si{box-shadow:0 0 0 2px #fff,0 0 0 4px #1d2125}#leye b.fuera{background:#c9ced4 !important;color:#6b7280 !important;text-decoration:line-through}
-@media (max-width:700px){#leye{bottom:82px}#leye span{display:none}}
+@media (max-width:700px){#leye{bottom:88px}#leye span{display:none}}
 .pt.sel{width:46px;height:46px;font-size:23px;border:4px solid #fff;box-shadow:0 0 0 4px #4f46e5,0 3px 12px #000c;position:relative;animation:latido 1.6s ease-in-out infinite}
 @keyframes latido{0%,100%{box-shadow:0 0 0 4px #4f46e5,0 0 0 4px #4f46e555,0 3px 12px #000c}50%{box-shadow:0 0 0 4px #4f46e5,0 0 0 14px #4f46e500,0 3px 12px #000c}}
 @media (prefers-reduced-motion:reduce){.pt.sel{animation:none}}
@@ -127,7 +127,7 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 .tmp small{display:block;white-space:nowrap;font:500 10px system-ui;color:#8a877f} .tmp u{display:block;text-decoration:none;color:#8a877f;font-weight:500}
 .tmp em{display:block;font-style:normal;font:600 10px system-ui;color:#1d6fb8;height:12px} .tmp em.v{color:#b3261e}
 /* 13-nov n: en el móvil las capas van en UNA fila, solo con su icono, y la leyenda comparte línea con el aviso de tracks */
-#ley{bottom:56px;white-space:nowrap;max-width:calc(100vw - 16px);overflow:hidden} #ley-n{color:var(--mu);margin-left:2px}
+body #ley{bottom:56px;white-space:nowrap;max-width:calc(100vw - 16px);overflow:hidden} #ley-n{color:var(--mu);margin-left:2px}
 @media (max-width:640px){
   /* 14-nov: en móviles estrechos la última capa quedaba bajo el botón de centrar — sin el punto de color caben las siete a su izquierda */
   #bar{flex-wrap:nowrap;gap:3px;right:54px;overflow-x:auto;scrollbar-width:none;pointer-events:auto} #bar::-webkit-scrollbar{display:none}
@@ -163,8 +163,9 @@ textarea.cl2{width:100%;height:180px;font:12px/1.35 ui-monospace,monospace;borde
 #ley{position:absolute;bottom:86px;left:8px;z-index:1000;background:#fffe;border-radius:6px;padding:4px 8px;font-size:12px;box-shadow:0 1px 4px #0003;display:none}
 #ley b{display:inline-block;width:14px;height:5px;border-radius:2px;margin:0 3px 2px 6px;vertical-align:middle}
 .cl{border-radius:50%;color:#fff;font:700 12px system-ui;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px #0006}
-#sheet{position:absolute;left:0;right:0;bottom:0;z-index:1100;background:var(--bg);border-radius:14px 14px 0 0;box-shadow:0 -2px 12px #0004;max-height:58vh;overflow:auto;padding:12px 16px 18px;transform:translateY(105%);transition:transform .2s}
-#sheet.on{transform:none}
+/* 15-nov c: fija a la pantalla y oculta del todo al cerrarla (en el iPhone asomaba por abajo) */
+#sheet{position:fixed;visibility:hidden;left:0;right:0;bottom:0;z-index:1100;background:var(--bg);border-radius:14px 14px 0 0;box-shadow:0 -2px 12px #0004;max-height:58vh;overflow:auto;padding:12px 16px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .2s,visibility 0s .2s}
+#sheet.on{transform:none;visibility:visible;transition:transform .2s}
 @media(min-width:760px){#sheet{left:auto;right:12px;bottom:12px;top:60px;width:380px;max-height:none;border-radius:12px}}
 #sheet button.x{float:right;border:0;background:var(--li);border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer}
 .tag{display:inline-block;font:700 11px system-ui;color:#fff;border-radius:4px;padding:2px 6px;text-transform:uppercase;letter-spacing:.03em}
@@ -264,7 +265,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 14-nov u';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 15-nov c';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -669,6 +670,7 @@ function fichaPat(i){
   let h = '<button class="x" onclick="cierra()">✕</button><span class="tag" style="background:'+CAPAS.o.c+'">'+PAT[u[2]][0]+' Patrimonio</span>';
   h += '<h2>'+esc(u[3])+'</h2><div class="sub">'+esc(tipoPat(u))+(u[4]?' · '+esc(u[4]):'')+'</div>';
   if (x.e) h += '<div class="medalla">'+estr(x.e)+' <b>'+ETXT[x.e]+'</b></div>';
+  if (x.t) h += '<p id="resu">'+esc(x.t)+'</p>';   /* 15-nov b: los 5★ de Patrimonio llevan su texto */
   if (x.b) h += '<div class="sub" style="margin:6px 0">🏛 <b>Protegido como patrimonio</b> (según OpenStreetMap)</div>';
   if (x.x && !/ruinas/i.test(tipoPat(u))) h += '<div class="sub" style="margin:6px 0">🏚️ En ruinas</div>';
   if (x.d) h += '<div class="sub" style="margin:6px 0">📅 Fecha: '+esc(x.d)+'</div>';
@@ -754,11 +756,13 @@ let CER=null, desdeLista=false, filCer='todo', yoC=null;
 const RUMBO=['N','NE','E','SE','S','SO','O','NO'];
 function cerca(){
   avisa('Buscando tu posición…');
-  const usa=(la,lo,gps,acc)=>{ avisa(''); CER={la,lo,gps,acc}; if(yoC) map.removeLayer(yoC);
+  const usa=(la,lo,gps,acc,km)=>{ avisa(''); CER={la,lo,gps,acc,km}; if(yoC) map.removeLayer(yoC);
     yoC=puntoYo([la,lo],gps?'#2563eb':'#6b7280'); pintaCerca(); };
   const centro=()=>{ const c=map.getCenter(); usa(c.lat,c.lng,false); };
   if (!navigator.geolocation) return centro();
-  navigator.geolocation.getCurrentPosition(g=>usa(g.coords.latitude,g.coords.longitude,true,Math.round(g.coords.accuracy)), centro, {enableHighAccuracy:true,timeout:8000,maximumAge:60000});
+  /* 15-nov b: si el mapa está en otra zona (mi posición no se ve y queda a más de 25 km del centro), se busca desde el centro del mapa */
+  navigator.geolocation.getCurrentPosition(g=>{ const yoG=[g.coords.latitude,g.coords.longitude], c=map.getCenter(), km=map.distance(yoG,c)/1000;
+      if (km>25 && !map.getBounds().contains(yoG)) usa(c.lat,c.lng,false,null,Math.round(km)); else usa(yoG[0],yoG[1],true,Math.round(g.coords.accuracy)); }, centro, {enableHighAccuracy:true,timeout:8000,maximumAge:60000});
 }
 function pintaCerca(){
   const {la,lo,gps,acc}=CER, k=Math.cos(la*Math.PI/180), R=[];
@@ -771,11 +775,11 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 14-nov u</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 15-nov c</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
-  h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.')+'</div>';
+  h+='<div class="sub">'+(gps?'Desde tu posición (GPS, ±'+acc+' m)':(CER.km?'Desde el centro del mapa: tú estás a '+CER.km.toLocaleString('es')+' km de aquí. Para ver lo que te rodea, pulsa ⌖ y vuelve a pulsar.':'Desde el centro del mapa (sin GPS). Mueve el mapa y vuelve a pulsar para buscar en otro sitio.'))+'</div>';
   h+='<div class="fil">'+[['todo','Todo'],['lugares','Lugares'],['rutas','Rutas']].concat(on.o&&PT?[['pat','⛪ Patrimonio']]:[]).concat(on.u&&UT?[['util','💧 Útil']]:[]).map(([k,t])=>'<button class="'+(filCer===k?'on':'')+'" onclick="filCer=\''+k+'\';pintaCerca()">'+t+'</button>').join('')+'</div>';
   if(!L60.length) h+='<p>No hay nada del catálogo a menos de 25 km con las capas que tienes encendidas.</p>';
   h+='<ol>'+L60.map(([d,q,dx,dy])=>{ const r=esRuta(q[1]), col=r&&q[1]!=='m'&&q[7]!=null?NIV[q[7]].c:CAPAS[q[1]].c;
@@ -1221,5 +1225,6 @@ map.on('dragstart',()=>$loc.classList.remove('on'));
 try { if (localStorage.getItem('catGps')==='1' && !location.hash && !SALTO) gpsPon(true); } catch(e) {}
 </script>
 <script src="catalogo/cuadernos.js"></script>
+<script src="catalogo/instrucciones.js"></script>
 </body>
 </html>
