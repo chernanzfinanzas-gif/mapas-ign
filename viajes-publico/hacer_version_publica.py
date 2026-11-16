@@ -125,6 +125,7 @@ def remapea(x):
 D['tb'] = {NUEVO[k]: v for k, v in D['tb'].items() if k in NUEVO and k not in PRIV}
 D['am'] = []
 D.pop('cp', None)        # 15-nov-2026: la tabla «ruta de Carlos -> su copia general» es solo de la App Mapas; a Viajes no pasa
+D.pop('ce', None)        # 16-nov-2026: lo mismo con «ruta de Carlos -> ruta general que es la misma»
 # 15-nov-2026: dificultad técnica de las rutas (1-5). Viene ya puesta en D.dt (las urbanas) y de lo que
 # Carlos marca a mano en la App Mapas (sync/estrellas-catalogo.json, campo «d»). Lo de Carlos manda.
 _dt = {NUEVO[k]: int(v) for k, v in (D.get('dt') or {}).items() if k in NUEVO}

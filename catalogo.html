@@ -204,7 +204,7 @@ ul{padding-left:18px;margin:6px 0}
 /* 15-nov i: D.cp = {ruta mía: su copia general}. Las copias (las «Ruta desde…» que salen en Viajes) NO se dibujan aquí,
    porque duplican «Mis rutas» y se apilan encima. La dificultad que Carlos marca en su ruta se guarda en la copia.
    En Viajes no existe D.cp (hacer_version_publica.py lo quita) y esto no hace nada. */
-var CPDE = {}, CPNOM = {};
+var CPDE = {}, CPNOM = {}, PEDENL = {};
 if (typeof D !== 'undefined' && D.cp) { for (const k in D.cp) CPDE[D.cp[k]] = k;
   for (const p of D.p) if (CPDE[p[0]]) CPNOM[p[0]] = p[2];
   D.p = D.p.filter(p => !CPDE[p[0]]); for (const k in CPDE) delete D.tb[k]; }
@@ -275,7 +275,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 15-nov j';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 16-nov a';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -806,7 +806,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 15-nov j</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 16-nov a</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -851,8 +851,11 @@ function ficha_(p){
     if (f.altitud_max_m) h += '<span>⛰ hasta '+Math.round(f.altitud_max_m)+' m</span>';
     h += '<span id="st-cu" style="display:none"></span>';
     h += '</div>';
-    const did = c==='r' ? id : (D.cp||{})[id];      // la ruta a la que se le pone la dificultad: ella misma, o la copia general de una ruta mía
-    if (did && c==='m') h += '<div class="sub" style="margin:8px 0 0;color:#6b7280">Esta ruta tiene copia en Viajes («'+esc(CPNOM[did]||'Ruta general')+'»): lo que marques aquí se ve allí.</div>';
+    const enl = c==='m' && !(D.cp||{})[id] ? (D.ce||{})[id] : null;      /* 16-nov a: D.ce = ruta mía -> ruta general que es el mismo itinerario (no hay copia: se valora en la general) */
+    const did = c==='r' ? id : ((D.cp||{})[id] || enl);      // la ruta a la que se le pone la dificultad: ella misma, la copia general de una ruta mía, o la general que es la misma
+    if (enl && !F[enl] && ZP[enl] && !PEDENL[enl]) { PEDENL[enl] = 1; carga('f', ZP[enl]).then(() => { if (F[enl] && sel===id) ficha(p); }); }
+    if (did && c==='m') h += enl ? '<div class="sub" style="margin:8px 0 0;color:#6b7280">Es la misma ruta que <a href="#" onclick="abre(\''+enl+'\');return false">«'+esc((pid(enl)||[])[2]||'una del catálogo')+'»</a> del catálogo general: lo que marques aquí se ve en ella y en Viajes.</div>'
+      : '<div class="sub" style="margin:8px 0 0;color:#6b7280">Esta ruta tiene copia en Viajes («'+esc(CPNOM[did]||'Ruta general')+'»): lo que marques aquí se ve allí.</div>';
     if (did) { const df = difFis(did), miaF = MIS[did] && MIS[did].f, prop = difFisProp(did);
       if (df) { h += '<div class="sub" style="margin:6px 0">💪 <b>Dificultad física:</b> '+nvl(df)+' <span style="color:'+DCOL[df]+';font-weight:700">'+DFX[df]+'</span>'+(miaF?' <span class="estbt" style="display:inline">(corregida por ti)</span>':'')+'</div>';
         h += '<div class="estbt">Corregir: '+[1,2,3,4,5].map(n=>'<button style="'+(n===df?'background:'+DCOL[n]+';border-color:'+DCOL[n]+';color:#fff':'border-bottom:3px solid '+DCOL[n])+'" title="'+DFX[n]+'" onclick="ponFis(\''+did+'\','+n+')">'+n+'</button>').join('')+(miaF&&prop?'<button onclick="ponFis(\''+did+'\',null)">↩ la propuesta ('+prop+')</button>':'')+'</div>'; } }
@@ -1059,6 +1062,11 @@ function avisa(t, ms, extra){ const a=document.getElementById('aviso'); clearTim
   if (!t) { a.style.display='none'; return; }
   a.innerHTML = esc(t)+(extra||''); a.style.display='block'; if (ms) tAviso=setTimeout(()=>a.style.display='none',ms); }
 function busca(id){ return IDX[id]; }
+/* 16-nov a (petición de Carlos): en ordenador la ficha se ensancha, como mínimo, hasta donde empieza el selector de arriba (Mapas/Catálogo/Fotos…). */
+function anchoFicha(){ const a = document.querySelector('.apps'), s = document.getElementById('sheet'); if (!a || !s) return;
+  if (innerWidth < 760) { s.style.width = ''; return; }
+  const w = Math.round(innerWidth - 12 - a.getBoundingClientRect().left); s.style.width = Math.max(420, Math.min(w, 640)) + 'px'; }
+addEventListener('resize', anchoFicha); setTimeout(anchoFicha, 600); setTimeout(anchoFicha, 2500);
 /* ---- Modo edición (idea de Carlos, 12-nov): se arrastran los lugares y al salir se guarda o se descarta ---- */
 let EDIT = false, PEND = {};
 const movible = m => m && (m.capa==='h' || m.capa==='n' || m.capa==='t');
