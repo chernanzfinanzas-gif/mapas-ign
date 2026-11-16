@@ -136,6 +136,9 @@ D['dt'] = _dt
 # dificultad física corregida a mano por Carlos (campo «f»); la que no corrige se propone sola en la página
 D['df'] = {NUEVO[k]: int(e['f']) for k, e in EST.items()
            if k in NUEVO and isinstance(e, dict) and NUEVO[k][0] == 'r' and e.get('f') and not e.get('borrado')}
+# 16-nov-2026: notas de Carlos (campo «n»): solo las de rutas que existen en Viajes; allí salen como «Consejos de quien la ha hecho»
+D['dn'] = {NUEVO[k]: str(e['n'])[:1500] for k, e in EST.items()
+           if k in NUEVO and isinstance(e, dict) and NUEVO[k][0] == 'r' and e.get('n') and not e.get('borrado')}
 D['pb'] = remapea(D.get('pb', {}))
 D['pbi'] = [NUEVO[i] for i in D.get('pbi', []) if i in NUEVO]
 hi = {NUEVO[k]: v for k, v in (D.get('hi') or {}).items() if k in NUEVO}

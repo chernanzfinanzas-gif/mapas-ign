@@ -275,7 +275,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 16-nov a';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 16-nov b';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -419,12 +419,20 @@ function difTec(id){ const k = MIS[id]; return (k && k.d) || (D.dt||{})[id] || n
 const DCOL = ['', '#22a447', '#1e6fd9', '#e8730c', '#d32f2f', '#111111'];
 const nvl = n => '<b style="display:inline-block;min-width:22px;padding:1px 7px;border-radius:11px;background:'+DCOL[n]+';color:#fff;text-align:center;font-weight:800">'+n+'</b>';
 const DFX = ['', 'Paseo (menos de 1 h 30)', 'Corta (de 1 h 30 a 3 h)', 'Media jornada (de 3 a 5 h)', 'Jornada completa (de 5 a 8 h)', 'Jornada muy larga (más de 8 h)'];
+/* 16-nov b: NOTAS de Carlos en sus rutas (MIS[id].n). Se guardan con las valoraciones (sync/estrellas-catalogo.json) y, si la ruta
+   tiene copia o es la misma que una general, viajan a Viajes en D.dn y allí se leen como «Consejos de quien la ha hecho». */
+function nota(id){ const k = MIS[id]; return (k && !k.borrado && k.n) || (D.dn||{})[id] || ''; }
+function ponNota(id){ const el = document.getElementById('nota-t'); if (!el) return; const v = el.value.trim().slice(0,1500);
+  const k = {...(MIS[id]||{})}; delete k.borrado; if (v) k.n = v; else delete k.n;
+  MIS[id] = (k.d || k.f || k.n || k.e) ? {...k, t:Date.now()} : {borrado:true, t:Date.now()};
+  try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
+  avisa(v ? '📝 Nota guardada' : '📝 Nota borrada', 2000); subeEst(); }
 function difFisProp(id){ const t = (F[id]||{}).tiempo_estimado_horas; return !t ? null : t<1.5 ? 1 : t<3 ? 2 : t<5 ? 3 : t<=8 ? 4 : 5; }
 function difFis(id){ const k = MIS[id]; return (k && k.f) || (D.df||{})[id] || difFisProp(id); }
 function ponDifX(id, campo, n){       // campo: 'd' técnica, 'f' física · n = 1..5, o null para quitar la tuya
   const p = busca(CPDE[id] || id); if (!p || !esRuta(p[1])) return;      // si es una copia, la ficha que se repinta es la de la ruta mía
   const k = {...(MIS[id]||{})}; delete k.borrado; if (n) k[campo] = n; else delete k[campo];
-  MIS[id] = (k.d || k.f) ? {...k, t:Date.now()} : {borrado:true, t:Date.now()};
+  MIS[id] = (k.d || k.f || k.n) ? {...k, t:Date.now()} : {borrado:true, t:Date.now()};
   try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
   ficha(p); subeEst();
 }
@@ -806,7 +814,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 16-nov a</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 16-nov b</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -866,6 +874,11 @@ function ficha_(p){
     if (f.tu_tiempo_horas) h += '<div class="sub" id="tu-t">⏱ Tú tardaste '+horas(f.tu_tiempo_horas).replace('unas ','')+' en movimiento</div>';
     if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
     if (f.veces>1) h += '<div class="sub">🔁 La has hecho '+f.veces+' veces: '+esc(f.fechas.join(', '))+'</div>';
+    if (c==='m') { const nid = did || id, nt = nota(nid);
+      h += '<div class="sub" style="margin:10px 0 3px">📝 <b>Notas y consejos</b> <span style="color:#6b7280">'+(did ? '(en Viajes se leen como «Consejos de quien la ha hecho»)' : '(esta ruta no está en Viajes: la nota no sale allí)')+'</span></div>'
+        +'<textarea id="nota-t" rows="3" maxlength="1500" style="width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d6d3cb;border-radius:8px;resize:vertical" placeholder="Dónde aparcar, mejor época, por dónde se pierde la senda…">'+esc(nt)+'</textarea>'
+        +'<div class="estbt"><button onclick="ponNota(\''+nid+'\')">Guardar nota</button></div>'; }
+    else { const nt = nota(id); if (nt) h += '<div style="margin:10px 0;padding:9px 12px;border-left:4px solid #0f766e;background:#eef6f4;border-radius:8px"><b>💬 Consejos de quien la ha hecho</b><div style="margin-top:4px;white-space:pre-wrap">'+esc(nt)+'</div></div>'; }
     h += plega('perf', '📈 Perfil, tiempos y subidas', '<div id="perf"></div>', true);
   }
   if (f.resumen) h += '<p id="resu">'+esc(f.resumen)+'</p>';
