@@ -59,7 +59,8 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 .pt{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px #000d;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;box-sizing:border-box}
 .pt.r{border-radius:8px}
 .pt.hx{position:relative}
-.pt.hx::after{content:'✓';position:absolute;right:-8px;top:-8px;width:17px;height:17px;border-radius:50%;background:#16a34a;color:#fff;font:800 12px/17px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}
+.pt.e.hx::before{content:'✓';position:absolute;left:-7px;top:-7px;width:16px;height:16px;border-radius:50%;background:#16a34a;color:#fff;font:800 11px/16px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}
+.pt.r.hx::after{content:'✓';position:absolute;right:-8px;top:-8px;width:17px;height:17px;border-radius:50%;background:#16a34a;color:#fff;font:800 12px/17px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}
 /* Medallas de los monumentos (12-nov, 2.ª versión a petición de Carlos): el FONDO dice la medalla */
 .pt.m1{width:42px;height:42px;font-size:21px;border:3px solid #fff;box-shadow:0 0 0 2px #b8860b,0 2px 8px #000c}
 .pt.m2{border:3px solid #fff;box-shadow:0 0 0 1.5px #7b8794,0 1px 6px #000c}
@@ -279,7 +280,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 17-nov a';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 17-nov b';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -372,7 +373,7 @@ function icono(p){ const [id,c,,,,,ap,esf] = p;
   const marcado = id===selPt;
   if (!esRuta(c)) {   /* 14-nov k: el icono dice las estrellas (número, color y tamaño); el anillo de fuera, la capa */
     const e = p[8]||1, t = marcado ? 46 : ESZ[e];
-    return L.divIcon({className:'',iconSize:[t,t],html:'<div class="pt e e'+e+' '+(COR[id]?'fx':(ap?'ap':''))+(marcado?' sel':'')+'" style="background:'+ECOL[e]+(marcado?'':';box-shadow:0 0 0 2.5px '+CAPAS[c].c+',0 1px 5px #000c')+'">'+e+'<small>★</small></div>'}); }
+    return L.divIcon({className:'',iconSize:[t,t],html:'<div class="pt e e'+e+' '+(COR[id]?'fx':(ap?'ap':''))+(marcado?' sel':'')+(hecha(id)?' hx':'')+'" style="background:'+ECOL[e]+(marcado?'':';box-shadow:0 0 0 2.5px '+CAPAS[c].c+',0 1px 5px #000c')+'">'+e+'<small>★</small></div>'}); }
   const col = c==='r' && esf!=null ? NIV[esf].c : CAPAS[c].c;
   const cls = 'pt r '+(marcado?' sel':'')+(c==='r' && hecha(id)?' hx':'');
   const sim = c==='m' && p[3]==='en_bici' ? '🚲' : CAPAS[c].s, t = marcado?46:32;
@@ -437,22 +438,35 @@ function ponNota(id){ const el = document.getElementById('nota-t'); if (!el) ret
   avisa(v ? '📝 Nota guardada' : '📝 Nota borrada', 2000); subeEst(); }
 function guardaMia(id, k, msg){ delete k.borrado; MIS[id] = (k.d || k.f || k.n || k.e || k.h || k.r) ? {...k, t:Date.now()} : {borrado:true, t:Date.now()};
   try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
-  const p = busca(id); if (p && MK[id] && esRuta(p[1])) MK[id].setIcon(icono(p)); if (msg) avisa(msg, 2000); subeEst(); if (window.hechasSube) window.hechasSube(); }
+  const p = busca(id); if (p && MK[id]) MK[id].setIcon(icono(p)); if (msg) avisa(msg, 2000); subeEst(); if (window.hechasSube) window.hechasSube(); }
 function ponHecha(id, v){ const k = {...(MIS[id]||{})}; if (v) k.h = v; else delete k.h;
-  guardaMia(id, k, v ? '✅ Marcada como hecha' : 'Marca quitada'); const p = busca(id); if (p) ficha(p); }
+  const p = busca(id); guardaMia(id, k, v ? (p && !esRuta(p[1]) ? '✅ Marcado como visitado' : '✅ Marcada como hecha') : 'Marca quitada'); if (p) ficha(p); }
 /* 17-nov: en Viajes (window.CUAD_PUBLICO) cada visitante marca sus rutas hechas; se guardan en su aparato y, con su código de
    historiatotal.es, en el hosting (apartado «hechas» de api/sync.php; lo sube catalogo/cuadernos.js). */
 function misHechas(){ const o = {}; for (const [id,k] of Object.entries(MIS)) { if (k.borrado) o[id] = {t:k.t, borrado:true}; else if (k.h || k.r) { const x = {t:k.t}; if (k.h) x.h = k.h; if (k.r) x.r = k.r; o[id] = x; } } return o; }
 function juntaHechas(rem){ let pend = false, cambio = false; if (!rem || Array.isArray(rem)) rem = {};
   for (const [id,k] of Object.entries(rem)) { const l = MIS[id]; if (!k || typeof k !== 'object') continue;
-    if (!l || (l.t||0) < (k.t||0)) { MIS[id] = k; cambio = true; const p = busca(id); if (p && MK[id] && esRuta(p[1])) MK[id].setIcon(icono(p)); if (p && selPt === id) ficha(p); }
+    if (!l || (l.t||0) < (k.t||0)) { MIS[id] = k; cambio = true; const p = busca(id); if (p && MK[id]) MK[id].setIcon(icono(p)); if (p && selPt === id) ficha(p); }
     else if ((l.t||0) > (k.t||0)) pend = true; }
   for (const id of Object.keys(MIS)) if (!rem[id]) pend = true;
   if (cambio) try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(e) {}
   return pend; }
+/* 17-nov b: la casilla vale para rutas («La has hecho») y para los sitios («Lo has visitado»), con fecha y texto personal. */
+function bloqueHecha(id, sitio){
+  const PV = !!window.CUAD_PUBLICO; if (!PV && !(marcas.m && marcas.m.length)) return '';
+  const cod = PV && window.cuadCodigo ? window.cuadCodigo() : '', hh = hecha(id), hoy = new Date().toISOString().slice(0,10);
+  let h = '<div style="margin:10px 0;padding:9px 12px;border:1px solid '+(hh?'#86efac':'#d6d3cb')+';background:'+(hh?'#f0fdf4':'#fafaf7')+';border-radius:8px">';
+  if (hh==='mia') h += '<b>✅ La has hecho</b> <span style="color:#6b7280">· es la misma que tu ruta <a href="#" onclick="abre(\''+HAUTO[id]+'\');return false">«'+esc((pid(HAUTO[id])||[])[2]||'')+'»</a></span>';
+  else if (hh) h += '<b>✅ '+(sitio?'Lo has visitado':'La has hecho')+'</b> el <input id="hecha-f" type="date" value="'+esc(hh)+'" max="'+hoy+'" onchange="ponFechaHecha(\''+id+'\')" style="font:inherit;font-size:14px;padding:2px 6px;border:1px solid #d6d3cb;border-radius:6px"> <span class="hbt" style="display:inline"><button onclick="ponHecha(\''+id+'\',null)">Quitar marca</button></span>';
+  else h += '<div class="hbt" style="margin:0"><button onclick="ponHecha(\''+id+'\',\''+hoy+'\')">☐ '+(sitio?'Marcar como visitado':'Marcar como hecha')+'</button> <span style="color:#6b7280">'+(sitio?'Al marcarlo podrás escribir tus observaciones.':'Al marcarla podrás escribir tu comentario personal.')+'</span></div>';
+  if (hh) h += '<div class="sub" style="margin:9px 0 3px">🔒 <b>'+(sitio?'Observaciones':'Comentario personal')+'</b> <span style="color:#6b7280">'+(PV ? '(solo lo ves tú)' : '(solo tuyo: no sale en Viajes)')+'</span></div>'
+    +'<textarea id="rec-t" rows="3" maxlength="'+(PV?1500:3000)+'" style="width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d6d3cb;border-radius:8px;resize:vertical" placeholder="'+(sitio?'Qué te pareció, dónde aparcaste, qué te faltó por ver…':'Con quién fuiste, qué tal salió, qué harías distinto…')+'">'+esc((MIS[id]||{}).r||'')+'</textarea>'
+    +'<div class="hbt"><button onclick="ponRecuerdo(\''+id+'\')">'+(sitio?'Guardar observaciones':'Guardar comentario')+'</button></div>';
+  if (PV && hh) h += '<div class="sub" style="margin:7px 0 0;color:#6b7280;font-size:12.5px">'+(cod ? 'Guardado en este aparato y con tu código de historiatotal.es: <b>'+esc(cod)+'</b>. Con él lo verás en tus otros aparatos; quien tenga el código puede leerlo.' : 'Guardado en este aparato.')+'</div>';
+  return h + '</div>'; }
 function ponFechaHecha(id){ const el = document.getElementById('hecha-f'); if (el && el.value) ponHecha(id, el.value); }
 function ponRecuerdo(id){ const el = document.getElementById('rec-t'); if (!el) return; const v = el.value.trim().slice(0, window.CUAD_PUBLICO ? 1500 : 3000);
-  const k = {...(MIS[id]||{})}; if (v) k.r = v; else delete k.r; guardaMia(id, k, v ? '🔒 Comentario guardado' : '🔒 Comentario borrado'); }
+  const k = {...(MIS[id]||{})}; if (v) k.r = v; else delete k.r; guardaMia(id, k, v ? '🔒 Guardado' : '🔒 Borrado'); }
 function difFisProp(id){ const t = (F[id]||{}).tiempo_estimado_horas; return !t ? null : t<1.5 ? 1 : t<3 ? 2 : t<5 ? 3 : t<=8 ? 4 : 5; }
 function difFis(id){ const k = MIS[id]; return (k && k.f) || (D.df||{})[id] || difFisProp(id); }
 function ponDifX(id, campo, n){       // campo: 'd' técnica, 'f' física · n = 1..5, o null para quitar la tuya
@@ -465,7 +479,8 @@ function ponDifX(id, campo, n){       // campo: 'd' técnica, 'f' física · n =
 const ponDif = (id, n) => ponDifX(id, 'd', n), ponFis = (id, n) => ponDifX(id, 'f', n);
 function ponEstrella(id, e){            // e = 1..5, o null para volver a la calculada
   const p = busca(id); if (!p || esRuta(p[1])) return;
-  if (e && e!==EORIG[id]) MIS[id] = {e, t:Date.now()}; else MIS[id] = {borrado:true, t:Date.now()};
+  const k = {...(MIS[id]||{})}; delete k.borrado; if (e && e!==EORIG[id]) k.e = e; else delete k.e;
+  MIS[id] = (k.e || k.h || k.r) ? {...k, t:Date.now()} : {borrado:true, t:Date.now()};
   try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
   aplicaEst(id); ficha(p); subeEst();
 }
@@ -840,7 +855,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 17-nov a</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 17-nov b</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
@@ -893,14 +908,7 @@ function ficha_(p){
       h += '<div class="sub" style="margin:6px 0">🧗 <b>Dificultad técnica:</b> '+(dt ? nvl(dt)+' <span style="color:'+DCOL[dt]+';font-weight:700">'+DTX[dt]+'</span>'+(mia?' <span class="estbt" style="display:inline">(puesta por ti)</span>':conf?'':' <span style="color:#6b7280">(estimada)</span>') : 'pendiente de determinar')+'</div>';
       h += '<div class="estbt">'+(mia?'Corregir: ':'¿La conoces? Confírmala o corrígela: ')+[1,2,3,4,5].map(n=>'<button style="'+(n===dt?'background:'+DCOL[n]+';border-color:'+DCOL[n]+';color:#fff':'border-bottom:3px solid '+DCOL[n])+'" title="'+DTX[n]+'" onclick="ponDif(\''+did+'\','+n+')">'+n+'</button>').join('')+(mia?'<button onclick="ponDif(\''+did+'\',null)">↩ quitar la mía</button>':'')+'</div>'; }
     if (f.nueva) h += '<div class="forma x"><b>🆕 Ruta nueva de tu app</b>Aún no tiene ficha completa en el catálogo (tipo de recorrido, «pasa por»…); la tendrá en la próxima actualización.</div>';
-    if (c==='r' && ((marcas.m && marcas.m.length) || window.CUAD_PUBLICO)) { const PV = !!window.CUAD_PUBLICO, cod = PV && window.cuadCodigo ? window.cuadCodigo() : '', hh = hecha(id), hoy = new Date().toISOString().slice(0,10);
-      h += '<div style="margin:10px 0;padding:9px 12px;border:1px solid '+(hh?'#86efac':'#d6d3cb')+';background:'+(hh?'#f0fdf4':'#fafaf7')+';border-radius:8px">';
-      if (hh==='mia') h += '<b>✅ La has hecho</b> <span style="color:#6b7280">· es la misma que tu ruta <a href="#" onclick="abre(\''+HAUTO[id]+'\');return false">«'+esc((pid(HAUTO[id])||[])[2]||'')+'»</a></span>';
-      else if (hh) h += '<b>✅ La has hecho</b> el <input id="hecha-f" type="date" value="'+esc(hh)+'" max="'+hoy+'" onchange="ponFechaHecha(\''+id+'\')" style="font:inherit;font-size:14px;padding:2px 6px;border:1px solid #d6d3cb;border-radius:6px"> <span class="hbt" style="display:inline"><button onclick="ponHecha(\''+id+'\',null)">Quitar marca</button></span>';
-      else h += '<div class="hbt" style="margin:0"><button onclick="ponHecha(\''+id+'\',\''+hoy+'\')">☐ Marcar como hecha</button> <span style="color:#6b7280">Al marcarla podrás escribir tu comentario personal.</span></div>';
-      if (hh) h += '<div class="sub" style="margin:9px 0 3px">🔒 <b>Comentario personal</b> <span style="color:#6b7280">'+(PV ? '(solo lo ves tú)' : '(solo tuyo: no sale en Viajes)')+'</span></div>'+'<textarea id="rec-t" rows="3" maxlength="'+(PV?1500:3000)+'" style="width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d6d3cb;border-radius:8px;resize:vertical" placeholder="Con quién fuiste, qué tal salió, qué harías distinto…">'+esc((MIS[id]||{}).r||'')+'</textarea><div class="hbt"><button onclick="ponRecuerdo(\''+id+'\')">Guardar comentario</button></div>';
-      if (PV && hh) h += '<div class="sub" style="margin:7px 0 0;color:#6b7280;font-size:12.5px">'+(cod ? 'Guardado en este aparato y con tu código de historiatotal.es: <b>'+esc(cod)+'</b>. Con él lo verás en tus otros aparatos; quien tenga el código puede leerlo.' : 'Guardado en este aparato.')+'</div>';
-      h += '</div>'; }
+    if (c==='r') h += bloqueHecha(id, false);
     if (c==='m') { const nid = did || id, nt = nota(nid);
       h += '<div class="sub" style="margin:10px 0 3px">📝 <b>Notas y consejos</b> <span style="color:#6b7280">'+(did ? '(en Viajes se leen como «Consejos de quien la ha hecho»)' : '(esta ruta no está en Viajes: la nota no sale allí)')+'</span></div>'
         +'<textarea id="nota-t" rows="3" maxlength="1500" style="width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:7px 9px;border:1px solid #d6d3cb;border-radius:8px;resize:vertical" placeholder="Dónde aparcar, mejor época, por dónde se pierde la senda…">'+esc(nt)+'</textarea>'
@@ -931,6 +939,7 @@ function ficha_(p){
     const mia = MIS[id] && MIS[id].e;
     h += '<div class="medalla">'+estr(p[8])+' <b>'+ETXT[p[8]]+'</b>'+(mia?' · <b>puesta por ti</b>':'')+(r.length?' · '+r.join(', '):'')+'</div>';
     if (PC) h += '<div class="estbt">Cambiar: '+[1,2,3,4,5].map(e=>'<button class="'+(e===p[8]?'on':'')+'" onclick="ponEstrella(\''+id+'\','+e+')">'+e+'★</button>').join('')+(mia?'<button onclick="ponEstrella(\''+id+'\',null)">↩ la calculada ('+EORIG[id]+'★)</button>':'')+'</div>'; }
+  if (!esRuta(c) && p[8]) h += bloqueHecha(id, true);
   h += datosOsm(f.osm);
   h += listaPasa(f);
   h += utilesEnRuta(f.pu);
