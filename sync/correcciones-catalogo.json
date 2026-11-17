@@ -200,6 +200,16 @@
    "municipio": "Valverde de los Arroyos",
    "fecha": "17/11/2026 10:27",
    "t": 1794907627208
+  },
+  "t:conjunto-de-arquitectura-negra-de-majaelrayo-majaelrayo": {
+   "lat": 41.11217,
+   "lon": -3.302722,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Conjunto de arquitectura negra de Majaelrayo",
+   "municipio": "Majaelrayo",
+   "fecha": "17/11/2026 10:37",
+   "t": 1794908231146
   }
  }
 }
