@@ -190,6 +190,16 @@
    "municipio": "Aranjuez",
    "fecha": "14/11/2026 17:31",
    "t": 1794673911558
+  },
+  "t:puente-de-los-pontones-valverde-de-los-arroyos": {
+   "lat": 41.125304,
+   "lon": -3.22968,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Puente de Los Pontones",
+   "municipio": "Valverde de los Arroyos",
+   "fecha": "17/11/2026 10:27",
+   "t": 1794907627208
   }
  }
 }
