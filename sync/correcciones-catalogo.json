@@ -220,6 +220,16 @@
    "municipio": "Majaelrayo",
    "fecha": "17/11/2026 10:43",
    "t": 1794908590150
+  },
+  "t:olmo-de-la-plazuela-del-horno-el-cuervo": {
+   "lat": 40.151629,
+   "lon": -1.325467,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Olmo de la plazuela del Horno",
+   "municipio": "El Cuervo",
+   "fecha": "17/11/2026 14:32",
+   "t": 1794922324407
   }
  }
 }
