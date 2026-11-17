@@ -432,6 +432,6 @@
 
   pintaPestana();
   deLaDireccion();
-  if (SYNC_HT) { window.hechasSube = programaSubida; window.cuadCodigo = codigoHT; }
+  if (SYNC_HT) { window.hechasSube = programaSubida; window.cuadCodigo = codigoHT; window.cuadCreaCodigo = creaCodigoHT; }
   window.cuadPanel = panel;   // por si se quiere abrir desde otro sitio
 })();
