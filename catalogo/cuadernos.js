@@ -60,7 +60,7 @@
   }
   const dondeEsta = id => vivos().filter(c => c.s && c.s[id] && !c.s[id].borrado);
 
-  let volverACuadernos = false;
+  let volverACuadernos = false, volverAVisto = false;
   function ponBoton() {
     const sh = document.getElementById('sheet'); if (!ACT || !sh || !sh.classList.contains('on')) return;
     const bs = sh.querySelectorAll('.btns'); const b = bs[bs.length - 1]; if (!b || b.querySelector('.cuad-b')) return;
@@ -68,6 +68,8 @@
     const x = document.createElement('button'); x.className = 'cuad-b';
     x.textContent = en.length ? '📓 En «' + en[0].nombre + '»' + (en.length > 1 ? ' +' + (en.length - 1) : '') : '📓 Al cuaderno';
     x.onclick = dialogo; b.insertBefore(x, b.firstChild);
+    if (volverAVisto) { volverAVisto = false; volverACuadernos = false;
+      if (!sh.querySelector('.cuad-volver')) { const v = document.createElement('button'); v.className = 'volver cuad-volver'; v.textContent = '← Visto y hecho'; v.onclick = () => panelVisto(); sh.insertBefore(v, sh.children[1] || null); } }
     if (volverACuadernos) {
       volverACuadernos = false;
       if (!sh.querySelector('.cuad-volver')) { const v = document.createElement('button'); v.className = 'volver cuad-volver'; v.textContent = '← Mis cuadernos'; v.onclick = panel; sh.insertBefore(v, sh.children[1] || null); }
@@ -115,6 +117,7 @@
   function panel() {
     const lista = vivos(), sh = document.getElementById('sheet');
     let h = '<button class="x" onclick="cierra()">✕</button><h2>📓 Mis cuadernos</h2>';
+    { const nv = vistos().length; h += '<div class="cuad-c visto-e" data-visto="1"><div class="cuad-h"><b>✅ Visto y hecho</b><small>' + (nv ? nv + (nv === 1 ? ' sitio o ruta' : ' sitios y rutas') : 'se rellena solo al marcar') + '</small><i>▸</i></div></div>'; }
     if (!lista.length) h += '<p class="sub">Aún no tienes ninguno. Abre un sitio o una ruta que te guste y pulsa «📓 Al cuaderno»: te pedirá un nombre y lo creará.</p>';
     for (const c of lista) {
       const it = items(c), op = abierto === c.id;
@@ -133,6 +136,7 @@
     h += '<div class="sub" style="margin-top:14px">' + estadoTxt() + '</div>';
     sh.innerHTML = h; sh.scrollTop = 0; sh.classList.add('on');
     if (typeof sel !== 'undefined') { try { sel = null; pintaTracks(); marcaPunto(null); } catch (e) {} }
+    sh.querySelectorAll('[data-visto]').forEach(e => e.onclick = () => panelVisto());
     sh.querySelectorAll('[data-a]').forEach(e => e.onclick = () => { abierto = abierto === e.dataset.a ? null : e.dataset.a; panel(); });
     sh.querySelectorAll('[data-ir]').forEach(e => e.onclick = () => { const [c, s] = e.dataset.ir.split('|'); ir(C.c[c].s[s]); });
     sh.querySelectorAll('[data-q]').forEach(e => e.onclick = () => { const [c, s] = e.dataset.q.split('|'); const x = C.c[c].s[s]; x.borrado = true; x.t = ahora(); C.c[c].t = ahora(); guarda(); panel(); });
@@ -141,6 +145,96 @@
     sh.querySelectorAll('[data-ren]').forEach(e => e.onclick = () => { const c = C.c[e.dataset.ren]; const n = prompt('Nuevo nombre del cuaderno', c.nombre); if (n && n.trim()) { c.nombre = n.trim(); c.t = ahora(); guarda(); panel(); } });
     sh.querySelectorAll('[data-bo]').forEach(e => { let p = 0; e.onclick = () => { if (Date.now() - p > 3000) { p = Date.now(); e.textContent = '¿Seguro? Pulsa otra vez'; return; } const c = C.c[e.dataset.bo]; c.borrado = true; c.t = ahora(); abierto = null; guarda(); panel(); avisa('🗑 Cuaderno borrado', 2500); }; });
   }
+
+  /* ---------- «✅ Visto y hecho» (17-nov-2026, idea de Carlos) ----------
+     Cuaderno que se rellena solo con lo marcado como visitado/hecho en las fichas (catalogo.html guarda la marca en MIS[id]: h fecha,
+     r texto personal, nm nombre, mu municipio, pv provincia). Dos órdenes: por viaje (días seguidos forman un viaje, con nombre
+     automático que se puede cambiar) y por provincia → municipio. En Viajes viaja con el código del usuario (apartados «hechas» y «visto_viajes»). */
+  const VCLAVE = PUB ? 'hk_visto_viajes' : 'mapas.visto_viajes';
+  let VN = {}; try { VN = JSON.parse(window.localStorage.getItem(VCLAVE) || '{}') || {}; } catch (e) { VN = {}; }
+  const guardaVN = () => { try { window.localStorage.setItem(VCLAVE, JSON.stringify(VN)); } catch (e) {} if (SYNC_HT) programaSubida(); };
+  function juntaVN(rem) { let pend = false, cambio = false;
+    for (const [k, v] of Object.entries(rem || {})) { const l = VN[k]; if (!v || typeof v !== 'object') continue; if (!l || (l.t || 0) < (v.t || 0)) { VN[k] = v; cambio = true; } else if ((l.t || 0) > (v.t || 0)) pend = true; }
+    for (const k of Object.keys(VN)) if (!(rem || {})[k]) pend = true;
+    if (cambio) { try { window.localStorage.setItem(VCLAVE, JSON.stringify(VN)); } catch (e) {} }
+    return pend; }
+  function vistos() { const o = [];
+    if (typeof MIS === 'undefined') return o;
+    for (const [id, k] of Object.entries(MIS)) { if (!k || k.borrado || !k.h) continue;
+      const p = typeof pid === 'function' ? pid(id) : null;
+      o.push({ id, h: k.h, r: k.r || '', n: k.nm || (p ? p[2] : '(ya no está en el catálogo)'), c: p ? p[1] : 't', mu: k.mu || '', pv: k.pv || '', la: p ? p[4] : null, lo: p ? p[5] : null }); }
+    return o.sort((a, b) => a.h < b.h ? -1 : a.h > b.h ? 1 : a.n.localeCompare(b.n, 'es')); }
+  // provincia de un punto: contornos simplificados de catalogo/provincias.js (se cargan la primera vez que hacen falta)
+  let provP = null;
+  const cargaProv = () => provP || (provP = new Promise(ok => { if (window.PROVS) return ok(); const s = document.createElement('script'); s.src = 'catalogo/provincias.js'; s.onload = () => ok(); s.onerror = () => ok(); document.head.appendChild(s); }));
+  function dentro(la, lo, r) { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if ((a[1] > lo) !== (b[1] > lo) && la < (b[0] - a[0]) * (lo - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+  window.vistoProv = function (la, lo) { const P = window.PROVS; if (!P || la == null) return '';
+    for (const [n, rs] of P) if (rs.some(r => dentro(la, lo, r))) return n;
+    let best = '', bd = 1e9; for (const [n, rs] of P) for (const r of rs) for (const q of r) { const d = (q[0] - la) * (q[0] - la) + (q[1] - lo) * (q[1] - lo) * 0.56; if (d < bd) { bd = d; best = n; } }
+    return bd < 0.09 ? best : ''; };      // en la costa el contorno simplificado deja fuera algún punto: vale la provincia más cercana (hasta ~30 km)
+  setTimeout(cargaProv, 4000);
+  // completa nombre, provincia y municipio de las marcas que no los traen (marcadas antes de existir esto, o llegadas de otro aparato)
+  let completando = false;
+  async function completaVistos() { if (completando || typeof MIS === 'undefined') return false; completando = true; let cambio = false;
+    try { await cargaProv();
+      for (const [id, k] of Object.entries(MIS)) { if (!k || k.borrado || !k.h || (k.nm && k.pv && k.mu)) continue;
+        const p = typeof pid === 'function' ? pid(id) : null; if (!p) continue;
+        if (!k.nm) { k.nm = p[2]; cambio = true; }
+        if (!k.pv) { const pv = window.vistoProv(p[4], p[5]); if (pv) { k.pv = pv; cambio = true; } }
+        if (!k.mu) { if (!(id in F) && typeof carga === 'function') { try { await carga('f', Math.floor(p[4] * 2) + '_' + Math.floor(p[5] * 2)); } catch (e) {} }
+          const mu = (F[id] || {}).municipio; if (mu) { k.mu = mu; cambio = true; } } }
+      if (cambio && typeof guardaMisLocal === 'function') guardaMisLocal();
+    } finally { completando = false; }
+    return cambio; }
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const dia = s => { const [a, m, d] = s.split('-').map(Number); return { a, m, d, ms: Date.UTC(a, m - 1, d) }; };
+  function rango(a, b) { const x = dia(a), y = dia(b);
+    if (a === b) return x.d + ' ' + MESES[x.m - 1] + ' ' + x.a;
+    if (x.a === y.a && x.m === y.m) return x.d + '–' + y.d + ' ' + MESES[x.m - 1] + ' ' + x.a;
+    if (x.a === y.a) return x.d + ' ' + MESES[x.m - 1] + ' – ' + y.d + ' ' + MESES[y.m - 1] + ' ' + x.a;
+    return x.d + ' ' + MESES[x.m - 1] + ' ' + x.a + ' – ' + y.d + ' ' + MESES[y.m - 1] + ' ' + y.a; }
+  function viajes(L) { const V = []; let v = null;      // un viaje = marcas en días seguidos (se admite un día en blanco entre dos)
+    for (const s of L) { if (!v || dia(s.h).ms - dia(v.fin).ms > 2 * 86400000) { v = { k: s.h, ini: s.h, fin: s.h, it: [] }; V.push(v); } v.it.push(s); v.fin = s.h; }
+    for (const v of V) { const c = {}; v.it.forEach(s => { if (s.pv) c[s.pv] = (c[s.pv] || 0) + 1; });
+      const pr = Object.keys(c).sort((a, b) => c[b] - c[a]); v.auto = (pr.length > 2 ? pr[0] + ', ' + pr[1] + ' y más · ' : pr.length ? pr.join(' y ') + ' · ' : '') + rango(v.ini, v.fin);
+      v.nombre = (VN[v.k] && VN[v.k].n) || v.auto; }
+    return V.reverse(); }
+  let vModo = 'v', vAb = {};
+  function panelVisto(noCompletar) {
+    const L = vistos(), sh = document.getElementById('sheet');
+    let h = '<button class="x" onclick="cierra()">✕</button><button class="volver" id="visto-v">← Mis cuadernos</button><h2>✅ Visto y hecho</h2>';
+    if (!L.length) h += '<p class="sub">Aquí irá apareciendo, solo, todo lo que marques. Abre un sitio y pulsa «Marcar como visitado», o una ruta y «Marcar como hecha»; puedes poner la fecha y tus observaciones.</p>';
+    else {
+      h += '<p class="sub">' + L.length + (L.length === 1 ? ' sitio o ruta' : ' sitios y rutas') + '. Se rellena solo con lo que marcas en las fichas.</p>'
+        + '<div class="visto-m"><button data-vm="v" class="' + (vModo === 'v' ? 'on' : '') + '">🧳 Por viaje</button><button data-vm="p" class="' + (vModo === 'p' ? 'on' : '') + '">🗺 Por provincia</button></div>';
+      const li = (s, sub) => '<li><span class="ic" style="background:' + colorDe(s) + '">' + iconoDe(s) + '</span><span class="n" data-vir="' + esc(s.id) + '">' + esc(s.n) + '<span>' + esc(sub) + (s.r ? ' · 🔒 ' + esc(s.r.length > 70 ? s.r.slice(0, 70) + '…' : s.r) : '') + '</span></span></li>';
+      const fch = s => { const x = dia(s.h); return x.d + ' ' + MESES[x.m - 1] + ' ' + x.a; };
+      if (vModo === 'v') {
+        const V = viajes(L); if (V.length && !('v' + V[0].k in vAb)) vAb['v' + V[0].k] = true;
+        for (const v of V) { const op = !!vAb['v' + v.k];
+          h += '<div class="cuad-c' + (op ? ' op' : '') + '"><div class="cuad-h" data-va="v' + v.k + '"><b>' + esc(v.nombre) + '</b><small>' + v.it.length + '</small><i>' + (op ? '▾' : '▸') + '</i></div>';
+          if (op) h += '<ol class="cuad-i">' + v.it.map(s => li(s, [fch(s), s.mu].filter(Boolean).join(' · '))).join('') + '</ol><div class="btns"><button class="sec" data-vren="' + v.k + '">✏️ Nombre del viaje</button>' + (VN[v.k] && VN[v.k].n ? '<button class="sec" data-vaut="' + v.k + '">↺ Nombre automático</button>' : '') + '</div>';
+          h += '</div>'; }
+      } else {
+        const P = {}; L.forEach(s => { const pv = s.pv || 'Sin provincia', mu = s.mu || 'Sin municipio'; ((P[pv] = P[pv] || {})[mu] = P[pv][mu] || []).push(s); });
+        for (const pv of Object.keys(P).sort((a, b) => a.localeCompare(b, 'es'))) { const op = !!vAb['p' + pv], n = Object.values(P[pv]).reduce((a, x) => a + x.length, 0);
+          h += '<div class="cuad-c' + (op ? ' op' : '') + '"><div class="cuad-h" data-va="p' + esc(pv) + '"><b>' + esc(pv) + '</b><small>' + n + '</small><i>' + (op ? '▾' : '▸') + '</i></div>';
+          if (op) for (const mu of Object.keys(P[pv]).sort((a, b) => a.localeCompare(b, 'es'))) h += '<div class="visto-mu">' + esc(mu) + '</div><ol class="cuad-i">' + P[pv][mu].slice().reverse().map(s => li(s, fch(s))).join('') + '</ol>';
+          h += '</div>'; }
+      }
+      h += '<div class="sub" style="margin-top:14px">' + (PUB ? (codigoHT() ? 'Guardado en este aparato y con tu código de historiatotal.es: <b>' + esc(codigoHT()) + '</b>. Tus observaciones solo las ves tú (y quien tenga el código).' : 'Guardado en este aparato.') : 'Se guarda con tus estrellas y se sincroniza con ellas.') + '</div>';
+    }
+    sh.innerHTML = h; sh.scrollTop = 0; sh.classList.add('on');
+    if (typeof sel !== 'undefined') { try { sel = null; pintaTracks(); marcaPunto(null); } catch (e) {} }
+    document.getElementById('visto-v').onclick = panel;
+    sh.querySelectorAll('[data-vm]').forEach(e => e.onclick = () => { vModo = e.dataset.vm; panelVisto(true); });
+    sh.querySelectorAll('[data-va]').forEach(e => e.onclick = () => { vAb[e.dataset.va] = !vAb[e.dataset.va]; panelVisto(true); });
+    sh.querySelectorAll('[data-vir]').forEach(e => e.onclick = () => { const id = e.dataset.vir; if (typeof pid === 'function' && pid(id)) { volverAVisto = true; abre(id); } else avisa('Ese sitio ya no está en el catálogo.', 3000); });
+    sh.querySelectorAll('[data-vren]').forEach(e => e.onclick = () => { const k = e.dataset.vren, v = viajes(vistos()).find(x => x.k === k); const n = prompt('Nombre del viaje', v ? v.nombre : ''); if (n && n.trim()) { VN[k] = { n: n.trim().slice(0, 80), t: ahora() }; guardaVN(); panelVisto(true); } });
+    sh.querySelectorAll('[data-vaut]').forEach(e => e.onclick = () => { VN[e.dataset.vaut] = { n: '', t: ahora() }; guardaVN(); panelVisto(true); });
+    if (!noCompletar) completaVistos().then(c => { if (c && document.getElementById('visto-v')) panelVisto(true); });
+  }
+  window.vistoPanel = panelVisto;
   const colorDe = s => (CAPAS[s.c] || CAPAS.t).c;
   const iconoDe = s => s.c === 'o' ? '⛪' : (CAPAS[s.c] || CAPAS.t).s;
   function ir(s) {
@@ -265,7 +359,7 @@
     const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(cod), { cache: 'no-store' });
     if (!res.ok) throw new Error('el servidor respondió ' + res.status);
     const d = await res.json(), obj = x => (x && typeof x === 'object' && !Array.isArray(x)) ? x : {};   // el servidor devuelve [] cuando el apartado está vacío
-    return { c: obj(d && d.cuadernos), h: obj(d && d.hechas), cod };
+    return { c: obj(d && d.cuadernos), h: obj(d && d.hechas), v: obj(d && d.visto_viajes), cod };
   }
 
   let subiendo = false;
@@ -280,8 +374,10 @@
         const R = await htLee(); if (!R) return; junta(R.c);
         // 17-nov-2026: rutas hechas y comentario personal del visitante (apartado «hechas»); se juntan en catalogo.html (juntaHechas)
         if (typeof juntaHechas === 'function') juntaHechas(R.h);
+        juntaVN(R.v);
         const cuerpo = {}; if (Object.keys(C.c).length || Object.keys(R.c).length) cuerpo.cuadernos = C.c;
         if (hayH()) { const H = misHechas(); if (JSON.stringify(H).length <= 200000) cuerpo.hechas = H; }
+        if (Object.keys(VN).length) cuerpo.visto_viajes = VN;
         if (!Object.keys(cuerpo).length) return;
         const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(R.cod), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
         estado = res.ok ? '' : res.status === 413 ? '⚠️ Tus datos de historiatotal.es están llenos: los cuadernos quedan solo en este aparato. Borra alguno que no uses.'
@@ -304,8 +400,8 @@
   (async () => {
     try {
       const R = PUB ? (SYNC_HT ? await htLee() : null) : await ghLee();
-      if (!R) return; const p1 = junta(R.c), p2 = (PUB && typeof juntaHechas === 'function') ? juntaHechas(R.h) : false;
-      if (p1 || p2) programaSubida();
+      if (!R) return; const p1 = junta(R.c), p2 = (PUB && typeof juntaHechas === 'function') ? juntaHechas(R.h) : false, p3 = PUB ? juntaVN(R.v) : false;
+      if (p1 || p2 || p3) programaSubida();
     } catch (e) {}
   })();
 
@@ -329,7 +425,9 @@
     + '.cuad-i{list-style:none;padding:0;margin:8px 0 0}.cuad-i li{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--li)}'
     + '.cuad-i .ic{flex:0 0 26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}'
     + '.cuad-i .n{flex:1;cursor:pointer;font-weight:600;font-size:14px}.cuad-i .n span{display:block;font:400 12px system-ui;color:var(--mu)}'
-    + '.cuad-i .q{border:0;background:none;color:#999;font-size:15px;cursor:pointer}';
+    + '.cuad-i .q{border:0;background:none;color:#999;font-size:15px;cursor:pointer}'
+    + '.visto-e{border-color:#16a34a;background:#f0fdf4}.visto-m{display:flex;gap:6px;margin:8px 0 4px}.visto-m button{flex:1;border:1px solid #c9ced4;background:#fff;border-radius:8px;padding:8px;font:600 14px system-ui;cursor:pointer;color:#1d2125}.visto-m button.on{background:#16a34a;border-color:#16a34a;color:#fff}'
+    + '.visto-mu{font:700 12.5px system-ui;color:#5f6670;margin:10px 0 0;text-transform:uppercase;letter-spacing:.3px}';
   document.head.appendChild(st);
 
   pintaPestana();

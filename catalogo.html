@@ -41,7 +41,8 @@ details.plg>.pp{margin:0 0 10px}details.plg ul{margin:0 0 10px}details.plg .src{
 .chip i{width:11px;height:11px;border-radius:50%;display:inline-block}
 .chip.off{opacity:.45}
 .chip small{font-weight:400;color:var(--mu)}
-#base{position:absolute;bottom:18px;left:8px;z-index:1000;display:flex;gap:4px}
+#base{position:absolute;bottom:18px;left:8px;z-index:1000;display:flex;gap:4px;flex-wrap:wrap-reverse;max-width:calc(100vw - 16px)}
+.anl{text-align:center;pointer-events:none}.anl span{display:inline-block;background:#fffe;color:#b91c1c;font:700 12px system-ui;padding:1px 7px;border-radius:9px;box-shadow:0 0 0 1px #b91c1c66;white-space:nowrap}
 #base button,#loc{border:0;border-radius:6px;padding:6px 9px;font:600 12px system-ui;background:#fff;box-shadow:0 1px 4px #0004;cursor:pointer}
 #base button.on{background:#1d2125;color:#fff}
 #mezcla{position:absolute;left:8px;bottom:56px;z-index:1250;background:#fff;border-radius:10px;box-shadow:0 2px 10px #0005;padding:10px 12px;display:none;width:min(300px,calc(100vw - 32px));font:13px system-ui}
@@ -58,9 +59,9 @@ body.editando .leaflet-marker-draggable .pt{cursor:grab;outline:2px dashed #e873
 #info{position:absolute;bottom:56px;left:8px;z-index:1000;background:#fffd;border-radius:6px;padding:3px 8px;font-size:12px;color:var(--mu)}
 .pt{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px #000d;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;box-sizing:border-box}
 .pt.r{border-radius:8px}
-.pt.hx{position:relative}
-.pt.e.hx::before{content:'✓';position:absolute;left:-7px;top:-7px;width:16px;height:16px;border-radius:50%;background:#16a34a;color:#fff;font:800 11px/16px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}
-.pt.r.hx::after{content:'✓';position:absolute;right:-8px;top:-8px;width:17px;height:17px;border-radius:50%;background:#16a34a;color:#fff;font:800 12px/17px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}
+.pt.hx{position:relative;outline:3.5px solid #16a34a;outline-offset:1.5px}   /* 17-nov f: lo visto o hecho, con borde verde y ✓ grande */
+.pt.e.hx::before{content:'✓';position:absolute;left:-11px;top:-11px;width:19px;height:19px;border-radius:50%;background:#16a34a;color:#fff;font:800 13px/19px system-ui;letter-spacing:0;text-align:center;box-shadow:0 0 0 2px #fff}
+.pt.r.hx::after{content:'✓';position:absolute;right:-12px;top:-12px;width:19px;height:19px;border-radius:50%;background:#16a34a;color:#fff;font:800 13px/19px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}
 /* Medallas de los monumentos (12-nov, 2.ª versión a petición de Carlos): el FONDO dice la medalla */
 .pt.m1{width:42px;height:42px;font-size:21px;border:3px solid #fff;box-shadow:0 0 0 2px #b8860b,0 2px 8px #000c}
 .pt.m2{border:3px solid #fff;box-shadow:0 0 0 1.5px #7b8794,0 1px 6px #000c}
@@ -280,7 +281,7 @@ document.addEventListener('pointerup', e=>{
       +'recibe el clic: '+(el?el.tagName+'.'+String(el.className).slice(0,60)+' en '+((el.closest('.leaflet-pane')||{}).className||'fuera del mapa'):'nada')+' · objetivo: '+e.target.tagName+(e.target.className?'.'+String(e.target.className).slice(0,40):'')+'\n'
       +'lienzos: '+cv+' · lienzo cubre el punto: '+dentro+'\n'
       +'arrastre: moving='+d._moving+' moved='+d._moved+' global='+!!L.Draggable._dragging+' · body: '+document.body.className+'\n'
-      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 17-nov d';
+      +'zoom '+map.getZoom()+' · modo='+modo+' · edición='+(typeof EDIT!=='undefined'?EDIT:'?')+' · fotos='+fOn+' · versión 17-nov g';
     let a=document.getElementById('diag'); if(!a){ a=document.createElement('div'); a.id='diag'; a.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:30000;background:#b42318;color:#fff;font:12px/1.45 system-ui;padding:8px 12px;border-radius:10px;white-space:pre-wrap;box-shadow:0 2px 8px #0006'; a.onclick=()=>a.remove(); document.body.appendChild(a); }
     a.textContent=txt;
   }catch(err){} },450);
@@ -331,6 +332,21 @@ ponEncima(encimaN); marcaRapidos();
     $m.classList.toggle('suave2', n===2); $m.classList.toggle('suave1', n===1); b.textContent = suave ? '◐ Suave' : '◐ Normal'; b.title = suave ? 'Fondo atenuado: toca para verlo normal' : 'Fondo normal: toca para atenuarlo'; };
   b.onclick = () => { suave = !suave; try { localStorage.setItem('mapaSuave', suave?'1':'0'); } catch(e) {} pon(); };
   map.on('zoomend', pon); pon(); $base.appendChild(b); }
+/* 17-nov e (idea de Carlos): círculos de distancia alrededor del centro de la pantalla, para ver qué queda a 25, 50, 100 km… a la redonda.
+   Los radios se eligen solos según el zoom (siempre entre 2 y 4 círculos a la vista). Se enciende y apaga con el botón «◎ Km». */
+{ let anOn = false; try { anOn = localStorage.getItem('anillos') === '1'; } catch(e) {}
+  const b = document.createElement('button'), capa = L.layerGroup(), RK = [0.25,0.5,1,2,5,10,25,50,100,200,300,500,1000];
+  b.textContent = '◎ Km'; b.title = 'Círculos de distancia alrededor del centro de la pantalla';
+  const txt = r => r < 1 ? (r*1000)+' m' : r+' km';
+  const pinta = () => { capa.clearLayers(); b.classList.toggle('on', anOn); if (!anOn) { map.removeLayer(capa); return; } if (!map.hasLayer(capa)) capa.addTo(map);
+    const c = map.getCenter(), bd = map.getBounds(), kN = c.distanceTo(L.latLng(bd.getNorth(), c.lng))/1000, kE = c.distanceTo(L.latLng(c.lat, bd.getEast()))/1000, medio = Math.min(kN,kE);
+    const vis = RK.filter(r => r <= medio*1.05 && r >= medio/10).slice(-4);
+    L.circleMarker(c,{radius:3.5,color:'#b91c1c',weight:2,fillColor:'#fff',fillOpacity:1,interactive:false}).addTo(capa);
+    vis.forEach(r => { L.circle(c,{radius:r*1000,color:'#b91c1c',weight:1.8,opacity:.8,dashArray:'7 5',fill:false,interactive:false}).addTo(capa);
+      const pos = r < kN*0.9 ? [c.lat + r/111.32, c.lng] : [c.lat, c.lng + r/(111.32*Math.cos(c.lat*Math.PI/180))];
+      L.marker(pos,{interactive:false,keyboard:false,zIndexOffset:900,icon:L.divIcon({className:'',iconSize:[70,18],iconAnchor:[35,9],html:'<div class="anl"><span>'+txt(r)+'</span></div>'})}).addTo(capa); }); };
+  b.onclick = () => { anOn = !anOn; try { localStorage.setItem('anillos', anOn?'1':'0'); } catch(e) {} pinta(); if (anOn) avisa('◎ Distancias desde el centro de la pantalla. Mueve el mapa y se recolocan.', 3000); };
+  map.on('moveend', pinta); pinta(); $base.appendChild(b); }
 
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const F = {}, T = {};               // fichas y trazados: se cargan por zonas al mirarlas
@@ -441,10 +457,14 @@ function guardaMia(id, k, msg){ delete k.borrado; MIS[id] = (k.d || k.f || k.n |
   try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(x) {}
   const p = busca(id); if (p && MK[id]) MK[id].setIcon(icono(p)); if (msg) avisa(msg, 2000); subeEst(); if (window.hechasSube) window.hechasSube(); }
 function ponHecha(id, v){ const k = {...(MIS[id]||{})}; if (v) k.h = v; else delete k.h;
-  const p = busca(id); guardaMia(id, k, v ? (p && !esRuta(p[1]) ? '✅ Marcado como visitado' : '✅ Marcada como hecha') : 'Marca quitada'); if (p) ficha(p); }
+  const p = busca(id);
+  /* 17-nov g: para el cuaderno «Visto y hecho» se guarda con la marca el nombre, el municipio y la provincia */
+  if (v && p) { k.nm = p[2]; const mu = (F[id]||{}).municipio; if (mu) k.mu = mu; const pv = window.vistoProv ? window.vistoProv(p[4],p[5]) : ''; if (pv) k.pv = pv; } else if (!v && !k.r) { delete k.nm; delete k.mu; delete k.pv; }
+  guardaMia(id, k, v ? (p && !esRuta(p[1]) ? '✅ Marcado como visitado' : '✅ Marcada como hecha') : 'Marca quitada'); if (p) ficha(p); }
 /* 17-nov: en Viajes (window.CUAD_PUBLICO) cada visitante marca sus rutas hechas; se guardan en su aparato y, con su código de
    historiatotal.es, en el hosting (apartado «hechas» de api/sync.php; lo sube catalogo/cuadernos.js). */
-function misHechas(){ const o = {}; for (const [id,k] of Object.entries(MIS)) { if (k.borrado) o[id] = {t:k.t, borrado:true}; else if (k.h || k.r) { const x = {t:k.t}; if (k.h) x.h = k.h; if (k.r) x.r = k.r; o[id] = x; } } return o; }
+function misHechas(){ const o = {}; for (const [id,k] of Object.entries(MIS)) { if (k.borrado) o[id] = {t:k.t, borrado:true}; else if (k.h || k.r) { const x = {t:k.t}; for (const c of ['h','r','nm','mu','pv']) if (k[c]) x[c] = k[c]; o[id] = x; } } return o; }
+function guardaMisLocal(){ try { localStorage.setItem('estrellas_mias', JSON.stringify(MIS)); } catch(e) {} }
 function juntaHechas(rem){ let pend = false, cambio = false; if (!rem || Array.isArray(rem)) rem = {};
   for (const [id,k] of Object.entries(rem)) { const l = MIS[id]; if (!k || typeof k !== 'object') continue;
     if (!l || (l.t||0) < (k.t||0)) { MIS[id] = k; cambio = true; const p = busca(id); if (p && MK[id]) MK[id].setIcon(icono(p)); if (p && selPt === id) ficha(p); }
@@ -856,7 +876,7 @@ function pintaCerca(){
   if (filCer==='pat') for (let j=R.length-1;j>=0;j--) if (R[j][1][1]!=='o') R.splice(j,1);
   R.sort((a,b)=>a[0]-b[0]); const L60=R.slice(0,60);
   const fd=d=>d<1?Math.round(d*1000/10)*10+' m':(d<10?d.toFixed(1).replace('.',','):Math.round(d))+' km';
-  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 17-nov d</small></h2>';
+  let h='<button class="x" onclick="cierra()">✕</button><div class="cerl"><h2>📍 Qué hay cerca <small style="font:500 11px system-ui;color:#9a978f">versión 17-nov g</small></h2>';
   { const np=pendientes(), nt=Object.keys(COR).length;
     if (np) h+='<div class="corlin" onclick="lista()">✉ '+np+(np>1?' correcciones de posición sin sincronizar':' corrección de posición sin sincronizar')+' — toca para verlas y subirlas</div>';
     else if (nt) h+='<div class="corlin gris" onclick="lista()">✉ Mis correcciones de posición ('+nt+')</div>'; }
