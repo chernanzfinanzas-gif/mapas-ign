@@ -210,6 +210,16 @@
    "municipio": "Majaelrayo",
    "fecha": "17/11/2026 10:37",
    "t": 1794908231146
+  },
+  "t:fuente-del-cano-de-majaelrayo-majaelrayo": {
+   "lat": 41.112715,
+   "lon": -3.303248,
+   "acc": null,
+   "como": "mapa",
+   "nombre": "Fuente del Caño de Majaelrayo",
+   "municipio": "Majaelrayo",
+   "fecha": "17/11/2026 10:43",
+   "t": 1794908590150
   }
  }
 }
