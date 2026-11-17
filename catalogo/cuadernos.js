@@ -264,7 +264,8 @@
     const cod = codigoHT(); if (!cod) return null;
     const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(cod), { cache: 'no-store' });
     if (!res.ok) throw new Error('el servidor respondió ' + res.status);
-    const d = await res.json(); return { c: (d && d.cuadernos) || {}, cod };
+    const d = await res.json(), obj = x => (x && typeof x === 'object' && !Array.isArray(x)) ? x : {};   // el servidor devuelve [] cuando el apartado está vacío
+    return { c: obj(d && d.cuadernos), h: obj(d && d.hechas), cod };
   }
 
   let subiendo = false;
@@ -274,9 +275,15 @@
     try {
       if (PUB) {
         if (!SYNC_HT) return;
-        if (!codigoHT()) { if (!Object.keys(C.c).length || !creaCodigoHT()) return; }
+        const hayH = () => typeof misHechas === 'function' && Object.keys(misHechas()).length > 0;
+        if (!codigoHT()) { if ((!Object.keys(C.c).length && !hayH()) || !creaCodigoHT()) return; }
         const R = await htLee(); if (!R) return; junta(R.c);
-        const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(R.cod), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cuadernos: C.c }) });
+        // 17-nov-2026: rutas hechas y comentario personal del visitante (apartado «hechas»); se juntan en catalogo.html (juntaHechas)
+        if (typeof juntaHechas === 'function') juntaHechas(R.h);
+        const cuerpo = {}; if (Object.keys(C.c).length || Object.keys(R.c).length) cuerpo.cuadernos = C.c;
+        if (hayH()) { const H = misHechas(); if (JSON.stringify(H).length <= 200000) cuerpo.hechas = H; }
+        if (!Object.keys(cuerpo).length) return;
+        const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(R.cod), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
         estado = res.ok ? '' : res.status === 413 ? '⚠️ Tus datos de historiatotal.es están llenos: los cuadernos quedan solo en este aparato. Borra alguno que no uses.'
                                                   : '⚠️ No se han podido guardar en el servidor (' + res.status + '); quedan en este aparato.';
         return;
@@ -297,7 +304,8 @@
   (async () => {
     try {
       const R = PUB ? (SYNC_HT ? await htLee() : null) : await ghLee();
-      if (R && junta(R.c)) programaSubida();
+      if (!R) return; const p1 = junta(R.c), p2 = (PUB && typeof juntaHechas === 'function') ? juntaHechas(R.h) : false;
+      if (p1 || p2) programaSubida();
     } catch (e) {}
   })();
 
@@ -326,5 +334,6 @@
 
   pintaPestana();
   deLaDireccion();
+  if (SYNC_HT) { window.hechasSube = programaSubida; window.cuadCodigo = codigoHT; }
   window.cuadPanel = panel;   // por si se quiere abrir desde otro sitio
 })();
