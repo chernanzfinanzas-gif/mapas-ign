@@ -8,12 +8,17 @@
    Lo ya marcado como visto sale apagado. Con «＋» una sugerencia pasa al plan del día.
    Datos: {g:{id:{id,nombre,ini,fin,sal:{n,la,lo},noches:[{n,la,lo}|null],dias:{i:[{id,n,c,la,lo}]},creado,t,borrado?}}}
    Guardado: Viajes → localStorage «hk_guias» + api/sync.php (apartado «guias») con el código del usuario.
-             App Mapas → localStorage «mapas.guias» (de momento solo en cada aparato).
+             App Mapas → localStorage «mapas.guias» y, si Carlos escribe su código de Viajes, el MISMO apartado
+             «guias» de api/sync.php (18-nov c): los viajes se ven en las dos apps. Viajes usa ids cortos
+             (huella md5 del id largo, como hacer_version_publica.py); App Mapas los traduce al bajar y al subir.
    Se engancha a catalogo.html sin tocar su código (usa map, D, CAPAS, abre, pid, hecha, esc, avisa, cierra). */
 (function () {
   if (typeof map === 'undefined' || typeof D === 'undefined') return;
   const PUB = !!window.CUAD_PUBLICO, SYNC_HT = PUB && !!window.CUAD_SYNC_HT;
   const CLAVE = PUB ? 'hk_guias' : 'mapas.guias', LIM = 200 * 1024, ANCHO = 10;
+  const API = PUB ? '/api/sync.php' : 'https://historiatotal.es/api/sync.php', KCOD = PUB ? 'hk_codigo' : 'mapas.hk_codigo';
+  let volver = null;   // ficha abierta desde un día del viaje: al cerrarla se vuelve a ese día
+
   let G = { g: {} }; try { const v = JSON.parse(window.localStorage.getItem(CLAVE) || 'null'); if (v && v.g) G = v; } catch (e) {}
   const ahora = () => Date.now(), nuevoId = () => ahora().toString(36) + Math.random().toString(36).slice(2, 6);
   const vivos = () => Object.values(G.g).filter(v => !v.borrado).sort((a, b) => (b.ini || '').localeCompare(a.ini || '') || (b.t || 0) - (a.t || 0));
@@ -113,7 +118,7 @@
     for (const v of L_) { const n = nDias(v), nn = (v.noches || []).filter(Boolean).length;
       h += '<div class="cuad-c"><div class="cuad-h" data-gv="' + v.id + '"><b>' + esc(v.nombre) + '</b><small>' + rango(v) + (n ? ' · ' + n + (n === 1 ? ' día' : ' días') : '') + '</small><i>▸</i></div></div>'; }
     h += '<div class="btns"><button id="gv-nuevo">＋ Nuevo viaje</button></div><div class="sub" style="margin-top:14px">' + estadoTxt() + '</div>';
-    const s = abreHoja(h); s.querySelector('#gv-x').onclick = cierraG;
+    const s = abreHoja(h); s.querySelector('#gv-x').onclick = cierraG; enganchaCodigo(s);
     s.querySelector('#gv-nuevo').onclick = () => { const hoy = iso(ahora()), id = nuevoId(); G.g[id] = { id, nombre: 'Viaje nuevo', ini: hoy, fin: iso(ahora() + 2 * 86400000), sal: null, noches: [null, null], dias: {}, creado: ahora(), t: ahora() }; guarda(G.g[id]); viaje(id, true); };
     s.querySelectorAll('[data-gv]').forEach(e => e.onclick = () => viaje(e.dataset.gv, true)); }
 
@@ -167,7 +172,7 @@
     setTimeout(() => { try { q.focus(); } catch (e) {} }, 250); }
 
   let minE = 4;
-  function dia(id, i, encuadra) { const v = G.g[id]; if (!v) return lista(); const t = tramo(v, i), n = nDias(v); activo = { v: id, d: i };
+  function dia(id, i, encuadra) { volver = null; const v = G.g[id]; if (!v) return lista(); const t = tramo(v, i), n = nDias(v); activo = { v: id, d: i };
     const plan = ((v.dias = v.dias || {})[i] = v.dias[i] || []), enPlan = new Set(plan.map(s => s.id));
     let h = cab('Día ' + (i + 1) + ' · ' + fechaDia(v, i), '← ' + esc(v.nombre));
     if (t.tipo === 'x') { h += '<p class="sub">Para sugerirte algo necesito saber de dónde sales y dónde duermes este día. Vuelve al viaje y complétalo.</p>'; const s = abreHoja(h); pintaMapa(v, i, false); s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id); return; }
@@ -207,39 +212,69 @@
       guarda(v); dia(id, i); sh().scrollTop = y; });
     s.querySelectorAll('[data-qu]').forEach(e => e.onclick = () => { plan.splice(+e.dataset.qu, 1); guarda(v); dia(id, i); });
     s.querySelectorAll('[data-su]').forEach(e => e.onclick = () => { const j = +e.dataset.su; plan.splice(j - 1, 0, plan.splice(j, 1)[0]); guarda(v); dia(id, i); });
-    s.querySelectorAll('[data-ir]').forEach(e => e.onclick = () => { if (pid(e.dataset.ir)) { volver = { v: id, d: i, id: e.dataset.ir }; abre(e.dataset.ir); } else avisa('Ese sitio ya no está en el catálogo.', 3000); }); }
+    s.querySelectorAll('[data-ir]').forEach(e => e.onclick = () => { if (pid(e.dataset.ir)) { volver = { v: id, d: i, id: e.dataset.ir, y: sh().scrollTop }; abre(e.dataset.ir); } else avisa('Ese sitio ya no está en el catálogo.', 3000); }); }
   // en un día de traslado las paradas se ordenan solas según se avanza por el trayecto
   function ordena(plan, t) { const k = Math.cos((t.a.la + t.b.la) / 2 * Math.PI / 180), bx = (t.b.lo - t.a.lo) * k, by = t.b.la - t.a.la, L2 = bx * bx + by * by || 1;
     const f = s => ((s.lo - t.a.lo) * k * bx + (s.la - t.a.la) * by) / L2; plan.sort((x, y) => f(x) - f(y)); }
 
   /* ---------- enganche a las fichas: «← volver al día» y «🧭 Al viaje» ---------- */
-  let volver = null;
   const f0 = window.ficha;
   if (typeof f0 === 'function') window.ficha = function (p) { const r = f0.apply(this, arguments);
     try { const s = sh(); if (p && s.classList.contains('on') && (p[1] === 't' || p[1] === 'n' || p[1] === 'h' || p[1] === 'r')) {
       if (volver && p[0] !== volver.id) volver = null;
-      if (volver && !s.querySelector('.gv-volver')) { const w = volver, b = document.createElement('button'); b.className = 'volver gv-volver'; b.textContent = '← Día ' + (w.d + 1) + ' del viaje'; b.onclick = () => { volver = null; dia(w.v, w.d); }; s.insertBefore(b, s.children[1] || null); }
+      if (volver && !s.querySelector('.gv-volver')) { const w = volver, b = document.createElement('button'); b.className = 'volver gv-volver'; b.textContent = '← Día ' + (w.d + 1) + ' del viaje'; b.onclick = () => { volver = null; dia(w.v, w.d); sh().scrollTop = w.y || 0; }; s.insertBefore(b, s.children[1] || null); }
       if (p[1] === 'n' && window.ACTIV && !s.querySelector('.gv-af')) { const A = (window.ACTIV || []).filter(x => x.z && km({ la: p[4], lo: p[5] }, x.z) <= x.z.r).map(a => ({ a, d: 0, q: (a.sal || [])[0] }));
         if (A.length) { const d = document.createElement('div'); d.className = 'gv-af'; d.innerHTML = '<h3 class="gv-h3">🎟 Actividades con guía en la zona</h3>' + A.map(x => actHtml(x, '')).join(''); const bb = s.querySelectorAll('.btns'); const ref = bb[bb.length - 1]; if (ref) ref.parentNode.insertBefore(d, ref); else s.appendChild(d); } }
       const a = activo && G.g[activo.v] && !G.g[activo.v].borrado ? activo : null, bs = s.querySelectorAll('.btns'), bt = bs[bs.length - 1];
       if (a && bt && !bt.querySelector('.gv-b')) { const v = G.g[a.v], plan = ((v.dias = v.dias || {})[a.d] = v.dias[a.d] || []), ya = plan.some(x => x.id === p[0]);
         const b = document.createElement('button'); b.className = 'gv-b'; b.textContent = ya ? '🧭 En el día ' + (a.d + 1) + ' de «' + v.nombre + '»' : '🧭 Al día ' + (a.d + 1) + ' de «' + v.nombre + '»';
-        b.onclick = () => { const k = plan.findIndex(x => x.id === p[0]); if (k >= 0) { plan.splice(k, 1); avisa('Quitado del día ' + (a.d + 1), 2000); } else { plan.push({ id: p[0], n: p[2], c: p[1], la: p[4], lo: p[5] }); const t = tramo(v, a.d); if (t.tipo === 't') ordena(plan, t); avisa('🧭 Añadido al día ' + (a.d + 1) + ' de «' + v.nombre + '»', 2500); }
+        b.onclick = () => { const k = plan.findIndex(x => x.id === p[0]); if (k >= 0) { plan.splice(k, 1); avisa('Quitado del día ' + (a.d + 1), 2000); } else { plan.push({ id: p[0], n: p[2], c: p[1], la: p[4], lo: p[5] }); const t = tramo(v, a.d); if (t.tipo === 't') ordena(plan, t); avisa('🧭 Añadido al día ' + (a.d + 1) + ' de «' + v.nombre + '»', 2500); if (volver && volver.id === p[0]) setTimeout(() => { if (volver && volver.id === p[0]) window.cierra(); }, 700); }
           guarda(v); b.textContent = (k >= 0 ? '🧭 Al día ' : '🧭 En el día ') + (a.d + 1) + ' de «' + v.nombre + '»'; if (enMapa === v.id) pintaMapa(v, a.d, false); };
         bt.insertBefore(b, bt.firstChild); } } } catch (e) {}
     return r; };
 
-  { const c0 = window.cierra; if (typeof c0 === 'function') window.cierra = function () { volver = null; return c0.apply(this, arguments); }; }
+  { const c0 = window.cierra; if (typeof c0 === 'function') window.cierra = function () { const w = volver; volver = null; const r = c0.apply(this, arguments);
+    if (w && G.g[w.v] && !G.g[w.v].borrado) { try { dia(w.v, w.d); sh().scrollTop = w.y || 0; } catch (e) {} } return r; }; }
 
   /* ---------- pestaña ---------- */
   function pintaPestana() { const nav = document.querySelector('#top .apps'); if (!nav) return;
     let a = document.getElementById('guia-tab'); if (!a) { a = document.createElement('a'); a.id = 'guia-tab'; a.title = 'Guía de viaje: prepara un viaje día a día'; a.onclick = lista; nav.appendChild(a); }
     const n = vivos().length; a.innerHTML = '<span class="ic">🧭</span><span class="tx">Guía</span>' + (n ? '<b>' + n + '</b>' : ''); }
 
-  /* ---------- guardar con el código de historiatotal.es (solo en Viajes) ---------- */
-  const codigo = () => { try { const v = window.localStorage.getItem('hk_codigo'); return v ? v.replace(/^"|"$/g, '') : ''; } catch (e) { return ''; } };
+  /* ---------- guardar con el código de historiatotal.es (Viajes; y App Mapas si Carlos escribe su código) ---------- */
+  const codigo = () => { try { const v = window.localStorage.getItem(KCOD); return v ? v.replace(/^"|"$/g, '') : ''; } catch (e) { return ''; } };
+  const SYNC = () => SYNC_HT || (!PUB && !!codigo());
+  /* md5 (para calcular el id corto que usa Viajes: huella md5 del id largo, igual que hacer_version_publica.py) */
+  const MD5S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21], MD5K = []; for (let i = 0; i < 64; i++) MD5K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+  function md5hex(str) {
+    const b = new TextEncoder().encode(str), n = b.length, nb = ((n + 8) >> 6) + 1, w = new Int32Array(nb * 16);
+    for (let i = 0; i < n; i++) w[i >> 2] |= b[i] << ((i % 4) * 8);
+    w[n >> 2] |= 0x80 << ((n % 4) * 8); w[nb * 16 - 2] = n * 8;
+    const S = MD5S, K = MD5K;
+    let a0 = 0x67452301, b0 = 0xefcdab89 | 0, c0 = 0x98badcfe | 0, d0 = 0x10325476;
+    for (let o = 0; o < w.length; o += 16) { let A = a0, B = b0, C = c0, Dd = d0;
+      for (let i = 0; i < 64; i++) { let F, g;
+        if (i < 16) { F = (B & C) | (~B & Dd); g = i; } else if (i < 32) { F = (Dd & B) | (~Dd & C); g = (5 * i + 1) % 16; }
+        else if (i < 48) { F = B ^ C ^ Dd; g = (3 * i + 5) % 16; } else { F = C ^ (B | ~Dd); g = (7 * i) % 16; }
+        const s = S[(i >> 4) * 4 + (i % 4)], x = (A + F + K[i] + w[o + g]) | 0;
+        A = Dd; Dd = C; C = B; B = (B + ((x << s) | (x >>> (32 - s)))) | 0; }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + Dd) | 0; }
+    let h = ''; for (const v of [a0, b0, c0, d0]) for (let j = 0; j < 4; j++) h += ((v >>> (j * 8)) & 255).toString(16).padStart(2, '0');
+    return h; }
+  function corto(id, largo) { const h = md5hex(id), L = []; for (let i = 0; i < 32; i += 4) L.push(parseInt(h.slice(i, i + 4), 16));
+    const A = '0123456789abcdefghijklmnopqrstuvwxyz'; let s = '';
+    for (let k = 0; k < largo; k++) { let r = 0; for (let i = 0; i < 8; i++) { const c = r * 65536 + L[i]; L[i] = Math.floor(c / 36); r = c % 36; } s = A[r] + s; }
+    return id.split(':')[0] + ':' + s; }
+  let MAPA = null, INV = null;
+  function mapa() { if (MAPA) return MAPA; const M = {}, n = {}, P = D.p.filter(p => p[1] !== 'm' && !/^r:(app|nueva)-/.test(p[0]));
+    for (const p of P) { const k = corto(p[0], 7); M[p[0]] = k; n[k] = (n[k] || 0) + 1; } for (const p of P) if (n[M[p[0]]] > 1) M[p[0]] = corto(p[0], 10);
+    INV = {}; for (const k in M) INV[M[k]] = k; return MAPA = M; }
+  function convierte(g, f) { const o = {}; for (const [id, v] of Object.entries(g || {})) { if (!v || typeof v !== 'object') continue; const c = JSON.parse(JSON.stringify(v));
+      if (c.dias) for (const k in c.dias) (c.dias[k] || []).forEach(x => { if (x && x.id) x.id = f(x.id); }); o[id] = c; } return o; }
+  const aViajes = g => PUB ? g : convierte(g, id => mapa()[id] || id), deViajes = g => PUB ? g : (mapa(), convierte(g, id => INV[id] || id));
   let estado = '';
-  function estadoTxt() { if (!PUB) return 'Tus viajes se guardan en este aparato y en este navegador.';
+  function estadoTxt() { if (!PUB) { const c = codigo(); return c ? '🔗 Enlazada con Viajes (historiatotal.es) con tu código <b>' + esc(c) + '</b>: los viajes que hagas aquí o en Viajes se ven en los dos sitios y en tus otros aparatos. <a href="#" id="gv-des">Desenlazar</a>' + (estado ? '<br>' + estado : '')
+      : 'Tus viajes se guardan en este aparato. Para verlos también en Viajes y en tus otros aparatos, escribe tu código de Viajes (sale abajo en la pestaña 🧭 Guía de Viajes):<div style="display:flex;gap:6px;margin-top:6px"><input id="gv-cod" maxlength="7" placeholder="ABC2345" style="width:90px;text-transform:uppercase;font:600 14px system-ui;padding:5px"><button id="gv-enl">🔗 Enlazar</button></div>' + (estado ? '<br>' + estado : ''); }
     if (!SYNC_HT) return 'Se guardan en este aparato y en este navegador.';
     const c = codigo(); return c ? 'Se guardan en este aparato y con tu código de historiatotal.es: <b>' + esc(c) + '</b>. Con él los verás en tus otros aparatos.' + (estado ? '<br>' + estado : '') : 'Se guardan en este aparato. Al crear tu primer viaje tendrás un código de historiatotal.es para verlos también en tus otros aparatos.'; }
   function junta(rem) { let pend = false, cambio = false;
@@ -247,18 +282,25 @@
     for (const id of Object.keys(G.g)) if (!(rem || {})[id]) pend = true;
     if (cambio) { try { window.localStorage.setItem(CLAVE, JSON.stringify(G)); } catch (e) {} pintaPestana(); }
     return pend; }
-  async function lee() { const c = codigo(); if (!c) return null; const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(c), { cache: 'no-store' }); if (!res.ok) throw new Error('el servidor respondió ' + res.status);
-    const d = await res.json(), g = d && d.guias; return { g: (g && typeof g === 'object' && !Array.isArray(g)) ? g : {}, c }; }
+  async function lee() { const c = codigo(); if (!c) return null; const res = await fetch(API + '?codigo=' + encodeURIComponent(c), { cache: 'no-store' }); if (!res.ok) throw new Error('el servidor respondió ' + res.status);
+    const d = await res.json(), g = d && d.guias; return { g: deViajes((g && typeof g === 'object' && !Array.isArray(g)) ? g : {}), c }; }
   let tSub = null, subiendo = false;
-  function programaSubida() { if (!SYNC_HT) return; clearTimeout(tSub); tSub = setTimeout(sube, 2500); }
+  function programaSubida() { if (!SYNC()) return; clearTimeout(tSub); tSub = setTimeout(sube, 2500); }
   async function sube() { if (subiendo) return programaSubida(); subiendo = true;
-    try { if (!codigo()) { if (!Object.keys(G.g).length || typeof window.cuadCreaCodigo !== 'function' || !window.cuadCreaCodigo()) return; }
+    try { if (!codigo()) { if (!PUB || !Object.keys(G.g).length || typeof window.cuadCreaCodigo !== 'function' || !window.cuadCreaCodigo()) return; }
       const R = await lee(); if (!R) return; junta(R.g);
-      const cuerpo = JSON.stringify({ guias: G.g }); if (cuerpo.length > LIM) { estado = '⚠️ Tus viajes ocupan demasiado para guardarlos en el servidor: quedan solo en este aparato. Borra alguno que no uses.'; return; }
-      const res = await fetch('/api/sync.php?codigo=' + encodeURIComponent(R.c), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: cuerpo });
+      const cuerpo = JSON.stringify({ guias: aViajes(G.g) }); if (cuerpo.length > LIM) { estado = '⚠️ Tus viajes ocupan demasiado para guardarlos en el servidor: quedan solo en este aparato. Borra alguno que no uses.'; return; }
+      const res = await fetch(API + '?codigo=' + encodeURIComponent(R.c), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: cuerpo });
       estado = res.ok ? '' : '⚠️ No se han podido guardar en el servidor (' + res.status + '); quedan en este aparato.';
     } catch (e) { estado = '⚠️ Sin conexión con el servidor: los viajes quedan en este aparato.'; } finally { subiendo = false; } }
-  if (SYNC_HT && codigo()) setTimeout(async () => { try { const R = await lee(); if (R && junta(R.g)) programaSubida(); } catch (e) {} }, 1500);
+  if (SYNC() && codigo()) setTimeout(async () => { try { const R = await lee(); if (R && junta(R.g)) programaSubida(); } catch (e) {} }, 1500);
+  // App Mapas: enlazar / desenlazar con el código de Viajes (lo ve Carlos en la pestaña Guía de Viajes)
+  function enganchaCodigo(s) { if (PUB) return; const i = s.querySelector('#gv-cod'), b = s.querySelector('#gv-enl'), d = s.querySelector('#gv-des');
+    if (b) b.onclick = async () => { const c = (i.value || '').trim().toUpperCase(); if (!/^[A-HJ-NP-Z2-9]{7}$/.test(c)) return avisa('El código son 7 letras y números, como sale en Viajes.', 3500);
+      try { window.localStorage.setItem(KCOD, c); } catch (e) { return; } b.disabled = true; b.textContent = 'Comprobando…';
+      try { const R = await lee(); const n = Object.values(R.g).filter(v => !v.borrado).length; junta(R.g); estado = n ? '✅ Traídos ' + n + ' viaje' + (n > 1 ? 's' : '') + ' de Viajes.' : 'En Viajes aún no hay viajes con ese código.'; programaSubida(); }
+      catch (e) { estado = '⚠️ No he podido hablar con historiatotal.es; lo intentaré al guardar.'; } lista(); };
+    if (d) d.onclick = e => { e.preventDefault(); try { window.localStorage.removeItem(KCOD); } catch (x) {} estado = 'Desenlazada: los viajes siguen en este aparato y en Viajes, pero ya no se sincronizan.'; lista(); }; }
 
   /* ---------- estilos ---------- */
   const st = document.createElement('style');
