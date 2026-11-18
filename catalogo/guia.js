@@ -125,13 +125,17 @@
   function ajusta(v) { const n = nDias(v); v.noches = (v.noches || []).slice(0, Math.max(0, n - 1)); while (v.noches.length < n - 1) v.noches.push(null);
     v.dias = v.dias || {}; for (const k of Object.keys(v.dias)) if (+k >= n) delete v.dias[k]; }
 
+  const lugAb = {};   // «Salida y noches» desplegado (por viaje, mientras dure la visita a la página)
   function viaje(id, encuadra) { const v = G.g[id]; if (!v || v.borrado) return lista(); ajusta(v); const n = nDias(v);
     let h = cab(esc(v.nombre), '← Mis viajes');
-    h += '<div class="gv-f"><label>Sales el <input type="date" id="gv-ini" value="' + esc(v.ini || '') + '"></label><label>Vuelves el <input type="date" id="gv-fin" value="' + esc(v.fin || '') + '" min="' + esc(v.ini || '') + '"></label></div>';
+    h += '<div class="gv-f"><label>Sales el <input type="date" id="gv-ini" value="' + esc(v.ini || '') + '"></label><label>Vuelves el <input type="date" id="gv-fin" value="' + esc(v.fin || '') + '" min="' + esc(v.ini || '') + '"></label>';
+    { const tot = n ? n : 1, hay = (v.sal ? 1 : 0) + (v.noches || []).slice(0, Math.max(0, n - 1)).filter(Boolean).length, ab = !!lugAb[id];
+      h += '<button class="sec gv-tl" id="gv-tl" aria-expanded="' + ab + '" title="De dónde sales y dónde duermes cada noche">🛏 Noches ' + (hay < tot ? '<span style="color:#b45309">⚠' + (tot - hay) + '</span>' : '✓') + ' ' + (ab ? '▴' : '▾') + '</button></div>';
+      h += '<div id="gv-lugs"' + (ab ? '' : ' style="display:none"') + '>'; }
     h += '<div class="gv-l"><span class="e">🏠</span><span class="n" data-lug="sal"><b>Sales de</b>' + (v.sal ? esc(v.sal.n) : '<i>toca para decir de dónde</i>') + '</span></div>';
     for (let i = 0; i < n - 1; i++) { const x = v.noches[i], ant = i > 0 ? v.noches[i - 1] : null;
       h += '<div class="gv-l"><span class="e">🛏</span><span class="n" data-lug="' + i + '"><b>Noche ' + (i + 1) + ' · ' + fechaDia(v, i) + '</b>' + (x ? esc(x.n) : '<i>toca para decir dónde duermes</i>') + '</span>' + (!x && ant ? '<button class="gv-ig" data-ig="' + i + '" title="Dormir en el mismo sitio que la noche anterior">= anterior</button>' : '') + '</div>'; }
-    h += '<h3 class="gv-h3">Los días</h3>';
+    h += '</div><h3 class="gv-h3">Los días</h3>';
     if (!n) h += '<p class="sub">Pon las fechas para ver los días.</p>';
     for (let i = 0; i < n; i++) { const t = tramo(v, i), k = ((v.dias || {})[i] || []).length;
       const d = t.tipo === 'x' ? '<i>falta decir ' + (!t.a ? (i === 0 ? 'de dónde sales' : 'dónde duermes la noche ' + i) : (i === n - 1 ? 'de dónde sales' : 'dónde duermes la noche ' + (i + 1))) + '</i>'
@@ -147,6 +151,7 @@
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = lista;
     s.querySelector('#gv-ini').onchange = e => { if (!e.target.value) return; v.ini = e.target.value; if (!v.fin || v.fin < v.ini) v.fin = v.ini; ajusta(v); guarda(v); viaje(id); };
     s.querySelector('#gv-fin').onchange = e => { if (!e.target.value || e.target.value < v.ini) return; v.fin = e.target.value; ajusta(v); guarda(v); viaje(id); };
+    s.querySelector('#gv-tl').onclick = () => { lugAb[id] = !lugAb[id]; const y = sh().scrollTop; viaje(id); sh().scrollTop = y; };
     s.querySelectorAll('[data-lug]').forEach(e => e.onclick = () => lugar(id, e.dataset.lug));
     s.querySelectorAll('[data-ig]').forEach(e => e.onclick = () => { const i = +e.dataset.ig; v.noches[i] = { ...v.noches[i - 1] }; guarda(v); viaje(id, true); });
     s.querySelectorAll('[data-dia]').forEach(e => e.onclick = () => dia(id, +e.dataset.dia, true));
@@ -154,6 +159,24 @@
     { const b = s.querySelector('#gv-bo'); let p = 0; b.onclick = () => { if (ahora() - p > 3000) { p = ahora(); b.textContent = '¿Seguro? Pulsa otra vez'; return; } v.borrado = true; guarda(v); avisa('🗑 Viaje borrado', 2500); lista(); }; } }
 
   // elegir un lugar: buscando una localidad (OpenStreetMap) o con el centro del mapa
+  /* buscador de pueblos propio (catalogo/pueblos.js, de OpenStreetMap): acepta faltas y va antes que tiendas o negocios */
+  let pbP = null, PB = null;
+  const cargaPueblos = () => pbP || (pbP = new Promise(ok => { if (window.PUEBLOS) return ok(); const sc = document.createElement('script'); sc.src = 'catalogo/pueblos.js'; sc.onload = () => ok(); sc.onerror = () => ok(); document.head.appendChild(sc); }));
+  const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  function lev(a, b, max) { if (Math.abs(a.length - b.length) > max) return max + 1; let p = Array.from({ length: b.length + 1 }, (_, k) => k);
+    for (let i = 1; i <= a.length; i++) { const c = [i]; let m = i; for (let j = 1; j <= b.length; j++) { c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); if (c[j] < m) m = c[j]; } if (m > max) return max + 1; p = c; } return p[b.length]; }
+  function buscaPueblos(txt) { const W = window.PUEBLOS; if (!W) return []; if (!PB) PB = W.l.map(x => ({ x, ns: [x[0]].concat(x[5] ? x[5].split('|') : []).map(norm) }));
+    const pal = norm(txt).split(' ').filter(Boolean); if (!pal.length) return []; const pv = W.p.map(norm), o = [];
+    for (const e of PB) { let best = 99;
+      for (let k = pal.length; k >= 1; k--) { const qq = pal.slice(0, k).join(' '), resto = pal.slice(k), tol = qq.length >= 11 ? 3 : qq.length >= 7 ? 2 : qq.length >= 4 ? 1 : 0;
+        let sc = 99; e.ns.forEach((nm, ix) => { let d;
+          if (nm === qq) d = 0; else if (nm.startsWith(qq)) d = 0.5; else if (nm.includes(' ' + qq) || nm.includes(qq)) d = 1.2;
+          else { const a = lev(qq, nm, tol), b = lev(qq, nm.slice(0, qq.length), tol); d = Math.min(a <= tol ? 1 + a : 99, b <= tol ? 1.5 + b : 99); }
+          if (ix) d += 0.3; if (d < sc) sc = d; });
+        if (sc < 99) { const pn = pv[e.x[3]] || ''; for (const w of resto) sc += w.length < 4 ? 0.05 : pn.includes(w) ? -0.4 : 1.5; sc -= 0.25 * (k - 1); best = Math.min(best, sc); } }
+      if (best < 99) o.push({ s: best - e.x[4] * 0.15, e }); }
+    return o.sort((a, b) => a.s - b.s).slice(0, 6).map(({ e }) => ({ n: e.x[0], la: e.x[1], lo: e.x[2], sub: ['pueblo', 'villa', 'ciudad'][e.x[4]] + ' · ' + (W.p[e.x[3]] || '') + (e.x[5] ? ' · ' + e.x[5].split('|')[0] : '') })); }
+
   function lugar(id, cual) { const v = G.g[id], es = cual === 'sal', i = es ? -1 : +cual;
     let h = cab(es ? '🏠 ¿De dónde sales?' : '🛏 ¿Dónde duermes la noche ' + (i + 1) + '?', '← ' + esc(v.nombre));
     h += '<input id="gv-q" type="search" placeholder="Escribe un pueblo o ciudad…" autocomplete="off" class="gv-q"><ul id="gv-r" class="gv-r"></ul>';
@@ -164,11 +187,15 @@
     s.querySelector('#gv-centro').onclick = async () => { const c = map.getCenter(); let nom = c.lat.toFixed(3) + ', ' + c.lng.toFixed(3);
       try { const x = await (await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&accept-language=es&lat=' + c.lat + '&lon=' + c.lng)).json(); const a = x.address || {}; nom = a.village || a.town || a.city || a.municipality || a.hamlet || x.name || nom; } catch (e) {}
       pon({ n: nom, la: +c.lat.toFixed(5), lo: +c.lng.toFixed(5) }); };
-    q.oninput = () => { clearTimeout(t); const txt = q.value.trim(); if (txt.length < 3) { r.innerHTML = ''; return; } r.innerHTML = '<li class="tt">Buscando…</li>'; const k = ++n;
-      t = setTimeout(async () => { try { const x = await (await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=es,pt,fr,ad&limit=6&accept-language=es&q=' + encodeURIComponent(txt))).json(); if (k !== n) return;
-          r._l = x; r.innerHTML = x.length ? x.map((l, j) => { const p = String(l.display_name || '').split(', '); return '<li data-j="' + j + '"><b>' + esc(l.name || p[0]) + '</b><span>' + esc(p.slice(1, 4).join(', ')) + '</span></li>'; }).join('') : '<li class="tt">No encuentro ese sitio. Prueba con otro nombre o usa el centro del mapa.</li>';
-        } catch (e) { if (k === n) r.innerHTML = '<li class="tt">Sin conexión para buscar. Puedes usar el centro del mapa.</li>'; } }, 450); };
-    r.onclick = e => { const li = e.target.closest('li[data-j]'); if (!li) return; const l = r._l[+li.dataset.j]; pon({ n: l.name || String(l.display_name).split(', ')[0], la: +(+l.lat).toFixed(5), lo: +(+l.lon).toFixed(5) }); };
+    const pinta = (L, extra) => { r._l = L; r.innerHTML = L.length ? L.map((l, j) => '<li data-j="' + j + '"><b>' + esc(l.n) + '</b><span>' + esc(l.sub) + '</span></li>').join('') + (extra || '') : (extra || '<li class="tt">No encuentro ese sitio. Prueba con otro nombre o usa el centro del mapa.</li>'); };
+    q.oninput = () => { clearTimeout(t); const txt = q.value.trim(); if (txt.length < 3) { r.innerHTML = ''; return; } const k = ++n;
+      cargaPueblos().then(() => { if (k !== n) return; const loc = buscaPueblos(txt); pinta(loc, '<li class="tt">Buscando más…</li>');
+        t = setTimeout(async () => { let x = []; try { x = await (await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=es,pt,fr,ad&limit=8&accept-language=es&q=' + encodeURIComponent(txt))).json(); } catch (e) {} if (k !== n) return;
+          const lug = l => /^(place|boundary)$/.test(l.category || l.class || '') ? 0 : 1;
+          const W = (x || []).slice().sort((a, b) => lug(a) - lug(b)).map(l => { const p = String(l.display_name || '').split(', '); return { n: l.name || p[0], sub: p.slice(1, 4).join(', '), la: +l.lat, lo: +l.lon }; })
+            .filter(w => !loc.some(o => km(o, w) < 2 && norm(o.n) === norm(w.n)));
+          pinta(loc.concat(W).slice(0, 10)); }, 450); }); };
+    r.onclick = e => { const li = e.target.closest('li[data-j]'); if (!li) return; const l = r._l[+li.dataset.j]; pon({ n: l.n, la: +(+l.la).toFixed(5), lo: +(+l.lo).toFixed(5) }); };
     setTimeout(() => { try { q.focus(); } catch (e) {} }, 250); }
 
   let minE = 4;
@@ -305,7 +332,7 @@
   /* ---------- estilos ---------- */
   const st = document.createElement('style');
   st.textContent = '#guia-tab b{background:#2563eb;color:#fff;border-radius:9px;font:700 11px system-ui;padding:1px 6px;margin-left:2px}'
-    + '.gv-f{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 10px}.gv-f label{font:600 13px system-ui;color:var(--mu);display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px}.gv-f input{font:15px system-ui;padding:7px 8px;border:1px solid #c9ced4;border-radius:8px;color:#1d2125;background:#fff}'
+    + '.gv-f{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 10px}.gv-f label{font:600 13px system-ui;color:var(--mu);display:flex;flex-direction:column;gap:3px;flex:1;min-width:105px}.gv-tl{align-self:flex-end;flex:0 0 auto;padding:8px 10px!important;font:600 13px system-ui!important;white-space:nowrap}.gv-f input{font:15px system-ui;padding:7px 8px;border:1px solid #c9ced4;border-radius:8px;color:#1d2125;background:#fff}'
     + '.gv-l{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--li)}.gv-l .e{font-size:19px;flex:0 0 26px;text-align:center}.gv-l .n{flex:1;cursor:pointer;font-size:14.5px}.gv-l .n b{display:block;font:600 12px system-ui;color:var(--mu)}.gv-l .n i{color:#2563eb;font-style:normal}'
     + '.gv-ig{border:1px solid #c9ced4;background:#fff;border-radius:8px;padding:5px 8px;font:600 12px system-ui;cursor:pointer;color:#1d2125}'
     + '.gv-h3{font:700 15px system-ui;margin:16px 0 4px}.gv-s{display:block;font:400 12.5px system-ui;color:var(--mu);margin-top:2px}.gv-s i{color:#b45309;font-style:normal}.cuad-c.gv-x{border-style:dashed}'
