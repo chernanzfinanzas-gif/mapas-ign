@@ -241,6 +241,20 @@ cambia('<a class="sec" target="_blank" rel="noopener" style="border:1.5px solid 
        '<a class="sec" style="border:1.5px solid #7c2d12;')
 cambia('<a class="sec" target="_blank" rel="noopener" style="background:#7c2d12;',
        '<a class="sec" style="background:#7c2d12;')
+# 18-nov-2026 (texto del chat de Historia): contador de aperturas de historiatotal.es. Cada ficha de un
+# sitio o una ruta que se abre manda {"k":"v:<id>"} a /api/visita.php: una vez por sitio y visita a la
+# página (memoria, no localStorage), solo en historiatotal.es, nunca en pruebas automáticas
+# (navigator.webdriver) y sin que un fallo se note. No guarda nada del usuario.
+# El id es el corto y fijo de esta versión pública (t:3kx9q0a…); Patrimonio no tiene id fijo y usa
+# «o:nombre@lat,lon». Se consulta en historiatotal.es/api/ranking.php?tipo=v
+CUENTA = ("const VISTOS=new Set();\n"
+          "function cuentaVisita(id){ try{ id=String(id||'').replace(/[\"'<>`\\\\]/g,'').trim().slice(0,148); if(!id) return;"
+          " const k='v:'+id; if(VISTOS.has(k)||navigator.webdriver||!/historiatotal\\.es$/.test(location.hostname)) return; VISTOS.add(k);"
+          " fetch('/api/visita.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k}),keepalive:true}).catch(()=>{}); }catch(e){} }\n")
+cambia('function ficha(){ ultFicha=Date.now(); return ficha_.apply(this,arguments); }',
+       CUENTA + 'function ficha(p){ ultFicha=Date.now(); if (p && p[0]) cuentaVisita(p[0]); return ficha_.apply(this,arguments); }')
+cambia('function fichaPat(i){\n  const u = PT[i], x = u[6]||{};',
+       "function fichaPat(i){\n  const u = PT[i], x = u[6]||{}; cuentaVisita('o:'+u[3]+'@'+(+u[0]).toFixed(4)+','+(+u[1]).toFixed(4));")
 cambia('creator="Mapas Carlos"', 'creator="historiatotal.es/viajes"')
 cambia(r'versión (\d+-nov [a-zñ]+)', r'viajes · versión \1', regex=True)
 # cuadernos de viaje: en Viajes se guardan en el aparato del visitante («hk_cuadernos») y se
