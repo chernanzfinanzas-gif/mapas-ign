@@ -1,8 +1,10 @@
 /* GUÍA DE VIAJE (17-nov-2026, idea de Carlos) — catalogo/guia.js
    Pestaña «🧭 Guía»: se crean viajes (los que se quiera). Cada viaje tiene fechas, punto de salida y dónde se duerme cada noche.
    Con eso cada día es de TRASLADO (se duerme en otro sitio) o de BASE (se duerme en el mismo), y la app sugiere:
-     · «De camino»: lo destacado a menos de 15 km de la línea recta del trayecto (la carretera real queda para después);
+     · «De camino»: lo destacado a menos de 10 km del trayecto POR CARRETERA (18-nov: ruta, km y tiempo de un servicio OSRM
+       gratuito; si no responde, se usa la línea recta), repartido a lo largo del camino y sin lo que rodea al punto de salida;
      · «Campamento base»: lo que hay a 10, 25 y 50 km del sitio donde se duerme, por estrellas, y las rutas a pie más cercanas.
+   18-nov: «🎟 Actividades con guía» cerca (catalogo/actividades.js: visitas en todoterreno, astronomía…).
    Lo ya marcado como visto sale apagado. Con «＋» una sugerencia pasa al plan del día.
    Datos: {g:{id:{id,nombre,ini,fin,sal:{n,la,lo},noches:[{n,la,lo}|null],dias:{i:[{id,n,c,la,lo}]},creado,t,borrado?}}}
    Guardado: Viajes → localStorage «hk_guias» + api/sync.php (apartado «guias») con el código del usuario.
@@ -11,7 +13,7 @@
 (function () {
   if (typeof map === 'undefined' || typeof D === 'undefined') return;
   const PUB = !!window.CUAD_PUBLICO, SYNC_HT = PUB && !!window.CUAD_SYNC_HT;
-  const CLAVE = PUB ? 'hk_guias' : 'mapas.guias', LIM = 200 * 1024, ANCHO = 15;
+  const CLAVE = PUB ? 'hk_guias' : 'mapas.guias', LIM = 200 * 1024, ANCHO = 10;
   let G = { g: {} }; try { const v = JSON.parse(window.localStorage.getItem(CLAVE) || 'null'); if (v && v.g) G = v; } catch (e) {}
   const ahora = () => Date.now(), nuevoId = () => ahora().toString(36) + Math.random().toString(36).slice(2, 6);
   const vivos = () => Object.values(G.g).filter(v => !v.borrado).sort((a, b) => (b.ini || '').localeCompare(a.ini || '') || (b.t || 0) - (a.t || 0));
@@ -33,14 +35,49 @@
 
   /* ---------- sugerencias ---------- */
   const est = p => p[8] || 1, visto = id => { try { return typeof hecha === 'function' && !!hecha(id); } catch (e) { return false; } };
-  function deCamino(a, b, minE) {           // puntos a menos de ANCHO km del segmento a–b, ordenados según se avanza
-    const k = Math.cos((a.la + b.la) / 2 * Math.PI / 180), bx = (b.lo - a.lo) * 111.2 * k, by = (b.la - a.la) * 111.2, L2 = bx * bx + by * by, o = [];
+  /* ---------- carretera (18-nov): ruta, km y tiempo entre dos puntos, de un servidor OSRM público ---------- */
+  const SERV = ['https://routing.openstreetmap.de/routed-car/route/v1/driving/', 'https://router.project-osrm.org/route/v1/driving/'], RCL = 'guia.rutas';
+  let RC = {}; try { RC = JSON.parse(window.localStorage.getItem(RCL) || '{}') || {}; } catch (e) { RC = {}; }
+  const rk = (a, b) => [a.la, a.lo, b.la, b.lo].map(x => (+x).toFixed(3)).join(','), enCache = (a, b) => RC[rk(a, b)] || null, pendR = {}, falloR = {};
+  function guardaRC() { const ks = Object.keys(RC).sort((x, y) => (RC[y].t || 0) - (RC[x].t || 0)); ks.slice(40).forEach(k => delete RC[k]); try { window.localStorage.setItem(RCL, JSON.stringify(RC)); } catch (e) {} }
+  function carretera(a, b) { const k = rk(a, b); if (RC[k]) return Promise.resolve(RC[k]); if (pendR[k]) return pendR[k];
+    return pendR[k] = (async () => { for (const base of SERV) { try { const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
+          const res = await fetch(base + a.lo + ',' + a.la + ';' + b.lo + ',' + b.la + '?overview=simplified&geometries=geojson', { signal: ctl.signal }); clearTimeout(tm);
+          if (!res.ok) continue; const d = await res.json(), r = d && d.routes && d.routes[0]; if (!r || !r.geometry) continue;
+          const o = { km: +(r.distance / 1000).toFixed(1), min: Math.round(r.duration / 60), g: r.geometry.coordinates.map(c => [+c[1].toFixed(4), +c[0].toFixed(4)]), t: ahora() };
+          RC[k] = o; guardaRC(); delete falloR[k]; return o; } catch (e) {} }
+        falloR[k] = true; return null; })().finally(() => { delete pendR[k]; }); }
+  const durTxt = m => m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 >= 3 ? ' ' + (Math.round(m % 60 / 5) * 5 || 5) + ' min' : '');
+  const viaTxt = (t) => { const r = enCache(t.a, t.b); return r ? kmTxt(r.km) + ' por carretera · unas ' + durTxt(r.min) : kmTxt(t.km) + ' en línea recta' + (falloR[rk(t.a, t.b)] ? '' : ' <span class="gv-c">· calculando la carretera…</span>'); };
+
+  /* ---------- «De camino»: puntos a menos de ANCHO km del trayecto (la carretera si se conoce; si no, la línea recta) ---------- */
+  function deCamino(a, b, minE, g, sinFin) {       // sinFin: el trayecto acaba en casa (día de vuelta): tampoco se sugiere lo que la rodea
+    const k = Math.cos((a.la + b.la) / 2 * Math.PI / 180), X = lo => (lo - a.lo) * 111.2 * k, Y = la => (la - a.la) * 111.2;
+    const P = (g && g.length > 1 ? g : [[a.la, a.lo], [b.la, b.lo]]).map(q => [X(q[1]), Y(q[0])]), cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const tot = cum[cum.length - 1] || 1, recta = Math.hypot(X(b.lo), Y(b.la));
+    const R0 = Math.max(ANCHO, Math.min(40, recta * 0.15));       // lo que rodea al punto de salida no es «de camino»: es de donde vienes
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const q of P) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+    const o = [];
     for (const p of D.p) { if (p[1] !== 't' && p[1] !== 'n' && p[1] !== 'h') continue; if (est(p) < minE) continue;
-      const px = (p[5] - a.lo) * 111.2 * k, py = (p[4] - a.la) * 111.2; let f = L2 ? (px * bx + py * by) / L2 : 0; f = Math.max(0, Math.min(1, f));
-      const d = Math.hypot(px - f * bx, py - f * by); if (d > ANCHO) continue;
-      if (Math.hypot(px, py) < ANCHO) continue;            // lo que rodea al punto de salida no es «de camino»: es de donde vienes
-      o.push({ p, d, f, kmA: f * Math.sqrt(L2) }); }
+      const px = X(p[5]), py = Y(p[4]); if (px < x0 - ANCHO || px > x1 + ANCHO || py < y0 - ANCHO || py > y1 + ANCHO) continue;
+      if (Math.hypot(px, py) < R0) continue;
+      if (sinFin && Math.hypot(px - X(b.lo), py - Y(b.la)) < R0) continue;
+      let bd = 1e9, bf = 0;
+      for (let i = 1; i < P.length; i++) { const ax = P[i - 1][0], ay = P[i - 1][1], dx = P[i][0] - ax, dy = P[i][1] - ay, l2 = dx * dx + dy * dy; let u = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0; u = Math.max(0, Math.min(1, u));
+        const d = Math.hypot(px - ax - u * dx, py - ay - u * dy); if (d < bd) { bd = d; bf = (cum[i - 1] + u * (cum[i] - cum[i - 1])) / tot; } }
+      if (bd <= ANCHO) o.push({ p, d: bd, f: bf }); }
     return o; }
+  // para que no salga todo amontonado en un extremo: el trayecto se parte en 8 trozos y de cada uno se quedan los 6 mejores
+  function reparte(todo) { const B = 8, POR = 6, cubos = Array.from({ length: B }, () => []);
+    for (const x of todo) cubos[Math.min(B - 1, Math.floor(x.f * B))].push(x);
+    return cubos.flatMap(c => c.sort((x, y) => est(y.p) - est(x.p) || x.d - y.d).slice(0, POR)).sort((x, y) => x.f - y.f); }
+  /* ---------- actividades con guía (catalogo/actividades.js) ---------- */
+  let actP = null;
+  const cargaAct = () => actP || (actP = new Promise(ok => { if (window.ACTIV) return ok(); const sc = document.createElement('script'); sc.src = 'catalogo/actividades.js'; sc.onload = () => ok(); sc.onerror = () => ok(); document.head.appendChild(sc); }));
+  function actCerca(c, R) { const o = []; for (const a of (window.ACTIV || [])) { let m = null; for (const q of (a.sal || [])) { const d = km(c, q); if (!m || d < m.d) m = { d, q }; } if (m && m.d <= R) o.push({ a, d: m.d, q: m.q }); } return o.sort((x, y) => x.d - y.d); }
+  const actHtml = (x, desde) => { const a = x.a; return '<div class="gv-a"><b>' + esc(a.n) + '</b><span>' + esc(a.q) + '</span><span class="m">' + esc(a.emp) + (x.q ? ' · sale de ' + esc(x.q.n) + (desde ? ', a ' + kmTxt(x.d) + ' de ' + esc(desde) : '') : '') + (a.dur ? ' · ' + esc(a.dur) : '') + (a.res ? ' · ' + esc(a.res) : '') + '</span>'
+    + '<span class="m">' + (a.web ? '<a href="' + esc(a.web) + '" target="_blank" rel="noopener">Web y reservas</a>' : '') + (a.tel ? ' · ☎ ' + esc(a.tel) : '') + (a.rev ? ' · datos de ' + esc(a.rev) + ': confírmalos antes de ir' : '') + '</span></div>'; };
   function alrededor(c, minE, R) { const o = [];
     for (const p of D.p) { if (p[1] !== 't' && p[1] !== 'n' && p[1] !== 'h') continue; if (est(p) < minE) continue;
       if (Math.abs(p[4] - c.la) > R / 100 || Math.abs(p[5] - c.lo) > R / 70) continue; const d = km(c, { la: p[4], lo: p[5] }); if (d <= R) o.push({ p, d }); }
@@ -54,7 +91,7 @@
   const chincheta = (t, cls) => L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="gv-ch ' + (cls || '') + '">' + t + '</div>' });
   function pintaMapa(v, dia, encuadra) { capa.clearLayers(); enMapa = v ? v.id : null; if (!v) { map.removeLayer(capa); return; } if (!map.hasLayer(capa)) capa.addTo(map);
     const n = nDias(v), pts = [];
-    for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo === 't') L.polyline([[t.a.la, t.a.lo], [t.b.la, t.b.lo]], { color: i === dia ? '#ea580c' : '#2563eb', weight: i === dia ? 5 : 3, opacity: .85, dashArray: i === dia ? null : '8 7', interactive: false }).addTo(capa); }
+    for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo === 't') L.polyline((enCache(t.a, t.b) || {}).g || [[t.a.la, t.a.lo], [t.b.la, t.b.lo]], { color: i === dia ? '#ea580c' : '#2563eb', weight: i === dia ? 5 : 3, opacity: .85, dashArray: i === dia ? null : '8 7', interactive: false }).addTo(capa); }
     if (v.sal) { L.marker([v.sal.la, v.sal.lo], { icon: chincheta('🏠'), interactive: false, zIndexOffset: 950 }).addTo(capa); pts.push([v.sal.la, v.sal.lo]); }
     (v.noches || []).forEach((x, i) => { if (!x) return; const rep = i > 0 && v.noches[i - 1] && km(v.noches[i - 1], x) < 3; if (!rep) L.marker([x.la, x.lo], { icon: chincheta('🛏<small>' + (i + 1) + '</small>', 'n'), interactive: false, zIndexOffset: 940 }).addTo(capa); pts.push([x.la, x.lo]); });
     if (dia != null) { const t = tramo(v, dia);
@@ -93,10 +130,15 @@
     if (!n) h += '<p class="sub">Pon las fechas para ver los días.</p>';
     for (let i = 0; i < n; i++) { const t = tramo(v, i), k = ((v.dias || {})[i] || []).length;
       const d = t.tipo === 'x' ? '<i>falta decir ' + (!t.a ? (i === 0 ? 'de dónde sales' : 'dónde duermes la noche ' + i) : (i === n - 1 ? 'de dónde sales' : 'dónde duermes la noche ' + (i + 1))) + '</i>'
-        : t.tipo === 'b' ? 'Base en ' + esc(t.a.n) : esc(t.a.n) + ' → ' + esc(t.b.n) + ' · ' + kmTxt(t.km) + ' en línea recta';
+        : t.tipo === 'b' ? 'Base en ' + esc(t.a.n) : esc(t.a.n) + ' → ' + esc(t.b.n) + ' · ' + viaTxt(t);
       h += '<div class="cuad-c' + (t.tipo === 'x' ? ' gv-x' : '') + '"><div class="cuad-h" data-dia="' + i + '"><b>Día ' + (i + 1) + ' · ' + fechaDia(v, i) + '<span class="gv-s">' + d + '</span></b><small>' + (k ? k + (k === 1 ? ' parada' : ' paradas') : '') + '</small><i>▸</i></div></div>'; }
+    { let K = 0, M = 0, todos = true, hay = false; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo !== 't') continue; hay = true; const r = enCache(t.a, t.b); if (r) { K += r.km; M += r.min; } else todos = false; }
+      if (hay && todos) h += '<p class="sub">En total, unos <b>' + kmTxt(K) + '</b> de coche entre etapas y unas <b>' + durTxt(M) + '</b> al volante, sin paradas ni excursiones.</p>'; }
     h += '<div class="btns"><button class="sec" id="gv-ren">✏️ Nombre</button><button class="sec" id="gv-bo">🗑 Borrar viaje</button></div>';
     const s = abreHoja(h); pintaMapa(v, null, encuadra);
+    // las carreteras que falten se piden de una en una; al acabar se repinta (si se sigue en esta pantalla)
+    { const faltan = []; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo === 't' && !enCache(t.a, t.b) && !falloR[rk(t.a, t.b)]) faltan.push(t); }
+      if (faltan.length) (async () => { for (const t of faltan) await carretera(t.a, t.b); const el = document.getElementById('gv-ini'); if (el && enMapa === id && sh().classList.contains('on')) { const y = sh().scrollTop; viaje(id); sh().scrollTop = y; } })(); }
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = lista;
     s.querySelector('#gv-ini').onchange = e => { if (!e.target.value) return; v.ini = e.target.value; if (!v.fin || v.fin < v.ini) v.fin = v.ini; ajusta(v); guarda(v); viaje(id); };
     s.querySelector('#gv-fin').onchange = e => { if (!e.target.value || e.target.value < v.ini) return; v.fin = e.target.value; ajusta(v); guarda(v); viaje(id); };
@@ -129,30 +171,34 @@
     const plan = ((v.dias = v.dias || {})[i] = v.dias[i] || []), enPlan = new Set(plan.map(s => s.id));
     let h = cab('Día ' + (i + 1) + ' · ' + fechaDia(v, i), '← ' + esc(v.nombre));
     if (t.tipo === 'x') { h += '<p class="sub">Para sugerirte algo necesito saber de dónde sales y dónde duermes este día. Vuelve al viaje y complétalo.</p>'; const s = abreHoja(h); pintaMapa(v, i, false); s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id); return; }
-    h += '<p class="gv-t">' + (t.tipo === 'b' ? '🏕 Día de base en <b>' + esc(t.a.n) + '</b>' : '🚗 Traslado: <b>' + esc(t.a.n) + '</b> → <b>' + esc(t.b.n) + '</b> · ' + kmTxt(t.km) + ' en línea recta') + '</p>';
+    const rt = t.tipo === 't' ? enCache(t.a, t.b) : null;
+    h += '<p class="gv-t" id="gv-dia-' + i + '">' + (t.tipo === 'b' ? '🏕 Día de base en <b>' + esc(t.a.n) + '</b>' : '🚗 Traslado: <b>' + esc(t.a.n) + '</b> → <b>' + esc(t.b.n) + '</b> · ' + viaTxt(t)) + '</p>';
     // el plan del día
     h += '<h3 class="gv-h3">Tu plan del día</h3>';
     if (!plan.length) h += '<p class="sub">Vacío. Pulsa «＋» en una sugerencia de abajo, o abre cualquier sitio del mapa y pulsa «🧭 Al viaje».</p>';
     else { h += '<ol class="cuad-i">'; let ant = t.a, tot = 0;
       plan.forEach((s, j) => { const d = km(ant, s); tot += d; ant = s; h += '<li><span class="ic gv-n">' + (j + 1) + '</span><span class="n" data-ir="' + esc(s.id) + '">' + esc(s.n) + '<span>a ' + kmTxt(d) + (j ? ' de la parada anterior' : ' de ' + esc(t.a.n)) + (visto(s.id) ? ' · ✅ ya visto' : '') + '</span></span>' + (j ? '<button class="q" data-su="' + j + '" title="Subir">↑</button>' : '') + '<button class="q" data-qu="' + j + '" title="Quitar del día">✕</button></li>'; });
-      tot += km(ant, t.b || t.a); h += '</ol><p class="sub">Total del día, de parada en parada y hasta ' + esc((t.b || t.a).n) + ': unos <b>' + kmTxt(tot) + '</b> en línea recta (por carretera será más).</p>'; }
+      tot += km(ant, t.b || t.a); h += '</ol><p class="sub">Total del día, de parada en parada y hasta ' + esc((t.b || t.a).n) + ': unos <b>' + kmTxt(tot) + '</b> en línea recta' + (rt ? '. El trayecto directo por carretera son ' + kmTxt(rt.km) + ' y unas ' + durTxt(rt.min) + '; cada parada añade rodeo.' : ' (por carretera será más).') + '</p>'; }
     // sugerencias
     const fila = (x, sub) => { const p = x.p, ya = enPlan.has(p[0]), vi = visto(p[0]); return '<li class="' + (vi ? 'gv-vi' : '') + '"><span class="ic" style="background:' + (CAPAS[p[1]] || CAPAS.t).c + '">' + (p[1] === 'r' ? '🥾' : est(p) + '★') + '</span><span class="n" data-ir="' + esc(p[0]) + '">' + esc(p[2]) + '<span>' + sub + (vi ? ' · ✅ ya visto' : '') + '</span></span><button class="gv-mas' + (ya ? ' ya' : '') + '" data-mas="' + esc(p[0]) + '" title="' + (ya ? 'Ya está en el día' : 'Añadir al día') + '">' + (ya ? '✓' : '＋') + '</button></li>'; };
     const filtro = '<div class="gv-e">Importancia mínima: ' + [5, 4, 3].map(e => '<button data-e="' + e + '" class="' + (minE === e ? 'on' : '') + '">' + e + '★' + (e < 5 ? ' o más' : '') + '</button>').join('') + '</div>';
-    if (t.tipo === 't') { const todo = deCamino(t.a, t.b, minE), tope = 50;
-      // si hay demasiado, se quedan los más importantes (y, a igual importancia, los más pegados al trayecto) y se vuelven a ordenar según se avanza
-      const S = todo.slice().sort((x, y) => est(y.p) - est(x.p) || x.d - y.d).slice(0, tope).sort((x, y) => x.f - y.f);
-      h += '<h3 class="gv-h3">🚗 De camino</h3><p class="sub">Lo que queda a menos de ' + ANCHO + ' km del trayecto, en el orden en que lo vas encontrando.</p>' + filtro;
-      h += S.length ? '<ol class="cuad-i">' + S.map(x => fila(x, 'km ' + Math.round(x.kmA) + ' · a ' + kmTxt(x.d) + ' del trayecto')).join('') + '</ol>' + (todo.length > tope ? '<p class="sub">Hay ' + (todo.length - tope) + ' más de menor importancia que no enseño: sube la importancia mínima para afinar.</p>' : '') : '<p class="sub">No hay nada de esa importancia cerca del trayecto. Prueba a bajar la importancia mínima.</p>';
-      const R = rutasCerca(t.b, 15, 6); if (R.length) h += '<h3 class="gv-h3">🥾 Rutas a pie cerca de ' + esc(t.b.n) + '</h3><ol class="cuad-i">' + R.map(x => fila(x, 'sale a ' + kmTxt(x.d))).join('') + '</ol>';
+    if (t.tipo === 't') { const aCasa = !!(v.sal && km(t.b, v.sal) < 3), todo = deCamino(t.a, t.b, minE, rt && rt.g, aCasa), S = reparte(todo), largo = rt ? rt.km : t.km;
+      h += '<h3 class="gv-h3">🚗 De camino</h3><p class="sub">Lo que queda a menos de ' + ANCHO + ' km ' + (rt ? 'de la carretera' : 'de la línea recta (todavía no tengo la carretera)') + ', repartido a lo largo del camino y en el orden en que lo encuentras. No incluyo lo que rodea a ' + esc(t.a.n) + (aCasa ? ' ni a ' + esc(t.b.n) + ', que es tu punto de partida' : '') + '.</p>' + filtro;
+      h += S.length ? '<ol class="cuad-i">' + S.map(x => fila(x, 'km ' + Math.round(x.f * largo) + ' · a ' + kmTxt(x.d) + (rt ? ' de la carretera' : ' del trayecto'))).join('') + '</ol>' + (todo.length > S.length ? '<p class="sub">Hay ' + (todo.length - S.length) + ' más que no enseño (dejo los 6 mejores de cada tramo): sube la importancia mínima para afinar.</p>' : '') : '<p class="sub">No hay nada de esa importancia cerca del trayecto. Prueba a bajar la importancia mínima.</p>';
+      const R = aCasa ? [] : rutasCerca(t.b, 15, 6); if (R.length) h += '<h3 class="gv-h3">🥾 Rutas a pie cerca de ' + esc(t.b.n) + '</h3><ol class="cuad-i">' + R.map(x => fila(x, 'sale a ' + kmTxt(x.d))).join('') + '</ol>';
     } else { const S = alrededor(t.a, minE, 50), an = [[0, 10], [10, 25], [25, 50]];
       h += '<h3 class="gv-h3">🏕 Alrededor de ' + esc(t.a.n) + '</h3>' + filtro;
       if (!S.length) h += '<p class="sub">No hay nada de esa importancia a menos de 50 km. Prueba a bajar la importancia mínima.</p>';
       for (const [a, b] of an) { const g = S.filter(x => x.d >= a && x.d < b); if (!g.length) continue;
         h += '<div class="visto-mu">' + (a ? 'De ' + a + ' a ' + b + ' km' : 'A menos de ' + b + ' km') + ' · ' + g.length + '</div><ol class="cuad-i">' + g.slice(0, 25).map(x => fila(x, 'a ' + kmTxt(x.d))).join('') + '</ol>' + (g.length > 25 ? '<p class="sub">…y ' + (g.length - 25) + ' más.</p>' : ''); }
       const R = rutasCerca(t.a, 25, 10); if (R.length) h += '<h3 class="gv-h3">🥾 Rutas a pie cerca</h3><ol class="cuad-i">' + R.map(x => fila(x, 'sale a ' + kmTxt(x.d))).join('') + '</ol>'; }
+    { const base = t.tipo === 'b' ? t.a : t.b, A = (t.tipo === 't' && v.sal && km(t.b, v.sal) < 3) ? [] : actCerca(base, 30);
+      if (A.length) h += '<h3 class="gv-h3">🎟 Actividades con guía cerca de ' + esc(base.n) + '</h3>' + A.map(x => actHtml(x, base.n)).join(''); }
     h += '<div class="btns">' + (i > 0 ? '<button class="sec" data-otro="' + (i - 1) + '">← Día ' + i + '</button>' : '') + (i < n - 1 ? '<button class="sec" data-otro="' + (i + 1) + '">Día ' + (i + 2) + ' →</button>' : '') + '</div>';
     const s = abreHoja(h); pintaMapa(v, i, encuadra);
+    const otraVez = () => { if (activo && activo.v === id && activo.d === i && document.getElementById('gv-dia-' + i)) { const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; } };
+    if (t.tipo === 't' && !rt && !falloR[rk(t.a, t.b)]) carretera(t.a, t.b).then(otraVez);
+    if (!window.ACTIV) cargaAct().then(() => { if (window.ACTIV && window.ACTIV.length) otraVez(); });
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id, true);
     s.querySelectorAll('[data-e]').forEach(e => e.onclick = () => { minE = +e.dataset.e; const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; });
     s.querySelectorAll('[data-otro]').forEach(e => e.onclick = () => dia(id, +e.dataset.otro, true));
@@ -173,6 +219,8 @@
     try { const s = sh(); if (p && s.classList.contains('on') && (p[1] === 't' || p[1] === 'n' || p[1] === 'h' || p[1] === 'r')) {
       if (volver && p[0] !== volver.id) volver = null;
       if (volver && !s.querySelector('.gv-volver')) { const w = volver, b = document.createElement('button'); b.className = 'volver gv-volver'; b.textContent = '← Día ' + (w.d + 1) + ' del viaje'; b.onclick = () => { volver = null; dia(w.v, w.d); }; s.insertBefore(b, s.children[1] || null); }
+      if (p[1] === 'n' && window.ACTIV && !s.querySelector('.gv-af')) { const A = (window.ACTIV || []).filter(x => x.z && km({ la: p[4], lo: p[5] }, x.z) <= x.z.r).map(a => ({ a, d: 0, q: (a.sal || [])[0] }));
+        if (A.length) { const d = document.createElement('div'); d.className = 'gv-af'; d.innerHTML = '<h3 class="gv-h3">🎟 Actividades con guía en la zona</h3>' + A.map(x => actHtml(x, '')).join(''); const bb = s.querySelectorAll('.btns'); const ref = bb[bb.length - 1]; if (ref) ref.parentNode.insertBefore(d, ref); else s.appendChild(d); } }
       const a = activo && G.g[activo.v] && !G.g[activo.v].borrado ? activo : null, bs = s.querySelectorAll('.btns'), bt = bs[bs.length - 1];
       if (a && bt && !bt.querySelector('.gv-b')) { const v = G.g[a.v], plan = ((v.dias = v.dias || {})[a.d] = v.dias[a.d] || []), ya = plan.some(x => x.id === p[0]);
         const b = document.createElement('button'); b.className = 'gv-b'; b.textContent = ya ? '🧭 En el día ' + (a.d + 1) + ' de «' + v.nombre + '»' : '🧭 Al día ' + (a.d + 1) + ' de «' + v.nombre + '»';
@@ -224,10 +272,11 @@
     + '.gv-e{font:600 12.5px system-ui;color:var(--mu);display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:6px 0}.gv-e button{border:1px solid #c9ced4;background:#fff;border-radius:14px;padding:4px 9px;font:600 12.5px system-ui;cursor:pointer;color:#1d2125}.gv-e button.on{background:#2563eb;border-color:#2563eb;color:#fff}'
     + '.cuad-i .ic{font:700 11.5px system-ui}.cuad-i .ic.gv-n{background:#ea580c;font-size:13px}.cuad-i li.gv-vi .n{opacity:.5}'
     + '.gv-mas{flex:0 0 32px;height:32px;border:0;border-radius:50%;background:#2563eb;color:#fff;font:700 17px/1 system-ui;cursor:pointer}.gv-mas.ya{background:#16a34a}'
-    + '.btns .gv-b{background:#2563eb}'
+    + '.btns .gv-b{background:#2563eb}.gv-c{color:#b45309;font-size:12px}'
+    + '.gv-a{border:1px solid #f0c98a;background:#fffaf0;border-radius:10px;padding:9px 11px;margin:8px 0}.gv-a b{display:block;font-size:14.5px}.gv-a span{display:block;font-size:13.5px;margin-top:3px}.gv-a span.m{color:var(--mu);font-size:12.5px}.gv-a a{color:#2563eb;font-weight:600}'
     + '.gv-ch{width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 0 0 2.5px #2563eb,0 1px 5px #0007;display:flex;align-items:center;justify-content:center;font-size:15px;position:relative}.gv-ch small{position:absolute;right:-6px;top:-7px;background:#2563eb;color:#fff;border-radius:9px;font:700 10.5px/15px system-ui;min-width:15px;text-align:center;padding:0 2px}'
     + '.gv-ch.p{background:#ea580c;color:#fff;font:800 13px system-ui;box-shadow:0 0 0 2.5px #fff,0 1px 5px #0007}';
   document.head.appendChild(st);
-  pintaPestana();
+  pintaPestana(); setTimeout(cargaAct, 5000);
   window.guiaPanel = lista;
 })();
