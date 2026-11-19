@@ -38,6 +38,47 @@
   function tramo(v, i) { const n = nDias(v), a = i === 0 ? v.sal : (v.noches || [])[i - 1], b = i === n - 1 ? v.sal : (v.noches || [])[i];
     const tipo = !a || !b ? 'x' : km(a, b) < 3 ? 'b' : 't'; return { a: a || null, b: b || null, tipo, km: a && b ? km(a, b) : 0 }; }
 
+  /* ---------- tiempo (19-nov): previsión de Open-Meteo si faltan 15 días o menos; si no, lo normal en esas fechas (media de los 10 últimos años) ---------- */
+  const TK = 'guia.tiempo'; let TC = {}; try { TC = JSON.parse(window.localStorage.getItem(TK) || '{}') || {}; } catch (e) { TC = {}; }
+  const falloT = {}, pendT = {};
+  function guardaTC() { const ks = Object.keys(TC).sort((x, y) => (TC[y].t || 0) - (TC[x].t || 0)); ks.slice(400).forEach(k => delete TC[k]); try { window.localStorage.setItem(TK, JSON.stringify(TC)); } catch (e) {} }
+  const hoyISO = () => { const d = new Date(); return iso(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); };
+  const fDia = (v, i) => iso(ms(v.ini) + i * 86400000);
+  // dónde se mira el tiempo de un día: donde se pasa (base), o donde se llega (traslado), salvo si se vuelve a casa
+  function sitioT(v, i) { const t = tramo(v, i); if (t.tipo === 'x') return null; if (t.tipo === 'b') return t.a; if (v.sal && km(t.b, v.sal) < 3) return t.a; return t.b; }
+  const tk = (p, f) => p.la.toFixed(2) + ',' + p.lo.toFixed(2) + '|' + f;
+  function tiempoDe(p, f) { const x = p && TC[tk(p, f)]; if (!x) return null; if (x.k === 'p' && ahora() - x.t > 3 * 3600e3) return null; if (x.k === 'n' && f <= iso(ms(hoyISO()) + 15 * 86400000)) return null; return x; }
+  const WMO = c => c === 0 ? ['☀️', 'despejado'] : c === 1 ? ['🌤', 'casi despejado'] : c === 2 ? ['⛅', 'nubes y claros'] : c === 3 ? ['☁️', 'cubierto'] : c === 45 || c === 48 ? ['🌫', 'niebla']
+    : c >= 51 && c <= 57 ? ['🌦', 'llovizna'] : c === 61 ? ['🌧', 'lluvia débil'] : c === 63 ? ['🌧', 'lluvia'] : c === 65 ? ['🌧', 'lluvia fuerte'] : c === 66 || c === 67 ? ['🌧', 'lluvia que hiela']
+    : c >= 71 && c <= 77 ? ['🌨', 'nieve'] : c >= 80 && c <= 82 ? ['🌦', 'chubascos'] : c === 85 || c === 86 ? ['🌨', 'chubascos de nieve'] : c >= 95 ? ['⛈', 'tormenta'] : ['🌡', ''];
+  const gr = x => Math.round(x) + '°';
+  function tiempoTxt(x, largo, donde) { if (!x) return ''; const en = donde ? ' en ' + donde : '';
+    if (x.k === 'p') { const w = WMO(x.c); return w[0] + ' ' + gr(x.mx) + ' / ' + gr(x.mn) + (x.pp != null ? ' · 💧' + x.pp + ' %' : '')
+      + (largo ? ' — ' + w[1] + en + (x.mm >= 1 ? ', unos ' + Math.round(x.mm) + ' l/m²' : '') + '. Previsión de Open-Meteo.' : ''); }
+    const ll = x.ll < 0.05 ? 'casi nunca llueve' : 'llueve ' + Math.round(x.ll * 100) + ' % de los días';
+    return '📊 Lo normal' + en + ': ' + gr(x.mx) + ' / ' + gr(x.mn) + ' · ' + ll + (largo ? '. Es la media de los 10 últimos años en estas fechas (Open-Meteo); la previsión de verdad sale cuando falten 15 días.' : ''); }
+  async function pideT(url) { const r = await fetch(url); if (!r.ok) throw new Error('tiempo ' + r.status); return r.json(); }
+  // pide lo que falte del viaje (un aviso por sitio y tipo); devuelve true si ha llegado algo nuevo
+  async function pideTiempo(v) { const n = nDias(v), hoy = hoyISO(), lim = iso(ms(hoy) + 15 * 86400000), G_ = {};
+    for (let i = 0; i < n; i++) { const p = sitioT(v, i), f = fDia(v, i); if (!p || f < hoy || tiempoDe(p, f)) continue;
+      const tipo = f <= lim ? 'p' : 'n', g = p.la.toFixed(2) + ',' + p.lo.toFixed(2) + '|' + tipo;
+      if (falloT[g] && ahora() - falloT[g] < 600e3) continue; (G_[g] = G_[g] || { p, tipo, fs: [] }).fs.push(f); }
+    let nuevo = false;
+    for (const [g, o] of Object.entries(G_)) {
+      if (!pendT[g]) pendT[g] = (async () => { const la = o.p.la.toFixed(3), lo = o.p.lo.toFixed(3), fs = o.fs.slice().sort();
+        try {
+          if (o.tipo === 'p') { const d = await pideT('https://api.open-meteo.com/v1/forecast?latitude=' + la + '&longitude=' + lo + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&timezone=auto&start_date=' + fs[0] + '&end_date=' + fs[fs.length - 1]);
+            const D_ = d.daily || {}; (D_.time || []).forEach((f, j) => { if (D_.temperature_2m_max[j] == null) return; TC[tk(o.p, f)] = { k: 'p', c: D_.weather_code[j], mx: D_.temperature_2m_max[j], mn: D_.temperature_2m_min[j], pp: D_.precipitation_probability_max ? D_.precipitation_probability_max[j] : null, mm: D_.precipitation_sum ? D_.precipitation_sum[j] : 0, t: ahora() }; });
+          } else { const y = new Date().getFullYear(), d = await pideT('https://archive-api.open-meteo.com/v1/archive?latitude=' + la + '&longitude=' + lo + '&start_date=' + (y - 10) + '-01-01&end_date=' + (y - 1) + '-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto');
+            const D_ = d.daily || {}, ix = {}; (D_.time || []).forEach((f, j) => ix[f] = j);
+            for (const f of fs) { const [, m, dd] = f.split('-').map(Number); let a = 0, b = 0, ll = 0, c = 0;
+              for (let yy = y - 10; yy < y; yy++) for (let s = -3; s <= 3; s++) { const j = ix[iso(Date.UTC(yy, m - 1, dd) + s * 86400000)]; if (j == null || D_.temperature_2m_max[j] == null) continue; a += D_.temperature_2m_max[j]; b += D_.temperature_2m_min[j]; ll += (D_.precipitation_sum[j] || 0) >= 1 ? 1 : 0; c++; }
+              if (c) TC[tk(o.p, f)] = { k: 'n', mx: a / c, mn: b / c, ll: ll / c, t: ahora() }; } }
+          guardaTC(); return true;
+        } catch (e) { falloT[g] = ahora(); return false; } finally { delete pendT[g]; } })();
+      if (await pendT[g]) nuevo = true; }
+    return nuevo; }
+
   /* ---------- sugerencias ---------- */
   const est = p => p[8] || 1, visto = id => { try { return typeof hecha === 'function' && !!hecha(id); } catch (e) { return false; } };
   /* ---------- carretera (18-nov): ruta, km y tiempo entre dos puntos, de un servidor OSRM público ---------- */
@@ -154,7 +195,7 @@
     for (let i = 0; i < n; i++) { const t = tramo(v, i), k = ((v.dias || {})[i] || []).length;
       const d = t.tipo === 'x' ? '<i>falta decir ' + (!t.a ? (i === 0 ? 'de dónde sales' : 'dónde duermes la noche ' + i) : (i === n - 1 ? 'de dónde sales' : 'dónde duermes la noche ' + (i + 1))) + '</i>'
         : t.tipo === 'b' ? 'Base en ' + esc(t.a.n) : esc(t.a.n) + ' → ' + esc(t.b.n) + ' · ' + viaTxt(t);
-      h += '<div class="cuad-c' + (t.tipo === 'x' ? ' gv-x' : '') + '"><div class="cuad-h" data-dia="' + i + '"><b>Día ' + (i + 1) + ' · ' + fechaDia(v, i) + '<span class="gv-s">' + d + '</span></b><small>' + (k ? k + (k === 1 ? ' parada' : ' paradas') + (() => { const P = ptsDia(v, i), r = P && enCacheR(P); return r ? '<br>🚗 ' + kmTxt(r.km) + ' · ' + durTxt(r.min) : ''; })() : '') + '</small><i>▸</i></div></div>'; }
+      h += '<div class="cuad-c' + (t.tipo === 'x' ? ' gv-x' : '') + '"><div class="cuad-h" data-dia="' + i + '"><b>Día ' + (i + 1) + ' · ' + fechaDia(v, i) + '<span class="gv-s">' + d + '</span></b><small>' + (k ? k + (k === 1 ? ' parada' : ' paradas') + (() => { const P = ptsDia(v, i), r = P && enCacheR(P); return r ? '<br>🚗 ' + kmTxt(r.km) + ' · ' + durTxt(r.min) : ''; })() : '') + (() => { const x = tiempoDe(sitioT(v, i), fDia(v, i)); return x ? (k ? '<br>' : '') + tiempoTxt(x) : ''; })() + '</small><i>▸</i></div></div>'; }
     { let K = 0, M = 0, todos = true, hay = false; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo !== 't') continue; hay = true; const r = enCache(t.a, t.b); if (r) { K += r.km; M += r.min; } else todos = false; }
       if (hay && todos) h += '<p class="sub">En total, unos <b>' + kmTxt(K) + '</b> de coche entre etapas y unas <b>' + durTxt(M) + '</b> al volante, sin paradas ni excursiones.</p>'; }
     h += '<div class="btns"><button class="sec" id="gv-ren">✏️ Nombre</button><button class="sec" id="gv-bo">🗑 Borrar viaje</button></div>';
@@ -162,6 +203,7 @@
     // las carreteras que falten se piden de una en una; al acabar se repinta (si se sigue en esta pantalla)
     { const faltan = []; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo === 't' && !enCache(t.a, t.b) && !falloR[rk(t.a, t.b)]) faltan.push(t); }
       if (faltan.length) (async () => { for (const t of faltan) await carretera(t.a, t.b); const el = document.getElementById('gv-ini'); if (el && enMapa === id && sh().classList.contains('on')) { const y = sh().scrollTop; viaje(id); sh().scrollTop = y; } })(); }
+    pideTiempo(v).then(nv => { if (nv && enMapa === id && document.getElementById('gv-ini') && sh().classList.contains('on')) { const y = sh().scrollTop; viaje(id); sh().scrollTop = y; } });
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = lista;
     s.querySelector('#gv-ini').onchange = e => { if (!e.target.value) return; v.ini = e.target.value; if (!v.fin || v.fin < v.ini) v.fin = v.ini; ajusta(v); guarda(v); viaje(id); };
     s.querySelector('#gv-fin').onchange = e => { if (!e.target.value || e.target.value < v.ini) return; v.fin = e.target.value; ajusta(v); guarda(v); viaje(id); };
@@ -250,6 +292,7 @@
     if (t.tipo === 'x') { h += '<p class="sub">Para sugerirte algo necesito saber de dónde sales y dónde duermes este día. Vuelve al viaje y complétalo.</p>'; const s = abreHoja(h); pintaMapa(v, i, false); s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id); return; }
     const rt = t.tipo === 't' ? enCache(t.a, t.b) : null, pr = ptsDia(v, i), rr = pr ? enCacheR(pr) : null;
     h += '<p class="gv-t" id="gv-dia-' + i + '">' + (t.tipo === 'b' ? '🏕 Día de base en <b>' + esc(t.a.n) + '</b>' : '🚗 Traslado: <b>' + esc(t.a.n) + '</b> → <b>' + esc(t.b.n) + '</b> · ' + viaTxt(t)) + '</p>';
+    { const p = sitioT(v, i), f = fDia(v, i), x = tiempoDe(p, f); if (p && f >= hoyISO()) h += '<p class="sub gv-tie">' + (x ? tiempoTxt(x, true, esc(p.n)) : '🌡 Mirando el tiempo en ' + esc(p.n) + '…') + '</p>'; }
     // el plan del día
     h += '<h3 class="gv-h3">Tu plan del día</h3>';
     if (!plan.length) h += '<p class="sub">Vacío. Pulsa «＋» en una sugerencia de abajo, o abre cualquier sitio del mapa y pulsa «🧭 Al viaje».</p>';
@@ -279,6 +322,7 @@
     const otraVez = () => { if (activo && activo.v === id && activo.d === i && document.getElementById('gv-dia-' + i)) { const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; } };
     if (t.tipo === 't' && !rt && !falloR[rk(t.a, t.b)]) carretera(t.a, t.b).then(otraVez);
     if (pr && !rr && !falloR[rkR(pr)]) recorrido(pr).then(r => { otraVez(); if (r && enMapa === v.id) pintaMapa(v, i, false); });
+    pideTiempo(v).then(nv => { if (nv) otraVez(); else { const e = document.querySelector('.gv-tie'); if (e && /Mirando/.test(e.textContent)) e.textContent = '🌡 No he podido consultar el tiempo ahora.'; } });
     if (!window.ACTIV) cargaAct().then(() => { if (window.ACTIV && window.ACTIV.length) otraVez(); });
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id, true);
     s.querySelectorAll('[data-e]').forEach(e => e.onclick = () => { minE = +e.dataset.e; const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; });
