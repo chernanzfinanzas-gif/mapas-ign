@@ -1,0 +1,43 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Muestra de posiciones (19-nov)</title>
+<style>
+:root{--bg:#f6f4ee;--pa:#fff;--tx:#1d2125;--mu:#5f6670;--li:#ddd8cc;--ok:#15803d;--mal:#b91c1c;--ns:#6b7280;--ac:#0f766e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:6px 0 4px}p.in{color:var(--mu);margin:4px 0 14px}
+#res{position:sticky;top:0;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--li);z-index:2;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#res b{font-variant-numeric:tabular-nums}#res button{margin-left:auto}
+.c{background:var(--pa);border:1px solid var(--li);border-left:6px solid var(--li);border-radius:10px;padding:12px 14px;margin:12px 0}
+.c.bien{border-left-color:var(--ok)}.c.mal{border-left-color:var(--mal)}.c.nose{border-left-color:var(--ns)}
+.c h2{font-size:17px;margin:0}.c .m{color:var(--mu);font-size:14px}.c .d{font-size:14.5px;margin:6px 0 10px}
+.f{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+a.b,button{font:600 14px system-ui;border-radius:8px;padding:8px 12px;border:1px solid #c9ced4;background:#fff;color:var(--tx);cursor:pointer;text-decoration:none}
+a.b{background:var(--ac);border-color:var(--ac);color:#fff}a.b.s{background:#fff;color:var(--ac)}
+.v{margin-left:auto;display:flex;gap:6px}.v button.on.bien{background:var(--ok);border-color:var(--ok);color:#fff}.v button.on.mal{background:var(--mal);border-color:var(--mal);color:#fff}.v button.on.nose{background:var(--ns);border-color:var(--ns);color:#fff}
+input.n{width:100%;margin-top:8px;padding:7px 9px;border:1px solid #d6d3cb;border-radius:8px;font:14px system-ui;display:none}.c.mal input.n{display:block}
+@media(max-width:560px){.v{margin-left:0;width:100%}.v button{flex:1}}
+</style></head><body><main>
+<h1>¿Está cada sitio donde debe?</h1>
+<p class="in">10 sitios de Naturaleza de 1 a 3★ elegidos al azar entre los 362 que no pude contrastar. Abre el mapa de cada uno (el marcador es donde lo tiene el catálogo) y marca <b>Bien</b> si está en su sitio o a menos de 1 km, <b>Mal</b> si no, o <b>No sé</b>. Al acabar pulsa «Copiar resultado» y pégamelo en el chat.</p>
+<div id="res"><span>Bien <b id="nb">0</b></span><span>Mal <b id="nm">0</b></span><span>No sé <b id="nn">0</b></span><span>Sin mirar <b id="ns">10</b></span><button id="cp">Copiar resultado</button></div>
+<div id="l"></div></main>
+<script>
+const D=[["n:monumento-natural-quejigo-del-amo-o-del-carbon--jaen", "Monumento Natural Quejigo del Amo o del Carbón", "monumento_natural", 37.9667, -3.0167, "La Iruela", "Monumento natural en La Iruela (Jaén)"], ["n:nacedero-del-rio-zarpia--alava", "Nacedero del río Zarpia", "cascada_nacimiento", 42.7924, -2.3157, "Valle de Arana (Kontrasta)", "Cascada o nacimiento en Valle de Arana (Kontrasta) (Álava)"], ["n:castillo-de-arlekia-y-fabrica-de-orbaizeta--navarra", "Castillo de Arlekia desde la Fábrica de Armas de Orbaizeta", "mirador", 43.00884, -1.22681, "Orbaizeta", "Ruta circular de 11,1 km en Orbaizeta (Navarra)"], ["n:monumento-natural-isla-de-terreros-e-isla-negra--almeria", "Monumento Natural Isla de Terreros e Isla Negra", "monumento_natural", 37.4, -1.6667, "Pulpí", "Monumento natural en Pulpí (Almería)"], ["n:pinares-de-riopar-pino-salgareno-endemico--albacete", "Pinares de Riópar (pino salgareño endémico)", "bosque_singular", 38.47, -2.43, "Riópar", "Masas de pino salgareño (Pinus nigra subsp"], ["n:monumento-natural-acebuches-del-rocio--huelva", "Monumento Natural Acebuches del Rocío", "monumento_natural", 37.1333, -6.4833, "Almonte", "Monumento natural en Almonte (Huelva)"], ["n:monumento-natural-de-los-mallos-de-riglos-aguero-y-pena-rueba--huesca", "Monumento Natural de los Mallos de Riglos, Agüero y Peña Rueba", "monumento_natural", 42.3464, -0.7222, "Las Peñas de Riglos", "Monumento natural en Las Peñas de Riglos (Huesca)"], ["n:canon-de-anisclo-y-ermita-de-san-urbez--huesca", "Cañón de Añisclo y ermita de San Úrbez", "garganta_desfiladero", 42.58333, 0.08333, "Puértolas", "Garganta o desfiladero en Puértolas (Huesca)"], ["n:reserva-natural-de-los-sotos-del-ebro-en-alfaro--la-rioja", "Reserva Natural de los Sotos del Ebro en Alfaro", "humedal_tablas", 42.175, -1.75, "Alfaro", "Ruta circular de 7 km en Alfaro (La Rioja)"], ["n:monumento-natural-los-organos-de-despenaperros--jaen", "Monumento Natural Los Órganos de Despeñaperros", "monumento_natural", 38.3833, -3.5167, "Santa Elena", "Monumento natural en Santa Elena (Jaén)"]];
+const K='muestra_pos_19nov'; let R={}; try{R=JSON.parse(localStorage.getItem(K)||'{}')||{}}catch(e){R={}}
+const TP={formacion_rocosa:'formación rocosa',cueva_caverna:'cueva',cascada_nacimiento:'cascada o nacimiento',ibon_circo_glaciar:'ibón o laguna glaciar',monumento_natural:'monumento natural',mirador:'mirador',garganta_desfiladero:'garganta',bosque_singular:'bosque',embalse_recreativo:'embalse'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function guarda(){try{localStorage.setItem(K,JSON.stringify(R))}catch(e){}}
+function pinta(){const L=document.getElementById('l');L.innerHTML=D.map((p,i)=>{const r=R[p[0]]||{},v=r.v||'';
+ return '<div class="c '+v+'"><h2>'+(i+1)+'. '+esc(p[1])+'</h2><div class="m">'+esc(TP[p[2]]||p[2])+' · '+esc(p[5])+'</div><div class="d">'+esc(p[6])+'</div><div class="f">'
+ +'<a class="b" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat='+p[3]+'&mlon='+p[4]+'#map=15/'+p[3]+'/'+p[4]+'">Abrir mapa</a>'
+ +'<a class="b s" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+p[3]+','+p[4]+'">Google Maps</a>'
+ +'<span class="v">'+[['bien','Bien'],['mal','Mal'],['nose','No sé']].map(o=>'<button class="'+o[0]+(v===o[0]?' on':'')+'" onclick="pon('+i+',\''+o[0]+'\')">'+o[1]+'</button>').join('')+'</span></div>'
+ +'<input class="n" placeholder="Opcional: dónde está de verdad (un nombre o unas coordenadas)" value="'+esc(r.n||'')+'" oninput="nota('+i+',this.value)"></div>'}).join('');cuenta();}
+function cuenta(){const c={bien:0,mal:0,nose:0};D.forEach(p=>{const v=(R[p[0]]||{}).v;if(v)c[v]++});nb.textContent=c.bien;nm.textContent=c.mal;nn.textContent=c.nose;ns.textContent=D.length-c.bien-c.mal-c.nose;}
+function pon(i,v){const id=D[i][0],r=R[id]||{};r.v=r.v===v?'':v;R[id]=r;guarda();pinta();}
+function nota(i,t){const id=D[i][0],r=R[id]||{};r.n=t;R[id]=r;guarda();}
+document.getElementById('cp').onclick=function(){const t='Muestra de posiciones (19-nov)\n'+D.map((p,i)=>{const r=R[p[0]]||{};return (i+1)+'. '+p[1]+': '+({bien:'BIEN',mal:'MAL',nose:'NO SÉ'}[r.v]||'sin mirar')+(r.v==='mal'&&r.n?' — '+r.n:'')}).join('\n');
+ const fin=()=>{this.textContent='Copiado ✓';setTimeout(()=>this.textContent='Copiar resultado',2000)};
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(fin,()=>prompt('Copia este texto:',t));else prompt('Copia este texto:',t);};
+pinta();
+</script></body></html>
