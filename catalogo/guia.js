@@ -130,7 +130,9 @@
     let h = cab(esc(v.nombre), '← Mis viajes');
     h += '<div class="gv-f"><label>Sales el <input type="date" id="gv-ini" value="' + esc(v.ini || '') + '"></label><label>Vuelves el <input type="date" id="gv-fin" value="' + esc(v.fin || '') + '" min="' + esc(v.ini || '') + '"></label>';
     { const tot = n ? n : 1, hay = (v.sal ? 1 : 0) + (v.noches || []).slice(0, Math.max(0, n - 1)).filter(Boolean).length, ab = !!lugAb[id];
-      h += '<button class="sec gv-tl" id="gv-tl" aria-expanded="' + ab + '" title="De dónde sales y dónde duermes cada noche">🛏 Noches ' + (hay < tot ? '<span style="color:#b45309">⚠' + (tot - hay) + '</span>' : '✓') + ' ' + (ab ? '▴' : '▾') + '</button></div>';
+      h += '<button class="sec gv-tl" id="gv-tl" aria-expanded="' + ab + '" title="De dónde sales y dónde duermes cada noche">🛏 Destinos ' + (hay < tot ? '<span style="color:#b45309">⚠' + (tot - hay) + '</span>' : '✓') + ' ' + (ab ? '▴' : '▾') + '</button></div>';
+      h += '<p class="sub gv-tlh" id="gv-tlh" style="margin:-4px 0 8px;cursor:pointer">' + (ab ? 'Toca cada línea para poner de dónde sales y dónde duermes cada noche. «🛏 Destinos ▴» lo vuelve a plegar.'
+        : (hay < tot ? '👉 Despliega <b>«🛏 Destinos»</b> para poner de dónde sales y dónde duermes cada noche' + (hay ? '' : ': sin eso no puedo sugerirte nada') + '.' : 'De dónde sales y dónde duermes: en <b>«🛏 Destinos»</b>.')) + '</p>';
       h += '<div id="gv-lugs"' + (ab ? '' : ' style="display:none"') + '>'; }
     h += '<div class="gv-l"><span class="e">🏠</span><span class="n" data-lug="sal"><b>Sales de</b>' + (v.sal ? esc(v.sal.n) : '<i>toca para decir de dónde</i>') + '</span></div>';
     for (let i = 0; i < n - 1; i++) { const x = v.noches[i], ant = i > 0 ? v.noches[i - 1] : null;
@@ -151,10 +153,10 @@
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = lista;
     s.querySelector('#gv-ini').onchange = e => { if (!e.target.value) return; v.ini = e.target.value; if (!v.fin || v.fin < v.ini) v.fin = v.ini; ajusta(v); guarda(v); viaje(id); };
     s.querySelector('#gv-fin').onchange = e => { if (!e.target.value || e.target.value < v.ini) return; v.fin = e.target.value; ajusta(v); guarda(v); viaje(id); };
-    s.querySelector('#gv-tl').onclick = () => { lugAb[id] = !lugAb[id]; const y = sh().scrollTop; viaje(id); sh().scrollTop = y; };
+    s.querySelector('#gv-tl').onclick = s.querySelector('#gv-tlh').onclick = () => { lugAb[id] = !lugAb[id]; const y = sh().scrollTop; viaje(id); sh().scrollTop = y; };
     s.querySelectorAll('[data-lug]').forEach(e => e.onclick = () => lugar(id, e.dataset.lug));
     s.querySelectorAll('[data-ig]').forEach(e => e.onclick = () => { const i = +e.dataset.ig; v.noches[i] = { ...v.noches[i - 1] }; guarda(v); viaje(id, true); });
-    s.querySelectorAll('[data-dia]').forEach(e => e.onclick = () => dia(id, +e.dataset.dia, true));
+    s.querySelectorAll('[data-dia]').forEach(e => e.onclick = () => { const i = +e.dataset.dia; if (tramo(v, i).tipo === 'x') { lugAb[id] = true; viaje(id); sh().scrollTop = 0; avisa('Primero di de dónde sales y dónde duermes', 2500); return; } dia(id, i, true); });
     s.querySelector('#gv-ren').onclick = () => { const x = prompt('Nombre del viaje', v.nombre); if (x && x.trim()) { v.nombre = x.trim().slice(0, 80); guarda(v); viaje(id); } };
     { const b = s.querySelector('#gv-bo'); let p = 0; b.onclick = () => { if (ahora() - p > 3000) { p = ahora(); b.textContent = '¿Seguro? Pulsa otra vez'; return; } v.borrado = true; guarda(v); avisa('🗑 Viaje borrado', 2500); lista(); }; } }
 
@@ -177,16 +179,7 @@
       if (best < 99) o.push({ s: best - e.x[4] * 0.15, e }); }
     return o.sort((a, b) => a.s - b.s).slice(0, 6).map(({ e }) => ({ n: e.x[0], la: e.x[1], lo: e.x[2], sub: ['pueblo', 'villa', 'ciudad'][e.x[4]] + ' · ' + (W.p[e.x[3]] || '') + (e.x[5] ? ' · ' + e.x[5].split('|')[0] : '') })); }
 
-  function lugar(id, cual) { const v = G.g[id], es = cual === 'sal', i = es ? -1 : +cual;
-    let h = cab(es ? '🏠 ¿De dónde sales?' : '🛏 ¿Dónde duermes la noche ' + (i + 1) + '?', '← ' + esc(v.nombre));
-    h += '<input id="gv-q" type="search" placeholder="Escribe un pueblo o ciudad…" autocomplete="off" class="gv-q"><ul id="gv-r" class="gv-r"></ul>';
-    h += '<div class="btns"><button class="sec" id="gv-centro">📍 Usar el centro del mapa</button></div><p class="sub">Si mueves el mapa hasta el sitio y pulsas «Usar el centro del mapa», se queda ese punto.</p>';
-    const s = abreHoja(h), q = s.querySelector('#gv-q'), r = s.querySelector('#gv-r'); let t = null, n = 0;
-    const pon = x => { if (es) v.sal = x; else v.noches[i] = x; guarda(v); viaje(id, true); };
-    s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id);
-    s.querySelector('#gv-centro').onclick = async () => { const c = map.getCenter(); let nom = c.lat.toFixed(3) + ', ' + c.lng.toFixed(3);
-      try { const x = await (await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&accept-language=es&lat=' + c.lat + '&lon=' + c.lng)).json(); const a = x.address || {}; nom = a.village || a.town || a.city || a.municipality || a.hamlet || x.name || nom; } catch (e) {}
-      pon({ n: nom, la: +c.lat.toFixed(5), lo: +c.lng.toFixed(5) }); };
+  function buscador(q, r, elige) { let t = null, n = 0;
     const pinta = (L, extra) => { r._l = L; r.innerHTML = L.length ? L.map((l, j) => '<li data-j="' + j + '"><b>' + esc(l.n) + '</b><span>' + esc(l.sub) + '</span></li>').join('') + (extra || '') : (extra || '<li class="tt">No encuentro ese sitio. Prueba con otro nombre o usa el centro del mapa.</li>'); };
     q.oninput = () => { clearTimeout(t); const txt = q.value.trim(); if (txt.length < 3) { r.innerHTML = ''; return; } const k = ++n;
       cargaPueblos().then(() => { if (k !== n) return; const loc = buscaPueblos(txt); pinta(loc, '<li class="tt">Buscando más…</li>');
@@ -195,7 +188,47 @@
           const W = (x || []).slice().sort((a, b) => lug(a) - lug(b)).map(l => { const p = String(l.display_name || '').split(', '); return { n: l.name || p[0], sub: p.slice(1, 4).join(', '), la: +l.lat, lo: +l.lon }; })
             .filter(w => !loc.some(o => km(o, w) < 2 && norm(o.n) === norm(w.n)));
           pinta(loc.concat(W).slice(0, 10)); }, 450); }); };
-    r.onclick = e => { const li = e.target.closest('li[data-j]'); if (!li) return; const l = r._l[+li.dataset.j]; pon({ n: l.n, la: +(+l.la).toFixed(5), lo: +(+l.lo).toFixed(5) }); };
+    r.onclick = e => { const li = e.target.closest('li[data-j]'); if (!li) return; elige(r._l[+li.dataset.j]); }; }
+  function ponLugar(id, cual, x) { const v = G.g[id]; if (!v) return; if (cual === 'sal') v.sal = x; else v.noches[+cual] = x; finLugar(); lugAb[id] = true; guarda(v); viaje(id, true); }
+  /* elegir sitio tocando el mapa (o un sitio del catálogo) */
+  let ML = null, mlMk = null;
+  const mlTxt = () => { const v = ML && G.g[ML.id]; return !v ? '' : ML.cual === 'sal' ? '🏠 Salgo de aquí' : '🛏 Dormir aquí · noche ' + (+ML.cual + 1); };
+  function finLugar() { ML = null; const b = document.getElementById('gv-ml'); if (b) b.remove(); if (mlMk) { try { map.removeLayer(mlMk); } catch (e) {} mlMk = null; } }
+  function enMapaLugar(id, cual) { ML = { id, cual }; const s = sh(); s.classList.remove('on');
+    let b = document.getElementById('gv-ml'); if (!b) { b = document.createElement('div'); b.id = 'gv-ml'; document.body.appendChild(b); }
+    b.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:3000;background:#1d4ed8;color:#fff;border-radius:12px;padding:9px 12px;font:600 14px system-ui;box-shadow:0 4px 14px rgba(0,0,0,.3);width:min(420px,92vw);box-sizing:border-box';
+    b.innerHTML = '<div style="display:flex;gap:10px;align-items:center;justify-content:space-between"><span>' + (cual === 'sal' ? 'Toca en el mapa el sitio de donde sales, o búscalo' : 'Toca en el mapa dónde duermes la noche ' + (+cual + 1) + ', o búscalo') + '</span><button id="gv-mlx" style="background:#fff;color:#1d4ed8;border:0;border-radius:8px;padding:5px 9px;font:600 13px system-ui">Cancelar</button></div>'
+      + '<input id="gv-mlq" type="search" placeholder="Buscar pueblo o ciudad…" autocomplete="off" class="gv-q" style="margin:8px 0 0;width:100%;box-sizing:border-box;color:#1d2125"><ul id="gv-mlr" class="gv-r" style="background:#fff;color:#1d2125;border-radius:8px;margin:4px 0 0;max-height:40vh;overflow:auto"></ul>';
+    b.querySelector('#gv-mlx').onclick = () => { finLugar(); lugar(id, cual); };
+    const q = b.querySelector('#gv-mlq'), r = b.querySelector('#gv-mlr');
+    buscador(q, r, l => { r.innerHTML = ''; q.value = ''; q.blur(); map.setView([+l.la, +l.lo], Math.max(map.getZoom(), 12), { animate: false }); tarjetaLugar(+l.la, +l.lo, l.n, l.sub); }); }
+  function pueblo(la, lo) { const W = window.PUEBLOS; if (!W) return null; let m = null; for (const x of W.l) { const d = km({ la, lo }, { la: x[1], lo: x[2] }); if (d < 4 && (!m || d < m.d)) m = { d, x }; } return m && { n: m.x[0], sub: (W.p[m.x[3]] || ''), d: m.d }; }
+  function tarjetaLugar(la, lo, nom, sub0) { if (!ML) return; const { id, cual } = ML;
+    if (mlMk) { try { map.removeLayer(mlMk); } catch (e) {} } mlMk = L.circleMarker([la, lo], { radius: 9, color: '#1d4ed8', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(map);
+    const banda = x => { const b = document.getElementById('gv-ml'); if (b) b.style.display = x ? '' : 'none'; };
+    const pinta = (n, sub) => { banda(false); const s = abreHoja('<button class="x" id="gv-x">✕</button><h2>📍 ' + esc(n) + '</h2><p class="sub">' + esc(sub || '') + '</p><div class="btns"><button id="gv-mlok">' + mlTxt() + '</button><button class="sec" id="gv-mlotro">Tocar otro sitio</button></div>');
+      s.querySelector('#gv-x').onclick = () => { finLugar(); lugar(id, cual); };
+      s.querySelector('#gv-mlok').onclick = () => ponLugar(id, cual, { n, la: +la.toFixed(5), lo: +lo.toFixed(5) });
+      s.querySelector('#gv-mlotro').onclick = () => { if (mlMk) { try { map.removeLayer(mlMk); } catch (e) {} mlMk = null; } sh().classList.remove('on'); banda(true); }; };
+    if (nom) return pinta(nom, sub0 || '');
+    cargaPueblos().then(async () => { if (!ML) return; const p = pueblo(la, lo); if (p) return pinta(p.n, (p.d < 0.6 ? '' : 'a ' + kmTxt(p.d) + ' del pueblo · ') + p.sub);
+      pinta('Buscando el nombre…', ''); let n = la.toFixed(3) + ', ' + lo.toFixed(3), sub = '';
+      try { const x = await (await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&accept-language=es&lat=' + la + '&lon=' + lo)).json(); const a = x.address || {}; n = a.village || a.town || a.city || a.municipality || a.hamlet || x.name || n; sub = [a.province || a.state || '', a.country && a.country !== 'España' ? a.country : ''].filter(Boolean).join(', '); } catch (e) {}
+      if (ML) pinta(n, sub); }); }
+  map.on('click', e => { if (ML) setTimeout(() => tarjetaLugar(e.latlng.lat, e.latlng.lng), 0); });
+
+  function lugar(id, cual) { const v = G.g[id], es = cual === 'sal', i = es ? -1 : +cual;
+    let h = cab(es ? '🏠 ¿De dónde sales?' : '🛏 ¿Dónde duermes la noche ' + (i + 1) + '?', '← ' + esc(v.nombre));
+    h += '<input id="gv-q" type="search" placeholder="Escribe un pueblo o ciudad…" autocomplete="off" class="gv-q"><ul id="gv-r" class="gv-r"></ul>';
+    h += '<div class="btns"><button id="gv-enmapa">🗺 Elegir en el mapa</button><button class="sec" id="gv-centro">📍 Usar el centro del mapa</button></div><p class="sub">«Elegir en el mapa» te lleva al mapa: toca el pueblo o un sitio del catálogo y pulsa «' + (es ? '🏠 Salgo de aquí' : '🛏 Dormir aquí') + '».</p>';
+    const s = abreHoja(h), q = s.querySelector('#gv-q'), r = s.querySelector('#gv-r');
+    const pon = x => ponLugar(id, cual, x);
+    s.querySelector('#gv-enmapa').onclick = () => enMapaLugar(id, cual);
+    s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id);
+    s.querySelector('#gv-centro').onclick = async () => { const c = map.getCenter(); let nom = c.lat.toFixed(3) + ', ' + c.lng.toFixed(3);
+      try { const x = await (await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&accept-language=es&lat=' + c.lat + '&lon=' + c.lng)).json(); const a = x.address || {}; nom = a.village || a.town || a.city || a.municipality || a.hamlet || x.name || nom; } catch (e) {}
+      pon({ n: nom, la: +c.lat.toFixed(5), lo: +c.lng.toFixed(5) }); };
+    buscador(q, r, l => pon({ n: l.n, la: +(+l.la).toFixed(5), lo: +(+l.lo).toFixed(5) }));
     setTimeout(() => { try { q.focus(); } catch (e) {} }, 250); }
 
   let minE = 4;
@@ -252,6 +285,8 @@
       if (volver && !s.querySelector('.gv-volver')) { const w = volver, b = document.createElement('button'); b.className = 'volver gv-volver'; b.textContent = '← Día ' + (w.d + 1) + ' del viaje'; b.onclick = () => { volver = null; dia(w.v, w.d); sh().scrollTop = w.y || 0; }; s.insertBefore(b, s.children[1] || null); }
       if (p[1] === 'n' && window.ACTIV && !s.querySelector('.gv-af')) { const A = (window.ACTIV || []).filter(x => x.z && km({ la: p[4], lo: p[5] }, x.z) <= x.z.r).map(a => ({ a, d: 0, q: (a.sal || [])[0] }));
         if (A.length) { const d = document.createElement('div'); d.className = 'gv-af'; d.innerHTML = '<h3 class="gv-h3">🎟 Actividades con guía en la zona</h3>' + A.map(x => actHtml(x, '')).join(''); const bb = s.querySelectorAll('.btns'); const ref = bb[bb.length - 1]; if (ref) ref.parentNode.insertBefore(d, ref); else s.appendChild(d); } }
+      if (ML && G.g[ML.id] && !s.querySelector('.gv-ml')) { const w = ML, b = document.createElement('button'); b.className = 'gv-ml'; b.textContent = mlTxt(); b.onclick = () => ponLugar(w.id, w.cual, { n: p[2], la: +(+p[4]).toFixed(5), lo: +(+p[5]).toFixed(5) });
+        const bb = s.querySelectorAll('.btns'), r0 = bb[bb.length - 1]; if (r0) r0.insertBefore(b, r0.firstChild); else s.appendChild(b); }
       const a = activo && G.g[activo.v] && !G.g[activo.v].borrado ? activo : null, bs = s.querySelectorAll('.btns'), bt = bs[bs.length - 1];
       if (a && bt && !bt.querySelector('.gv-b')) { const v = G.g[a.v], plan = ((v.dias = v.dias || {})[a.d] = v.dias[a.d] || []), ya = plan.some(x => x.id === p[0]);
         const b = document.createElement('button'); b.className = 'gv-b'; b.textContent = ya ? '🧭 En el día ' + (a.d + 1) + ' de «' + v.nombre + '»' : '🧭 Al día ' + (a.d + 1) + ' de «' + v.nombre + '»';
