@@ -44,7 +44,7 @@
   const SERV = ['https://routing.openstreetmap.de/routed-car/route/v1/driving/', 'https://router.project-osrm.org/route/v1/driving/'], RCL = 'guia.rutas';
   let RC = {}; try { RC = JSON.parse(window.localStorage.getItem(RCL) || '{}') || {}; } catch (e) { RC = {}; }
   const rk = (a, b) => [a.la, a.lo, b.la, b.lo].map(x => (+x).toFixed(3)).join(','), enCache = (a, b) => RC[rk(a, b)] || null, pendR = {}, falloR = {};
-  function guardaRC() { const ks = Object.keys(RC).sort((x, y) => (RC[y].t || 0) - (RC[x].t || 0)); ks.slice(40).forEach(k => delete RC[k]); try { window.localStorage.setItem(RCL, JSON.stringify(RC)); } catch (e) {} }
+  function guardaRC() { const ks = Object.keys(RC).sort((x, y) => (RC[y].t || 0) - (RC[x].t || 0)); ks.slice(60).forEach(k => delete RC[k]); try { window.localStorage.setItem(RCL, JSON.stringify(RC)); } catch (e) {} }
   function carretera(a, b) { const k = rk(a, b); if (RC[k]) return Promise.resolve(RC[k]); if (pendR[k]) return pendR[k];
     return pendR[k] = (async () => { for (const base of SERV) { try { const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
           const res = await fetch(base + a.lo + ',' + a.la + ';' + b.lo + ',' + b.la + '?overview=simplified&geometries=geojson', { signal: ctl.signal }); clearTimeout(tm);
@@ -52,6 +52,16 @@
           const o = { km: +(r.distance / 1000).toFixed(1), min: Math.round(r.duration / 60), g: r.geometry.coordinates.map(c => [+c[1].toFixed(4), +c[0].toFixed(4)]), t: ahora() };
           RC[k] = o; guardaRC(); delete falloR[k]; return o; } catch (e) {} }
         falloR[k] = true; return null; })().finally(() => { delete pendR[k]; }); }
+  /* recorrido del día en coche, pasando por las paradas en orden (19-nov): una sola petición con todos los puntos */
+  const rkR = P => 'R:' + P.map(p => (+p.la).toFixed(3) + ',' + (+p.lo).toFixed(3)).join(';'), enCacheR = P => RC[rkR(P)] || null;
+  function recorrido(P) { const k = rkR(P); if (RC[k]) return Promise.resolve(RC[k]); if (pendR[k]) return pendR[k];
+    return pendR[k] = (async () => { for (const base of SERV) { try { const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 15000);
+          const res = await fetch(base + P.map(p => (+p.lo) + ',' + (+p.la)).join(';') + '?overview=simplified&geometries=geojson', { signal: ctl.signal }); clearTimeout(tm);
+          if (!res.ok) continue; const d = await res.json(), r = d && d.routes && d.routes[0]; if (!r || !r.geometry || !r.legs) continue;
+          const o = { km: +(r.distance / 1000).toFixed(1), min: Math.round(r.duration / 60), g: r.geometry.coordinates.map(c => [+c[1].toFixed(4), +c[0].toFixed(4)]), legs: r.legs.map(l => ({ km: +(l.distance / 1000).toFixed(1), min: Math.round(l.duration / 60) })), t: ahora() };
+          RC[k] = o; guardaRC(); delete falloR[k]; return o; } catch (e) {} }
+        falloR[k] = true; return null; })().finally(() => { delete pendR[k]; }); }
+  const ptsDia = (v, i) => { const t = tramo(v, i), P = (v.dias || {})[i] || []; return t.tipo === 'x' || !P.length ? null : [t.a].concat(P, [t.b || t.a]); };
   const durTxt = m => m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 >= 3 ? ' ' + (Math.round(m % 60 / 5) * 5 || 5) + ' min' : '');
   const viaTxt = (t) => { const r = enCache(t.a, t.b); return r ? kmTxt(r.km) + ' por carretera · unas ' + durTxt(r.min) : kmTxt(t.km) + ' en línea recta' + (falloR[rk(t.a, t.b)] ? '' : ' <span class="gv-c">· calculando la carretera…</span>'); };
 
@@ -96,7 +106,9 @@
   const chincheta = (t, cls) => L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="gv-ch ' + (cls || '') + '">' + t + '</div>' });
   function pintaMapa(v, dia, encuadra) { capa.clearLayers(); enMapa = v ? v.id : null; if (!v) { map.removeLayer(capa); return; } if (!map.hasLayer(capa)) capa.addTo(map);
     const n = nDias(v), pts = [];
-    for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo === 't') L.polyline((enCache(t.a, t.b) || {}).g || [[t.a.la, t.a.lo], [t.b.la, t.b.lo]], { color: i === dia ? '#ea580c' : '#2563eb', weight: i === dia ? 5 : 3, opacity: .85, dashArray: i === dia ? null : '8 7', interactive: false }).addTo(capa); }
+    const rrD = dia != null && ptsDia(v, dia) ? enCacheR(ptsDia(v, dia)) : null;
+    for (let i = 0; i < n; i++) { const t = tramo(v, i), hoy = i === dia && !rrD; if (t.tipo === 't') L.polyline((enCache(t.a, t.b) || {}).g || [[t.a.la, t.a.lo], [t.b.la, t.b.lo]], { color: hoy ? '#ea580c' : '#2563eb', weight: hoy ? 5 : 3, opacity: .85, dashArray: hoy ? null : '8 7', interactive: false }).addTo(capa); }
+    if (rrD) { L.polyline(rrD.g, { color: '#fff', weight: 8, opacity: .9, interactive: false }).addTo(capa); L.polyline(rrD.g, { color: '#ea580c', weight: 5, opacity: .95, interactive: false }).addTo(capa); }
     if (v.sal) { L.marker([v.sal.la, v.sal.lo], { icon: chincheta('🏠'), interactive: false, zIndexOffset: 950 }).addTo(capa); pts.push([v.sal.la, v.sal.lo]); }
     (v.noches || []).forEach((x, i) => { if (!x) return; const rep = i > 0 && v.noches[i - 1] && km(v.noches[i - 1], x) < 3; if (!rep) L.marker([x.la, x.lo], { icon: chincheta('🛏<small>' + (i + 1) + '</small>', 'n'), interactive: false, zIndexOffset: 940 }).addTo(capa); pts.push([x.la, x.lo]); });
     if (dia != null) { const t = tramo(v, dia);
@@ -142,7 +154,7 @@
     for (let i = 0; i < n; i++) { const t = tramo(v, i), k = ((v.dias || {})[i] || []).length;
       const d = t.tipo === 'x' ? '<i>falta decir ' + (!t.a ? (i === 0 ? 'de dónde sales' : 'dónde duermes la noche ' + i) : (i === n - 1 ? 'de dónde sales' : 'dónde duermes la noche ' + (i + 1))) + '</i>'
         : t.tipo === 'b' ? 'Base en ' + esc(t.a.n) : esc(t.a.n) + ' → ' + esc(t.b.n) + ' · ' + viaTxt(t);
-      h += '<div class="cuad-c' + (t.tipo === 'x' ? ' gv-x' : '') + '"><div class="cuad-h" data-dia="' + i + '"><b>Día ' + (i + 1) + ' · ' + fechaDia(v, i) + '<span class="gv-s">' + d + '</span></b><small>' + (k ? k + (k === 1 ? ' parada' : ' paradas') : '') + '</small><i>▸</i></div></div>'; }
+      h += '<div class="cuad-c' + (t.tipo === 'x' ? ' gv-x' : '') + '"><div class="cuad-h" data-dia="' + i + '"><b>Día ' + (i + 1) + ' · ' + fechaDia(v, i) + '<span class="gv-s">' + d + '</span></b><small>' + (k ? k + (k === 1 ? ' parada' : ' paradas') + (() => { const P = ptsDia(v, i), r = P && enCacheR(P); return r ? '<br>🚗 ' + kmTxt(r.km) + ' · ' + durTxt(r.min) : ''; })() : '') + '</small><i>▸</i></div></div>'; }
     { let K = 0, M = 0, todos = true, hay = false; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo !== 't') continue; hay = true; const r = enCache(t.a, t.b); if (r) { K += r.km; M += r.min; } else todos = false; }
       if (hay && todos) h += '<p class="sub">En total, unos <b>' + kmTxt(K) + '</b> de coche entre etapas y unas <b>' + durTxt(M) + '</b> al volante, sin paradas ni excursiones.</p>'; }
     h += '<div class="btns"><button class="sec" id="gv-ren">✏️ Nombre</button><button class="sec" id="gv-bo">🗑 Borrar viaje</button></div>';
@@ -236,14 +248,17 @@
     const plan = ((v.dias = v.dias || {})[i] = v.dias[i] || []), enPlan = new Set(plan.map(s => s.id));
     let h = cab('Día ' + (i + 1) + ' · ' + fechaDia(v, i), '← ' + esc(v.nombre));
     if (t.tipo === 'x') { h += '<p class="sub">Para sugerirte algo necesito saber de dónde sales y dónde duermes este día. Vuelve al viaje y complétalo.</p>'; const s = abreHoja(h); pintaMapa(v, i, false); s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id); return; }
-    const rt = t.tipo === 't' ? enCache(t.a, t.b) : null;
+    const rt = t.tipo === 't' ? enCache(t.a, t.b) : null, pr = ptsDia(v, i), rr = pr ? enCacheR(pr) : null;
     h += '<p class="gv-t" id="gv-dia-' + i + '">' + (t.tipo === 'b' ? '🏕 Día de base en <b>' + esc(t.a.n) + '</b>' : '🚗 Traslado: <b>' + esc(t.a.n) + '</b> → <b>' + esc(t.b.n) + '</b> · ' + viaTxt(t)) + '</p>';
     // el plan del día
     h += '<h3 class="gv-h3">Tu plan del día</h3>';
     if (!plan.length) h += '<p class="sub">Vacío. Pulsa «＋» en una sugerencia de abajo, o abre cualquier sitio del mapa y pulsa «🧭 Al viaje».</p>';
     else { h += '<ol class="cuad-i">'; let ant = t.a, tot = 0;
-      plan.forEach((s, j) => { const d = km(ant, s); tot += d; ant = s; h += '<li><span class="ic gv-n">' + (j + 1) + '</span><span class="n" data-ir="' + esc(s.id) + '">' + esc(s.n) + '<span>a ' + kmTxt(d) + (j ? ' de la parada anterior' : ' de ' + esc(t.a.n)) + (visto(s.id) ? ' · ✅ ya visto' : '') + '</span></span>' + (j ? '<button class="q" data-su="' + j + '" title="Subir">↑</button>' : '') + '<button class="q" data-qu="' + j + '" title="Quitar del día">✕</button></li>'; });
-      tot += km(ant, t.b || t.a); h += '</ol><p class="sub">Total del día, de parada en parada y hasta ' + esc((t.b || t.a).n) + ': unos <b>' + kmTxt(tot) + '</b> en línea recta' + (rt ? '. El trayecto directo por carretera son ' + kmTxt(rt.km) + ' y unas ' + durTxt(rt.min) + '; cada parada añade rodeo.' : ' (por carretera será más).') + '</p>'; }
+      plan.forEach((s, j) => { const d = km(ant, s), lg = rr && rr.legs[j]; tot += d; ant = s; h += '<li><span class="ic gv-n">' + (j + 1) + '</span><span class="n" data-ir="' + esc(s.id) + '">' + esc(s.n) + '<span>' + (lg ? '🚗 ' + kmTxt(lg.km) + ' · ' + durTxt(lg.min) : 'a ' + kmTxt(d) + ' en línea recta') + (j ? ' desde la parada anterior' : ' desde ' + esc(t.a.n)) + (visto(s.id) ? ' · ✅ ya visto' : '') + '</span></span>' + (j ? '<button class="q" data-su="' + j + '" title="Subir">↑</button>' : '') + '<button class="q" data-qu="' + j + '" title="Quitar del día">✕</button></li>'; });
+      tot += km(ant, t.b || t.a); const fin = t.b || t.a, ul = rr && rr.legs[plan.length];
+      h += '</ol>' + (ul ? '<p class="sub" style="margin-top:-4px">Y de la última parada ' + (t.tipo === 'b' ? 'de vuelta a ' : 'a ') + esc(fin.n) + ': 🚗 ' + kmTxt(ul.km) + ' · ' + durTxt(ul.min) + '</p>' : '');
+      h += rr ? '<p class="gv-t">🚗 Recorrido del día en coche' + (t.tipo === 'b' ? ' (ida y vuelta a ' + esc(t.a.n) + ')' : ' hasta ' + esc(fin.n)) + ': <b>' + kmTxt(rr.km) + '</b> · unas <b>' + durTxt(rr.min) + '</b> al volante, sin contar el tiempo en cada sitio' + (t.tipo === 't' && rt ? ' (el trayecto directo son ' + kmTxt(rt.km) + ' y ' + durTxt(rt.min) + ')' : '') + '. Aproximado.</p>'
+        : '<p class="sub">Total del día, de parada en parada y hasta ' + esc(fin.n) + ': unos <b>' + kmTxt(tot) + '</b> en línea recta' + (falloR[rkR(pr)] ? ' (no he podido calcular la ruta en coche; por carretera será más).' : ' <span class="gv-c">· calculando la ruta en coche…</span>') + '</p>'; }
     // sugerencias
     const fila = (x, sub) => { const p = x.p, ya = enPlan.has(p[0]), vi = visto(p[0]); return '<li class="' + (vi ? 'gv-vi' : '') + '"><span class="ic" style="background:' + (CAPAS[p[1]] || CAPAS.t).c + '">' + (p[1] === 'r' ? '🥾' : est(p) + '★') + '</span><span class="n" data-ir="' + esc(p[0]) + '">' + esc(p[2]) + '<span>' + sub + (vi ? ' · ✅ ya visto' : '') + '</span></span><button class="gv-mas' + (ya ? ' ya' : '') + '" data-mas="' + esc(p[0]) + '" title="' + (ya ? 'Ya está en el día' : 'Añadir al día') + '">' + (ya ? '✓' : '＋') + '</button></li>'; };
     const filtro = '<div class="gv-e">Importancia mínima: ' + [5, 4, 3].map(e => '<button data-e="' + e + '" class="' + (minE === e ? 'on' : '') + '">' + e + '★' + (e < 5 ? ' o más' : '') + '</button>').join('') + '</div>';
@@ -263,6 +278,7 @@
     const s = abreHoja(h); pintaMapa(v, i, encuadra);
     const otraVez = () => { if (activo && activo.v === id && activo.d === i && document.getElementById('gv-dia-' + i)) { const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; } };
     if (t.tipo === 't' && !rt && !falloR[rk(t.a, t.b)]) carretera(t.a, t.b).then(otraVez);
+    if (pr && !rr && !falloR[rkR(pr)]) recorrido(pr).then(r => { otraVez(); if (r && enMapa === v.id) pintaMapa(v, i, false); });
     if (!window.ACTIV) cargaAct().then(() => { if (window.ACTIV && window.ACTIV.length) otraVez(); });
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(id, true);
     s.querySelectorAll('[data-e]').forEach(e => e.onclick = () => { minE = +e.dataset.e; const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; });
