@@ -371,6 +371,35 @@
     for (const c of capas) for (const p of (c.puntos || [])) s += '<circle cx="' + X(p.lo) + '" cy="' + Y(p.la) + '" r="11" fill="' + (p.c || '#ea580c') + '" stroke="#fff" stroke-width="2"/><text x="' + X(p.lo) + '" y="' + (+Y(p.la) + 4) + '" text-anchor="middle" font="700 11px system-ui" style="font:700 11px system-ui" fill="#fff">' + esc(p.txt) + '</text>'
       + (p.nom ? '<text x="' + (+X(p.lo) + 14) + '" y="' + (+Y(p.la) + 4) + '" style="font:600 11px system-ui;paint-order:stroke;stroke:#f4f1ea;stroke-width:3px" fill="#222">' + esc(p.nom.length > 28 ? p.nom.slice(0, 27) + '…' : p.nom) + '</text>' : '');
     return s + '</svg>'; }
+  // mapa con fondo del IGN (20-nov tarde): se pintan las teselas en un lienzo, encima el recorrido y las paradas, y se guarda como imagen dentro de la guía (se ve sin conexión). Si algo falla, el dibujo sencillo.
+  const TES = (z, x, y) => 'https://www.ign.es/wmts/ign-base?layer=IGNBaseTodo&style=default&tilematrixset=GoogleMapsCompatible&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix=' + z + '&TileCol=' + x + '&TileRow=' + y;
+  const cargaImg = u => new Promise((ok, mal) => { const im = new Image(); im.crossOrigin = 'anonymous'; const t = setTimeout(() => mal(new Error('tiempo')), 12000); im.onload = () => { clearTimeout(t); ok(im); }; im.onerror = () => { clearTimeout(t); mal(new Error('tesela')); }; im.src = u; });
+  async function mapaImg(capas, W) {
+    W = W || 720; const T_ = []; capas.forEach(c => (c.pts || []).concat(c.puntos || []).forEach(p => T_.push(p))); if (!T_.length) return '';
+    try {
+      const px = (la, lo, z) => { const s = 256 * 2 ** z, x = (lo + 180) / 360 * s, r = Math.sin(la * Math.PI / 180), y = (0.5 - Math.log((1 + r) / (1 - r)) / (4 * Math.PI)) * s; return [x, y]; };
+      const la0 = Math.min(...T_.map(p => p.la)), la1 = Math.max(...T_.map(p => p.la)), lo0 = Math.min(...T_.map(p => p.lo)), lo1 = Math.max(...T_.map(p => p.lo));
+      let z = 15; for (; z > 5; z--) { const a = px(la1, lo0, z), b = px(la0, lo1, z); if (b[0] - a[0] <= W * 0.82 && b[1] - a[1] <= 480 * 0.82) break; }
+      const a = px(la1, lo0, z), b = px(la0, lo1, z), cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2, H = Math.round(Math.max(260, Math.min(480, (b[1] - a[1]) / 0.82 + 40)));
+      const x0 = cx - W / 2, y0 = cy - H / 2, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+      g.fillStyle = '#f4f1ea'; g.fillRect(0, 0, W, H);
+      const L_ = []; for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++) L_.push([tx, ty]);
+      const ims = await Promise.all(L_.map(([tx, ty]) => cargaImg(TES(z, tx, ty)).catch(() => null)));
+      if (ims.filter(Boolean).length < L_.length * 0.6) throw new Error('faltan teselas');
+      ims.forEach((im, k) => { if (im) g.drawImage(im, L_[k][0] * 256 - x0, L_[k][1] * 256 - y0); });
+      const XY = p => { const q = px(p.la, p.lo, z); return [q[0] - x0, q[1] - y0]; };
+      for (const c of capas) if (c.pts && c.pts.length > 1) { g.beginPath(); c.pts.forEach((p, k) => { const [x, y] = XY(p); k ? g.lineTo(x, y) : g.moveTo(x, y); });
+        g.lineJoin = 'round'; g.lineCap = 'round'; g.setLineDash(c.discont ? [9, 7] : []); g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = (c.ancho || 3) + 3; g.stroke(); g.strokeStyle = c.color; g.lineWidth = c.ancho || 3; g.stroke(); g.setLineDash([]); }
+      const yaC = [], yaT = [];
+      for (const c of capas) for (const p of (c.puntos || [])) { let [x, y] = XY(p);
+        for (let k = 0; k < 8 && yaC.some(q => Math.hypot(q[0] - x, q[1] - y) < 20); k++) { x += 14; y += 10; }
+        yaC.push([x, y]); g.beginPath(); g.arc(x, y, 11, 0, 2 * Math.PI); g.fillStyle = p.c || '#ea580c'; g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#fff'; g.stroke();
+        g.fillStyle = '#fff'; g.font = '700 12px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(p.txt, x, y + 0.5);
+        if (p.nom) { const t = p.nom.length > 30 ? p.nom.slice(0, 29) + '…' : p.nom; g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'left'; g.lineWidth = 4;
+          const wt = g.measureText(t).width, izq = x + 16 + wt > W - 4, r_ = izq ? [x - 16 - wt, y - 8, x - 13, y + 8] : [x + 13, y - 8, x + 16 + wt, y + 8]; if (yaT.some(q => !(r_[2] < q[0] || r_[0] > q[2] || r_[3] < q[1] || r_[1] > q[3])) || yaC.some(q => q[0] > r_[0] - 9 && q[0] < r_[2] + 9 && Math.abs(q[1] - y) < 14 && (q[0] !== x || q[1] !== y))) continue; yaT.push(r_); g.strokeStyle = 'rgba(255,255,255,.9)'; if (izq) g.textAlign = 'right'; const xt = izq ? x - 14 : x + 14; g.strokeText(t, xt, y); g.fillStyle = '#111'; g.fillText(t, xt, y); } }
+      g.font = '10px system-ui,sans-serif'; g.textAlign = 'right'; g.textBaseline = 'bottom'; g.fillStyle = 'rgba(255,255,255,.8)'; g.fillRect(W - 112, H - 15, 112, 15); g.fillStyle = '#333'; g.fillText('© IGN · OpenStreetMap', W - 4, H - 2);
+      return '<img src="' + cv.toDataURL('image/jpeg', 0.8) + '" alt="mapa" style="width:100%;border:1px solid #ddd;border-radius:8px;display:block;margin:8px 0">';
+    } catch (e) { return mapaSVG(capas, W); } }
   const corta = (x, n) => { x = String(x || ''); if (x.length <= n) return x; const c = x.slice(0, n); return c.slice(0, Math.max(c.lastIndexOf('. ') + 1, c.lastIndexOf(' '))) + '…'; };
   async function guiaLlevar(v, boton) {
     const n = nDias(v), ids = new Set(); for (let i = 0; i < n; i++) ((v.dias || {})[i] || []).forEach(s => ids.add(s.id));
@@ -394,7 +423,7 @@
         C.push({ pts: r && r.g ? r.g.map(g => ({ la: g[0], lo: g[1] })) : [t.a, t.b], color: '#2563eb', ancho: 3, discont: !r }); }
       (v.noches || []).forEach((x, i) => { if (x && !noches.some(y => km(y, x) < 1)) noches.push({ la: x.la, lo: x.lo, txt: '🛏', nom: x.n, c: '#1d4ed8' }); });
       if (v.sal) C.push({ puntos: [{ la: v.sal.la, lo: v.sal.lo, txt: '⌂', nom: v.sal.n, c: '#111827' }] }); C.push({ puntos: noches });
-      h += mapaSVG(C);
+      h += await mapaImg(C, 760);
       if (todos && K) h += '<p class="sub">En total, unos <b>' + kmTxt(K) + '</b> de coche entre etapas y unas <b>' + durTxt(Mi) + '</b> al volante, sin excursiones.</p>';
       h += '<ol style="padding-left:20px;margin:8px 0">' + Array.from({ length: n }, (_, i) => { const t = tramo(v, i), k = ((v.dias || {})[i] || []).length;
         return '<li><b>' + fechaDia(v, i) + '</b> · ' + (t.tipo === 'x' ? '<i>sin definir</i>' : t.tipo === 'b' ? 'base en ' + esc(t.a.n) : esc(t.a.n) + ' → ' + esc(t.b.n)) + (k ? ' · ' + k + (k === 1 ? ' parada' : ' paradas') : '') + '</li>'; }).join('') + '</ol>'; }
@@ -405,8 +434,8 @@
       h += '<div class="sub">' + (t.tipo === 'b' ? '🏕 Día de base en <b>' + esc(t.a.n) + '</b>' : '🚗 ' + esc(t.a.n) + ' → ' + esc(t.b.n) + (rt ? ' · ' + kmTxt(rt.km) + ' por carretera · unas ' + durTxt(rt.min) : ' · ' + kmTxt(t.km) + ' en línea recta')) + '</div>';
       { const p = sitioT(v, i), x = tiempoDe(p, fDia(v, i)); if (x) h += '<div class="t">' + tiempoTxt(x, true, esc(p.n)) + '</div>'; }
       const geo = rr && rr.g ? rr.g.map(g => ({ la: g[0], lo: g[1] })) : rt && rt.g && !plan.length ? rt.g.map(g => ({ la: g[0], lo: g[1] })) : [t.a].concat(plan, [fin]);
-      h += mapaSVG([{ pts: geo, color: '#ea580c', ancho: 3.5, discont: !(rr || (rt && !plan.length)) }, { puntos: [{ la: t.a.la, lo: t.a.lo, txt: t.tipo === 'b' ? '🛏' : 'A', nom: t.a.n, c: '#1d4ed8' }].concat(t.tipo === 't' ? [{ la: t.b.la, lo: t.b.lo, txt: 'B', nom: t.b.n, c: '#1d4ed8' }] : []) },
-        { puntos: plan.map((s, j) => ({ la: s.la, lo: s.lo, txt: String(j + 1), nom: s.n, c: '#ea580c' })) }], 640);
+      h += await mapaImg([{ pts: geo, color: '#ea580c', ancho: 3.5, discont: !(rr || (rt && !plan.length)) }, { puntos: [{ la: t.a.la, lo: t.a.lo, txt: t.tipo === 'b' ? '🛏' : 'A', nom: t.a.n, c: '#1d4ed8' }].concat(t.tipo === 't' ? [{ la: t.b.la, lo: t.b.lo, txt: 'B', nom: t.b.n, c: '#1d4ed8' }] : []) },
+        { puntos: plan.map((s, j) => ({ la: s.la, lo: s.lo, txt: String(j + 1), nom: s.n, c: '#ea580c' })) }], 720);
       if (!plan.length) h += '<p class="sub">Sin paradas en el plan de este día.</p>';
       else { if (rr) h += '<p class="coche">🚗 Recorrido del día: <b>' + kmTxt(rr.km) + '</b> · unas <b>' + durTxt(rr.min) + '</b> al volante (sin contar el tiempo en cada sitio). Aproximado.</p>';
         plan.forEach((s, j) => { const p = pid(s.id), f = F[s.id] || {}, lg = rr && rr.legs[j];
@@ -428,7 +457,7 @@
       + '<div class="btns" style="flex-direction:column;align-items:stretch;gap:8px"><button id="gl-ver">👀 Verla e imprimir / guardar en PDF</button><button class="sec" id="gl-baj">⬇ Descargar al móvil u ordenador (.html)</button>' + (navigator.canShare ? '<button class="sec" id="gl-com">📤 Mandarla (WhatsApp, correo…)</button>' : '') + '</div><p class="sub" id="gl-est"></p>');
     s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(v.id);
     const nombreF = 'Guia ' + v.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ._-]+/g, ' ').replace(/\s+/g, ' ').trim() + '.html', est = s.querySelector('#gl-est');
-    const hazla = async b => { est.textContent = '⏳ Preparando (fichas, carreteras y tiempo)…'; const h = await guiaLlevar(v, b); est.textContent = ''; return h; };
+    const hazla = async b => { est.textContent = '⏳ Preparando (fichas, carreteras, tiempo y mapas)…'; const h = await guiaLlevar(v, b); est.textContent = ''; return h; };
     s.querySelector('#gl-ver').onclick = async e => { const w = window.open('', '_blank'); const h = await hazla(e.target); if (w) { w.document.open(); w.document.write(h); w.document.close(); } else { const u = URL.createObjectURL(new Blob([h], { type: 'text/html' })); location.href = u; } };
     s.querySelector('#gl-baj').onclick = async e => { const h = await hazla(e.target), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([h], { type: 'text/html' })); a.download = nombreF; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); est.textContent = '✓ Descargada: «' + nombreF + '». Ábrela desde Descargas; funciona sin conexión.'; };
     const bc = s.querySelector('#gl-com'); if (bc) bc.onclick = async e => { const h = await hazla(e.target), file = new File([h], nombreF, { type: 'text/html' });
