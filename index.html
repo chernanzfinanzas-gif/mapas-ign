@@ -5381,8 +5381,20 @@ const PERFILES = [
   { id:'hiking-mountain', n:'A pie, montaña dura' },
   { id:'trekking', n:'Bici de montaña' },
   { id:'gravel', n:'Bici gravel' },
+  { id:'fastbike', n:'Bici de carretera', rueda:true },
+  { id:'car-eco', n:'Solo carreteras', rueda:true },
   { id:'shortest', n:'Lo más corto' }
 ];
+/* 20-nov (v100): bici de carretera (`fastbike`: asfalto, evita pistas) y solo
+   carreteras (`car-eco`: por donde pasa un coche). Con ellos tu curva de ritmo
+   andando no sirve: se enseña el tiempo que calcula BRouter, que viene en el
+   comentario del GPX («time=2h 23m 16s»). */
+const esRueda = id => PERFILES.some(p => p.id === id && p.rueda);
+function tiempoBrouter(gpx) {
+  const m = /time=\s*(?:(\d+)h)?\s*(?:(\d+)m)?/.exec(gpx || '');
+  if (!m || (!m[1] && !m[2])) return null;
+  return (+(m[1] || 0)) + (+(m[2] || 0)) / 60;
+}
 const LS_PERFIL = 'ign.brouter.perfil';
 
 let modoPlan = false, puntosPlan = [], capaPlan = null, rutaPlan = null,
@@ -5716,8 +5728,12 @@ async function recalculaPlan() {
     rutaPlan = r;
     pintaPlan();
     pistaPlan('<b>' + fmtN(+r.km.toFixed(1)) + ' km</b> · ' + fmtN(r.d) + ' m de subida<br>'
-      + textoEstima(estimaRuta(r.pts, r.km, r.d))
-      + (() => { const l = lineaSubidas(tramosDe(calculaPerfil(r.pts))); return l ? '<br>' + l : ''; })()
+      + (esRueda(perfil)
+          ? (() => { const h = tiempoBrouter(gpx); return h != null
+              ? 'unas <b>' + fmtH5(h) + '</b> según BRouter (' + (perfil === 'car-eco' ? 'en coche' : 'en bici de carretera, ritmo medio') + ')'
+              : 'sin tiempo estimado (tu ritmo es andando)'; })()
+          : textoEstima(estimaRuta(r.pts, r.km, r.d)))
+      + (esRueda(perfil) ? '' : (() => { const l = lineaSubidas(tramosDe(calculaPerfil(r.pts))); return l ? '<br>' + l : ''; })())
       + (rectos.length ? '<br><span class="mal">⚠️ ' + rectos.map(x => 'Entre los puntos ' + x[0] + ' y ' + x[1] + ' no hay camino enlazado: van en línea recta (' + fmtN(+x[2].toFixed(1)) + ' km).').join(' ')
           + ' Suele ser una finca cerrada o un camino suelto; mueve el punto para evitarlo.</span>' : ''));
     $g.disabled = false; $d.disabled = false;
