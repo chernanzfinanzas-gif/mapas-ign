@@ -280,8 +280,11 @@ escribe(os.path.join(OUT, '.htaccess'),
   AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json
 </IfModule>
 <IfModule mod_headers.c>
+  # 20-nov-2026: los .js también se comprueban SIEMPRE con el servidor (lo pidió el chat de Historia):
+  # con una hora de caché el móvil seguía con el programa viejo tras cada subida. Si no han cambiado,
+  # el servidor contesta «sin cambios» (ETag) y no se vuelven a bajar.
   <FilesMatch "\\.js$">
-    Header set Cache-Control "max-age=3600"
+    Header set Cache-Control "no-cache"
   </FilesMatch>
   # 15-nov-2026: la página se comprueba SIEMPRE con el servidor (si no ha cambiado, no se vuelve a bajar).
   # Antes se guardaba una hora y los cambios de la página tardaban en verse en el móvil.
