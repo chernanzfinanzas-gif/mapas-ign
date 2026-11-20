@@ -151,7 +151,7 @@
   let actP = null;
   const cargaAct = () => actP || (actP = new Promise(ok => { if (window.ACTIV) return ok(); const sc = document.createElement('script'); sc.src = 'catalogo/actividades.js'; sc.onload = () => ok(); sc.onerror = () => ok(); document.head.appendChild(sc); }));
   function actCerca(c, R) { const o = []; for (const a of (window.ACTIV || [])) { let m = null; for (const q of (a.sal || [])) { const d = km(c, q); if (!m || d < m.d) m = { d, q }; } if (m && m.d <= R) o.push({ a, d: m.d, q: m.q }); } return o.sort((x, y) => x.d - y.d); }
-  const actHtml = (x, desde) => { const a = x.a; return '<div class="gv-a"><b>' + esc(a.n) + '</b><span>' + esc(a.q) + '</span><span class="m">' + esc(a.emp) + (x.q ? ' · sale de ' + esc(x.q.n) + (desde ? ', a ' + kmTxt(x.d) + ' de ' + esc(desde) : '') : '') + (a.dur ? ' · ' + esc(a.dur) : '') + (a.res ? ' · ' + esc(a.res) : '') + '</span>'
+  const actHtml = (x, desde, ya) => { const a = x.a, k = Math.max(0, (a.sal || []).indexOf(x.q)); return '<div class="gv-a">' + (ya !== undefined ? '<button class="gv-mas' + (ya ? ' ya' : '') + '" style="float:right;margin-left:8px" data-act="' + esc(a.id + '|' + k) + '" title="' + (ya ? 'Ya está en el día' : 'Añadir al plan del día') + '">' + (ya ? '✓' : '＋') + '</button>' : '') + '<b>' + esc(a.n) + '</b><span>' + esc(a.q) + '</span><span class="m">' + esc(a.emp) + (x.q ? ' · sale de ' + esc(x.q.n) + (desde ? ', a ' + kmTxt(x.d) + ' de ' + esc(desde) : '') : '') + (a.dur ? ' · ' + esc(a.dur) : '') + (a.res ? ' · ' + esc(a.res) : '') + '</span>'
     + '<span class="m">' + (a.web ? '<a href="' + esc(a.web) + '" target="_blank" rel="noopener">Web y reservas</a>' : '') + (a.tel ? ' · ☎ ' + esc(a.tel) : '') + (a.rev ? ' · datos de ' + esc(a.rev) + ': confírmalos antes de ir' : '') + '</span></div>'; };
   function alrededor(c, minE, R) { const o = [];
     for (const p of D.p) { if (p[1] !== 't' && p[1] !== 'n' && p[1] !== 'h') continue; if (est(p) < minE) continue;
@@ -317,7 +317,7 @@
     h += '<h3 class="gv-h3">Tu plan del día</h3>';
     if (!plan.length) h += '<p class="sub">Vacío. Pulsa «＋» en una sugerencia de abajo, o abre cualquier sitio del mapa y pulsa «🧭 Al viaje».</p>';
     else { h += '<ol class="cuad-i">'; let ant = t.a, tot = 0;
-      plan.forEach((s, j) => { const d = km(ant, s), lg = rr && rr.legs[j]; tot += d; ant = s; h += '<li><span class="ic gv-n">' + (j + 1) + '</span><span class="n" data-ir="' + esc(s.id) + '">' + esc(s.n) + '<span>' + (lg ? '🚗 ' + kmTxt(lg.km) + ' · ' + durTxt(lg.min) : 'a ' + kmTxt(d) + ' en línea recta') + (j ? ' desde la parada anterior' : ' desde ' + esc(t.a.n)) + (visto(s.id) ? ' · ✅ ya visto' : '') + '</span></span>' + (j ? '<button class="q" data-su="' + j + '" title="Subir">↑</button>' : '') + '<button class="q" data-qu="' + j + '" title="Quitar del día">✕</button></li>'; });
+      plan.forEach((s, j) => { const d = km(ant, s), lg = rr && rr.legs[j]; tot += d; ant = s; h += '<li><span class="ic gv-n">' + (j + 1) + '</span><span class="n" data-ir="' + esc(s.id) + '">' + (s.c === 'a' ? '🎟 ' : '') + esc(s.n) + '<span>' + (s.c === 'a' ? 'actividad con guía' + (s.sal ? ', sale de ' + esc(s.sal) : '') + ' · ' : '') + (lg ? '🚗 ' + kmTxt(lg.km) + ' · ' + durTxt(lg.min) : 'a ' + kmTxt(d) + ' en línea recta') + (j ? ' desde la parada anterior' : ' desde ' + esc(t.a.n)) + (visto(s.id) ? ' · ✅ ya visto' : '') + '</span></span>' + (j ? '<button class="q" data-su="' + j + '" title="Subir">↑</button>' : '') + '<button class="q" data-qu="' + j + '" title="Quitar del día">✕</button></li>'; });
       tot += km(ant, t.b || t.a); const fin = t.b || t.a, ul = rr && rr.legs[plan.length];
       h += '</ol>' + (plan.length >= 2 || DES[id + '|' + i] ? '<div class="btns" style="margin:2px 0 6px">' + (plan.length >= 2 ? '<button class="sec" id="gv-ord" title="Busca el orden de las paradas con menos tiempo de coche, desde ' + esc(t.a.n) + ' hasta ' + esc((t.b || t.a).n) + '">🔀 Ordenar para conducir menos</button>' : '') + (DES[id + '|' + i] ? '<button class="sec" id="gv-des">↩ Deshacer el orden</button>' : '') + '</div>' : '') + (ul ? '<p class="sub" style="margin-top:-4px">Y de la última parada ' + (t.tipo === 'b' ? 'de vuelta a ' : 'a ') + esc(fin.n) + ': 🚗 ' + kmTxt(ul.km) + ' · ' + durTxt(ul.min) + '</p>' : '');
       h += rr ? '<p class="gv-t">🚗 Recorrido del día en coche' + (t.tipo === 'b' ? ' (ida y vuelta a ' + esc(t.a.n) + ')' : ' hasta ' + esc(fin.n)) + ': <b>' + kmTxt(rr.km) + '</b> · unas <b>' + durTxt(rr.min) + '</b> al volante, sin contar el tiempo en cada sitio' + (t.tipo === 't' && rt ? ' (el trayecto directo son ' + kmTxt(rt.km) + ' y ' + durTxt(rt.min) + ')' : '') + '. Aproximado.</p>'
@@ -336,7 +336,7 @@
         h += '<div class="visto-mu">' + (a ? 'De ' + a + ' a ' + b + ' km' : 'A menos de ' + b + ' km') + ' · ' + g.length + '</div><ol class="cuad-i">' + g.slice(0, 25).map(x => fila(x, 'a ' + kmTxt(x.d))).join('') + '</ol>' + (g.length > 25 ? '<p class="sub">…y ' + (g.length - 25) + ' más.</p>' : ''); }
       const R = rutasCerca(t.a, 25, 10); if (R.length) h += '<h3 class="gv-h3">🥾 Rutas a pie cerca</h3><ol class="cuad-i">' + R.map(x => fila(x, 'sale a ' + kmTxt(x.d))).join('') + '</ol>'; }
     { const base = t.tipo === 'b' ? t.a : t.b, A = (t.tipo === 't' && v.sal && km(t.b, v.sal) < 3) ? [] : actCerca(base, 30);
-      if (A.length) h += '<h3 class="gv-h3">🎟 Actividades con guía cerca de ' + esc(base.n) + '</h3>' + A.map(x => actHtml(x, base.n)).join(''); }
+      if (A.length) h += '<h3 class="gv-h3">🎟 Actividades con guía cerca de ' + esc(base.n) + '</h3>' + A.map(x => actHtml(x, base.n, enPlan.has('a:' + x.a.id))).join(''); }
     h += '<div class="btns">' + (i > 0 ? '<button class="sec" data-otro="' + (i - 1) + '">← Día ' + i + '</button>' : '') + (i < n - 1 ? '<button class="sec" data-otro="' + (i + 1) + '">Día ' + (i + 2) + ' →</button>' : '') + '</div>';
     const s = abreHoja(h); pintaMapa(v, i, encuadra);
     const otraVez = () => { if (activo && activo.v === id && activo.d === i && document.getElementById('gv-dia-' + i)) { const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; } };
@@ -350,6 +350,9 @@
     s.querySelectorAll('[data-mas]').forEach(e => e.onclick = () => { const p = pid(e.dataset.mas); if (!p) return; const y = sh().scrollTop;
       const k = plan.findIndex(x => x.id === p[0]); if (k >= 0) plan.splice(k, 1); else { plan.push({ id: p[0], n: p[2], c: p[1], la: p[4], lo: p[5] }); if (t.tipo === 't') ordena(plan, t); }
       delete DES[id + '|' + i]; guarda(v); dia(id, i); sh().scrollTop = y; });
+    s.querySelectorAll('[data-act]').forEach(e => e.onclick = () => { const [aid, k] = e.dataset.act.split('|'), a = (window.ACTIV || []).find(z => z.id === aid), q = a && (a.sal || [])[+k]; if (!q) return; const y = sh().scrollTop;
+      const j = plan.findIndex(x => x.id === 'a:' + aid); if (j >= 0) plan.splice(j, 1); else { plan.push({ id: 'a:' + aid, n: a.n, c: 'a', la: q.la, lo: q.lo, sal: q.n }); if (t.tipo === 't') ordena(plan, t); }
+      delete DES[id + '|' + i]; guarda(v); avisa(j >= 0 ? 'Quitada del día' : '🎟 Añadida al plan del día', 2000); dia(id, i); sh().scrollTop = y; });
     s.querySelectorAll('[data-qu]').forEach(e => e.onclick = () => { plan.splice(+e.dataset.qu, 1); delete DES[id + '|' + i]; guarda(v); dia(id, i); });
     { const bo = s.querySelector('#gv-ord'); if (bo) bo.onclick = async () => { bo.disabled = true; bo.textContent = '⏳ Calculando…'; const y = sh().scrollTop;
         const P = [t.a].concat(plan, [t.b || t.a]), M_ = await matriz(P), r = mejorOrden(M_.D, plan.length), ahorro = Math.round((r.viejo - r.coste) / 60);
@@ -359,7 +362,18 @@
         avisa('🔀 Reordenado: unos ' + ahorro + ' min menos de coche' + (M_.coche ? '' : ' (calculado en línea recta: no he podido consultar las carreteras)'), 4000); dia(id, i); sh().scrollTop = y; }; }
     { const bd = s.querySelector('#gv-des'); if (bd) bd.onclick = () => { const o = DES[id + '|' + i]; delete DES[id + '|' + i]; if (o) { plan.splice(0, plan.length, ...o); guarda(v); avisa('↩ Orden anterior recuperado', 2500); } const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; }; }
     s.querySelectorAll('[data-su]').forEach(e => e.onclick = () => { const j = +e.dataset.su; plan.splice(j - 1, 0, plan.splice(j, 1)[0]); delete DES[id + '|' + i]; guarda(v); dia(id, i); });
-    s.querySelectorAll('[data-ir]').forEach(e => e.onclick = () => { if (pid(e.dataset.ir)) { volver = { v: id, d: i, id: e.dataset.ir, y: sh().scrollTop }; abre(e.dataset.ir); } else avisa('Ese sitio ya no está en el catálogo.', 3000); }); }
+    s.querySelectorAll('[data-ir]').forEach(e => e.onclick = () => { if (/^a:/.test(e.dataset.ir)) return fichaAct(e.dataset.ir.slice(2), id, i, sh().scrollTop); if (pid(e.dataset.ir)) { volver = { v: id, d: i, id: e.dataset.ir, y: sh().scrollTop }; abre(e.dataset.ir); } else avisa('Ese sitio ya no está en el catálogo.', 3000); }); }
+  // ficha de una actividad con guía puesta en el plan (20-nov)
+  const actDe = aid => (window.ACTIV || []).find(z => z.id === aid);
+  async function fichaAct(aid, vid, i, y) { if (!window.ACTIV) await cargaAct(); const a = actDe(aid);
+    if (!a) { avisa('Esa actividad ya no está en la lista.', 3000); return; }
+    let h = cab('🎟 Actividad con guía', '← Día ' + (i + 1));
+    h += '<h2 style="margin:4px 0">' + esc(a.n) + '</h2><p>' + esc(a.q || '') + '</p>' + (a.emp ? '<p class="sub"><b>Quién la hace:</b> ' + esc(a.emp) + '</p>' : '')
+      + '<p class="sub">' + [a.dur && '⏱ ' + esc(a.dur), a.res && '📅 ' + esc(a.res)].filter(Boolean).join(' · ') + '</p>'
+      + ((a.sal || []).length ? '<p class="sub"><b>Sale de:</b> ' + a.sal.map(q => esc(q.n) + ' <a href="https://www.google.com/maps/dir/?api=1&destination=' + q.la + ',' + q.lo + '" target="_blank" rel="noopener">Cómo llegar</a>').join(' · ') + '</p>' : '')
+      + '<p>' + (a.web ? '<a href="' + esc(a.web) + '" target="_blank" rel="noopener">Web y reservas</a>' : '') + (a.tel ? ' · ☎ <a href="tel:' + esc(String(a.tel).replace(/\s+/g, '')) + '">' + esc(a.tel) + '</a>' : '') + '</p>'
+      + (a.rev ? '<p class="sub">Datos revisados en ' + esc(a.rev) + ': confírmalos antes de ir. No guardo precios ni horarios porque cambian.</p>' : '');
+    const s = abreHoja(h); s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => { dia(vid, i); sh().scrollTop = y || 0; }; }
   /* ---------- guía para llevar (20-nov): una página sola con todo el viaje, que funciona sin conexión; se imprime, se guarda en PDF, se descarga o se comparte ---------- */
   function mapaSVG(capas, ancho) { // capas: [{pts:[{la,lo}], linea:true|false, color, ancho, discont, puntos:[{la,lo,txt,c}]}]
     const T_ = []; capas.forEach(c => (c.pts || []).concat(c.puntos || []).forEach(p => T_.push(p))); if (!T_.length) return '';
@@ -439,6 +453,12 @@
       if (!plan.length) h += '<p class="sub">Sin paradas en el plan de este día.</p>';
       else { if (rr) h += '<p class="coche">🚗 Recorrido del día: <b>' + kmTxt(rr.km) + '</b> · unas <b>' + durTxt(rr.min) + '</b> al volante (sin contar el tiempo en cada sitio). Aproximado.</p>';
         plan.forEach((s, j) => { const p = pid(s.id), f = F[s.id] || {}, lg = rr && rr.legs[j];
+          if (s.c === 'a') { const a = actDe(s.id.slice(2)) || { n: s.n };
+            h += '<div class="p"><h3><span class="n">' + (j + 1) + '</span>🎟 ' + esc(a.n) + '</h3><div class="sub">Actividad con guía' + (s.sal ? ' · sale de ' + esc(s.sal) : '') + (lg ? ' · 🚗 ' + kmTxt(lg.km) + ' · ' + durTxt(lg.min) + (j ? ' desde la parada anterior' : ' desde ' + esc(t.a.n)) : '') + '</div>'
+              + (a.q ? '<p style="margin:6px 0 2px">' + esc(a.q) + '</p>' : '') + (a.emp ? '<div style="font-size:14px"><b>Quién:</b> ' + esc(a.emp) + '</div>' : '')
+              + ((a.dur || a.res) ? '<div style="font-size:14px">' + [a.dur && '⏱ ' + esc(a.dur), a.res && '📅 ' + esc(a.res)].filter(Boolean).join(' · ') + '</div>' : '')
+              + '<div style="font-size:13px;margin-top:3px">' + (a.web ? '<a href="' + esc(a.web) + '">' + esc(a.web.replace(/^https?:\/\//, '').slice(0, 60)) + '</a>' : '') + (a.tel ? ' · ☎ ' + esc(a.tel) : '') + '</div>'
+              + '<div style="font-size:13px;margin-top:3px">📍 ' + (+s.la).toFixed(5) + ', ' + (+s.lo).toFixed(5) + ' · <a href="https://www.google.com/maps/dir/?api=1&destination=' + s.la + ',' + s.lo + '">Cómo llegar</a>' + (a.rev ? ' · datos de ' + esc(a.rev) + ', confírmalos' : '') + '</div></div>'; return; }
           h += '<div class="p"><h3><span class="n">' + (j + 1) + '</span>' + esc(s.n) + (p && p[8] ? ' <span class="sub">' + '★'.repeat(p[8]) + '</span>' : '') + '</h3>';
           h += '<div class="sub">' + (f.municipio ? esc(f.municipio) + ' · ' : '') + (lg ? '🚗 ' + kmTxt(lg.km) + ' · ' + durTxt(lg.min) + (j ? ' desde la parada anterior' : ' desde ' + esc(t.a.n)) : '') + (p && p[6] ? ' · ⚠ posición aproximada' : '') + '</div>';
           if (f.distancia_km) h += '<div class="sub">🥾 ' + String(f.distancia_km).replace('.', ',') + ' km' + (f.desnivel_positivo_m ? ' · +' + f.desnivel_positivo_m + ' m' : '') + (f.tiempo_estimado_horas ? ' · unas ' + durTxt(Math.round(f.tiempo_estimado_horas * 60)) + ' andando' : '') + '</div>';
@@ -448,7 +468,7 @@
           if (f.web) h += '<div style="font-size:13px"><a href="' + esc(f.web) + '">' + esc(f.web.replace(/^https?:\/\//, '').slice(0, 60)) + '</a></div>';
           h += '<div style="font-size:13px;margin-top:3px">📍 ' + (+s.la).toFixed(5) + ', ' + (+s.lo).toFixed(5) + ' · <a href="https://www.google.com/maps/dir/?api=1&destination=' + s.la + ',' + s.lo + '">Cómo llegar</a></div></div>'; });
         const ul = rr && rr.legs[plan.length]; if (ul) h += '<p class="coche">Y de la última parada ' + (t.tipo === 'b' ? 'de vuelta a ' : 'a ') + esc(fin.n) + ': 🚗 ' + kmTxt(ul.km) + ' · ' + durTxt(ul.min) + '</p>'; }
-      { const A = actCerca(t.tipo === 'b' ? t.a : t.b, 30); if (A.length && !(t.tipo === 't' && v.sal && km(t.b, v.sal) < 3)) h += '<p class="sub" style="margin-top:10px"><b>🎟 Actividades con guía cerca:</b> ' + A.slice(0, 6).map(x => esc(x.a.n || x.a.nombre || '') + ' (' + kmTxt(x.d) + ')').join(' · ') + '</p>'; }
+      { const A = actCerca(t.tipo === 'b' ? t.a : t.b, 30); const A2 = A.filter(x => !plan.some(s => s.id === 'a:' + x.a.id)); if (A2.length && !(t.tipo === 't' && v.sal && km(t.b, v.sal) < 3)) h += '<p class="sub" style="margin-top:10px"><b>🎟 Otras actividades con guía cerca:</b> ' + A2.slice(0, 6).map(x => esc(x.a.n || x.a.nombre || '') + ' (' + kmTxt(x.d) + ')').join(' · ') + '</p>'; }
       h += '</section>'; }
     h += '<p class="sub" style="margin-top:30px;border-top:1px solid #e5e7eb;padding-top:8px">Hecho el ' + new Date().toLocaleDateString('es-ES') + ' con la guía de viaje' + (PUB ? ' de historiatotal.es/viajes' : ' de App Mapas') + '. Textos: Wikipedia y webs oficiales; posiciones y mapas: © colaboradores de OpenStreetMap; carreteras: OSRM; tiempo: Open-Meteo. Distancias y tiempos aproximados.</p></body></html>';
     if (boton) { boton.disabled = false; boton.textContent = '🧳 Guía para llevar'; }
