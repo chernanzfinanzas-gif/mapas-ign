@@ -67,6 +67,21 @@ self.addEventListener('fetch', e => {
     return;
   }
 
+  /* --- 21-nov-2026: Leaflet de cdnjs, que usa el Catálogo (catalogo.html). Primero la copia guardada;
+         si no está, se pide de forma legible (CORS) y se guarda, para que el Catálogo abra sin cobertura.
+         La app principal no usa cdnjs: esto no le afecta. --- */
+  if (url.hostname === 'cdnjs.cloudflare.com') {
+    e.respondWith((async () => {
+      const c = await caches.open('cat-lib-v1'), hit = await c.match(url.href);
+      if (hit) return hit;
+      let res = null;
+      try { res = await fetch(url.href, { mode: 'cors', credentials: 'omit' }); } catch (err) { res = null; }
+      if (res && res.ok) { c.put(url.href, res.clone()).catch(() => {}); return res; }
+      return fetch(req);
+    })());
+    return;
+  }
+
   /* --- tiles del IGN: primero la caché, luego la red --- */
   if (/(^|\.)ign\.es$/.test(url.hostname)) {
     e.respondWith((async () => {

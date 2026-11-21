@@ -217,7 +217,7 @@
       h += '<div class="cuad-c' + (t.tipo === 'x' ? ' gv-x' : '') + '"><div class="cuad-h" data-dia="' + i + '"><b>Día ' + (i + 1) + ' · ' + fechaDia(v, i) + '<span class="gv-s">' + d + '</span></b><small>' + (k ? k + (k === 1 ? ' parada' : ' paradas') + (() => { const P = ptsDia(v, i), r = P && enCacheR(P); return r ? '<br>🚗 ' + kmTxt(r.km) + ' · ' + durTxt(r.min) : ''; })() : '') + (() => { const x = tiempoDe(sitioT(v, i), fDia(v, i)); return x ? (k ? '<br>' : '') + tiempoTxt(x) : ''; })() + '</small><i>▸</i></div></div>'; }
     { let K = 0, M = 0, todos = true, hay = false; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo !== 't') continue; hay = true; const r = enCache(t.a, t.b); if (r) { K += r.km; M += r.min; } else todos = false; }
       if (hay && todos) h += '<p class="sub">En total, unos <b>' + kmTxt(K) + '</b> de coche entre etapas y unas <b>' + durTxt(M) + '</b> al volante, sin paradas ni excursiones.</p>'; }
-    h += '<div class="btns"><button id="gv-lle" title="Una página con todo el viaje para imprimir, guardar en PDF, descargar o mandar">🧳 Guía para llevar</button><button class="sec" id="gv-ren">✏️ Nombre</button><button class="sec" id="gv-bo">🗑 Borrar viaje</button></div>';
+    h += '<div class="btns"><button id="gv-lle" title="Una página con todo el viaje para imprimir, guardar en PDF, descargar o mandar">🧳 Guía para llevar</button><button class="sec" id="gv-sr" title="Guardar el mapa y las fichas de la zona para usar la app sin cobertura">📥 Sin cobertura' + (SR[v.id] ? ' ✓' : '') + '</button><button class="sec" id="gv-ren">✏️ Nombre</button><button class="sec" id="gv-bo">🗑 Borrar viaje</button></div>';
     const s = abreHoja(h); pintaMapa(v, null, encuadra);
     // las carreteras que falten se piden de una en una; al acabar se repinta (si se sigue en esta pantalla)
     { const faltan = []; for (let i = 0; i < n; i++) { const t = tramo(v, i); if (t.tipo === 't' && !enCache(t.a, t.b) && !falloR[rk(t.a, t.b)]) faltan.push(t); }
@@ -231,6 +231,7 @@
     s.querySelectorAll('[data-ig]').forEach(e => e.onclick = () => { const i = +e.dataset.ig; v.noches[i] = { ...v.noches[i - 1] }; guarda(v); viaje(id, true); });
     s.querySelectorAll('[data-dia]').forEach(e => e.onclick = () => { const i = +e.dataset.dia; if (tramo(v, i).tipo === 'x') { lugAb[id] = true; viaje(id); sh().scrollTop = 0; avisa('Primero di de dónde sales y dónde duermes', 2500); return; } dia(id, i, true); });
     s.querySelector('#gv-lle').onclick = () => hojaLlevar(v);
+    s.querySelector('#gv-sr').onclick = () => hojaSinRed(v);
     s.querySelector('#gv-ren').onclick = () => { const x = prompt('Nombre del viaje', v.nombre); if (x && x.trim()) { v.nombre = x.trim().slice(0, 80); guarda(v); viaje(id); } };
     { const b = s.querySelector('#gv-bo'); let p = 0; b.onclick = () => { if (ahora() - p > 3000) { p = ahora(); b.textContent = '¿Seguro? Pulsa otra vez'; return; } v.borrado = true; guarda(v); avisa('🗑 Viaje borrado', 2500); lista(); }; } }
 
@@ -363,6 +364,55 @@
     { const bd = s.querySelector('#gv-des'); if (bd) bd.onclick = () => { const o = DES[id + '|' + i]; delete DES[id + '|' + i]; if (o) { plan.splice(0, plan.length, ...o); guarda(v); avisa('↩ Orden anterior recuperado', 2500); } const y = sh().scrollTop; dia(id, i); sh().scrollTop = y; }; }
     s.querySelectorAll('[data-su]').forEach(e => e.onclick = () => { const j = +e.dataset.su; plan.splice(j - 1, 0, plan.splice(j, 1)[0]); delete DES[id + '|' + i]; guarda(v); dia(id, i); });
     s.querySelectorAll('[data-ir]').forEach(e => e.onclick = () => { if (/^a:/.test(e.dataset.ir)) return fichaAct(e.dataset.ir.slice(2), id, i, sh().scrollTop); if (pid(e.dataset.ir)) { volver = { v: id, d: i, id: e.dataset.ir, y: sh().scrollTop }; abre(e.dataset.ir); } else avisa('Ese sitio ya no está en el catálogo.', 3000); }); }
+  /* ---------- usar sin cobertura (21-nov): guarda en el aparato el mapa del IGN y las fichas de la zona del viaje ---------- */
+  const SRK = 'guia.sinred'; let SR = {}; try { SR = JSON.parse(window.localStorage.getItem(SRK) || '{}') || {}; } catch (e) { SR = {}; }
+  const guardaSR = () => { try { window.localStorage.setItem(SRK, JSON.stringify(SR)); } catch (e) {} };
+  function capaGuardable() { try { if (typeof base !== 'undefined' && base && base._url && /ign\.es/.test(base._url) && !base.wmsParams) return { url: base._url, nom: (typeof fondoN !== 'undefined' ? fondoN : 'IGN') }; } catch (e) {}
+    return { url: IGN('mapa-raster?layer=MTN'), nom: 'IGN Topográfico' }; }
+  const t2 = (la, lo, z) => { const n = 2 ** z, x = Math.floor((lo + 180) / 360 * n), r = la * Math.PI / 180, y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n); return [x, y]; };
+  function tesAlrededor(S, la, lo, rkm, z0, z1) { const dla = rkm / 111.2, dlo = rkm / (111.2 * Math.cos(la * Math.PI / 180));
+    for (let z = z0; z <= z1; z++) { const a = t2(la + dla, lo - dlo, z), b = t2(la - dla, lo + dlo, z); for (let x = a[0]; x <= b[0]; x++) for (let y = a[1]; y <= b[1]; y++) S.add(z + '/' + x + '/' + y); } }
+  function listaSinRed(v) { const n = nDias(v), S = new Set(), Z = new Set(), sitios = [];
+    const noches = (v.noches || []).filter(Boolean); noches.forEach(x => sitios.push(x));
+    for (let i = 0; i < n; i++) { const t = tramo(v, i), plan = (v.dias || {})[i] || [];
+      plan.forEach(s => { tesAlrededor(S, s.la, s.lo, 3, 14, 16); sitios.push(s); });
+      const g = []; if (t.tipo === 't') { const r = enCache(t.a, t.b); if (r && r.g) g.push(...r.g); } const P = ptsDia(v, i), rr = P && enCacheR(P); if (rr && rr.g) g.push(...rr.g);
+      for (let k = 0; k < g.length; k += 3) { const [la, lo] = g[k]; for (let z = 9; z <= 12; z++) { const [x, y] = t2(la, lo, z); S.add(z + '/' + x + '/' + y); } Z.add(Math.floor(la * 2) + '_' + Math.floor(lo * 2)); } }
+    const sinCasa = noches.filter(x => !(v.sal && km(x, v.sal) < 3));
+    sinCasa.forEach(x => { tesAlrededor(S, x.la, x.lo, 30, 8, 12); tesAlrededor(S, x.la, x.lo, 20, 13, 13); tesAlrededor(S, x.la, x.lo, 10, 14, 14); tesAlrededor(S, x.la, x.lo, 4, 15, 16); });
+    if (sitios.length) { const la = sitios.map(s => s.la), lo = sitios.map(s => s.lo); tesAlrededor(S, (Math.min(...la) + Math.max(...la)) / 2, (Math.min(...lo) + Math.max(...lo)) / 2, Math.max(30, km({ la: Math.min(...la), lo: Math.min(...lo) }, { la: Math.max(...la), lo: Math.max(...lo) }) / 2 + 20), 6, 8); }
+    sinCasa.forEach(x => { for (let a = -0.5; a <= 0.5; a += 0.5) for (let b = -0.5; b <= 0.5; b += 0.5) Z.add(Math.floor((x.la + a) * 2) + '_' + Math.floor((x.lo + b) * 2)); });
+    sitios.forEach(s => Z.add(Math.floor(s.la * 2) + '_' + Math.floor(s.lo * 2)));
+    const cap = capaGuardable(), tes = [...S].map(k => { const [z, x, y] = k.split('/'); return cap.url.replace('{z}', z).replace('{x}', x).replace('{y}', y); });
+    const fich = []; for (const z of Z) for (const tp of ['f', 't', 'e']) fich.push('catalogo/' + tp + '/' + z + '.js');
+    const base_ = ['./', location.pathname.split('/').pop() || './', 'catalogo/puntos.js', 'catalogo/cuadernos.js', 'catalogo/guia.js', 'catalogo/instrucciones.js', 'catalogo/utiles.js', 'catalogo/patrimonio.js', 'catalogo/pueblos.js', 'catalogo/actividades.js', 'catalogo/provincias.js'];
+    const libs = [...document.querySelectorAll('script[src*="cdnjs"],link[href*="cdnjs"]')].map(e => e.src || e.href);
+    return { tes, fich, base: [...new Set(base_)], libs, capa: cap.nom }; }
+  async function hojaSinRed(v) {
+    const L_ = listaSinRed(v), mb = Math.round(L_.tes.length * 0.03 + 8 + L_.fich.length * 0.05), sr = SR[v.id], hayTr = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+    let h = cab('📥 Usar sin cobertura', '← ' + esc(v.nombre));
+    h += '<p class="sub">Guarda en este aparato el mapa <b>' + esc(L_.capa) + '</b> de la zona del viaje (alrededor de donde duermes, de las paradas y de las carreteras) y las fichas de esos sitios. Luego la app funciona en el monte sin cobertura: mapa, fichas, tu plan, tu posición GPS y la guía para llevar.</p>';
+    h += '<p>Ocupará unos <b>' + mb + ' MB</b> (' + L_.tes.length.toLocaleString('es-ES') + ' trozos de mapa y ' + L_.fich.length + ' ficheros de fichas). Mejor con wifi.</p>';
+    if (sr) h += '<p class="sub">✓ Guardado el ' + new Date(sr.t).toLocaleDateString('es-ES') + ' (' + sr.ok.toLocaleString('es-ES') + ' ficheros' + (sr.mal ? ', ' + sr.mal + ' sin poder bajar' : '') + '). Si cambias las noches o el plan, vuelve a guardarlo.</p>';
+    if (!hayTr) h += '<p class="aviso">Este aparato aún no tiene preparado el modo sin cobertura: recarga la página una vez (con cobertura) y vuelve aquí.</p>';
+    h += '<div class="btns"><button id="sr-ok"' + (hayTr ? '' : ' disabled') + '>' + (sr ? '🔄 Volver a guardar' : '📥 Guardar ahora') + '</button><button class="sec" id="sr-no" style="display:none">✕ Parar</button></div><div id="sr-est" class="sub"></div>';
+    h += '<p class="sub" style="margin-top:14px">Consejos: prueba antes de salir poniendo el móvil en modo avión y abriendo la página. En iPhone, si pasan semanas sin abrirla, el sistema puede borrar lo guardado. Mapas: © IGN (CC-BY 4.0 scne.es).</p>';
+    const s = abreHoja(h); s.querySelector('#gv-x').onclick = cierraG; s.querySelector('#gv-v').onclick = () => viaje(v.id);
+    const est = s.querySelector('#sr-est'), bo = s.querySelector('#sr-ok'), bn = s.querySelector('#sr-no'); let parar = false;
+    bn.onclick = () => { parar = true; };
+    bo.onclick = async () => { bo.disabled = true; bn.style.display = ''; parar = false;
+      try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+      const U = L_.base.map(u => ({ u, m: 'same-origin' })).concat(L_.libs.map(u => ({ u, m: 'cors' })), L_.fich.map(u => ({ u, m: 'same-origin', op: 1 })), L_.tes.map(u => ({ u, m: 'cors' })));
+      let ok = 0, mal = 0, k = 0, bytes = 0; const t0 = Date.now();
+      const uno = async x => { for (let r = 0; r < 2; r++) { try { const res = await fetch(x.u, { mode: x.m, credentials: x.m === 'cors' ? 'omit' : 'same-origin' }); if (res.ok) { const b = await res.blob(); bytes += b.size; ok++; return; } if (x.op && res.status === 404) { ok++; return; } } catch (e) {} } mal++; };
+      const pinta = () => { est.textContent = '⏳ ' + (ok + mal).toLocaleString('es-ES') + ' de ' + U.length.toLocaleString('es-ES') + ' · ' + Math.round(bytes / 1048576) + ' MB' + (mal ? ' · ' + mal + ' fallos' : ''); };
+      await Promise.all(Array.from({ length: 6 }, async () => { while (k < U.length && !parar) { await uno(U[k++]); if ((ok + mal) % 25 === 0) pinta(); } }));
+      bn.style.display = 'none'; bo.disabled = false;
+      if (parar) { est.textContent = 'Parado: se queda guardado lo que ya había bajado (' + Math.round(bytes / 1048576) + ' MB).'; return; }
+      SR[v.id] = { t: Date.now(), ok, mal, mb: Math.round(bytes / 1048576) }; guardaSR();
+      est.innerHTML = (mal > U.length * 0.05 ? '⚠ Guardado a medias: ' + mal + ' ficheros no se han podido bajar. Vuelve a intentarlo con mejor conexión.' : '✓ Listo: ' + Math.round(bytes / 1048576) + ' MB guardados en ' + Math.round((Date.now() - t0) / 1000) + ' s. Pruébalo en modo avión.');
+      bo.textContent = '🔄 Volver a guardar'; }; }
+
   // ficha de una actividad con guía puesta en el plan (20-nov)
   const actDe = aid => (window.ACTIV || []).find(z => z.id === aid);
   async function fichaAct(aid, vid, i, y) { if (!window.ACTIV) await cargaAct(); const a = actDe(aid);

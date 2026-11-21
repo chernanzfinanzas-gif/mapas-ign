@@ -272,6 +272,8 @@ CREDITO = ("if (f.privado) { const fu = JSON.stringify([f.fuentes, f.web]); "
 cambia("if (f.privado) h += '<div class=\"aviso\">🔒 Track de Wikiloc/Komoot: solo uso personal.</div>';",
        CREDITO if A.con_privados else "if (f.privado) h += '<div class=\"aviso\">Trazado no disponible aquí: consulta la ruta en su fuente original.</div>';")
 escribe(os.path.join(OUT, 'index.html'), h)
+# 21-nov-2026: trabajador para usar Viajes sin cobertura (la página lo registra como «sw.js»)
+escribe(os.path.join(OUT, 'sw.js'), open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sw_viajes.js'), encoding='utf-8').read())
 
 # ── 4. Servidor: comprimir si se puede, y caché corta para el índice ───────
 escribe(os.path.join(OUT, '.htaccess'),
