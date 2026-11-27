@@ -1665,6 +1665,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
       <label class="campo">Clave de AEMET OpenData
         <input type="password" id="aemet-clave" placeholder="eyJhbGciOi…" autocomplete="off" spellcheck="false">
       </label>
+      <button type="button" class="sec" data-copiar="aemet-clave">Copiar la clave</button>
       <p class="pista">Se guarda solo en este navegador. Se pide gratis en <a href="https://opendata.aemet.es/centrodedescargas/altaUsuario" target="_blank" rel="noopener">el portal de AEMET OpenData</a> y caduca a los 3 meses.</p>
       <p class="pista" id="aemet-cad"></p>
       <div id="boletin-sal"></div>
@@ -1692,6 +1693,7 @@ ul#gpx-lista button{flex:0 0 auto;padding:8px 10px}
         <label class="campo">Token de GitHub
           <input type="password" id="gh-token" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
         </label>
+        <button type="button" class="sec" data-copiar="gh-token">Copiar el token</button>
         <p class="pista">Se guarda solo en este navegador. Usa un token restringido a este repositorio con permiso de contenidos.</p>
         <div id="gh-estado"></div>
         <p class="pista" id="gh-cad"></p>
@@ -8589,6 +8591,29 @@ function abrePor(texto) {
 /* El catálogo se abre centrado donde está el mapa */
 document.getElementById('btn-catalogo').addEventListener('click',function(){
   try{ const c=mapa.getCenter(); this.href='catalogo.html#'+c.lat.toFixed(5)+','+c.lng.toFixed(5)+','+mapa.getZoom(); }catch(e){}
+});
+</script>
+<script>
+/* 27-nov-2026 · Botón «Copiar» para las claves (AEMET y GitHub): el campo es de
+   contraseña y en el móvil no deja copiarla, así que no había forma de pasarla
+   de un aparato a otro. Copia sin enseñarla; si el navegador no deja, la pone
+   a la vista y seleccionada para copiarla a mano. */
+document.addEventListener('click', function (ev) {
+  var b = ev.target.closest && ev.target.closest('[data-copiar]');
+  if (!b) return;
+  var campo = document.getElementById(b.getAttribute('data-copiar'));
+  if (!campo) return;
+  var valor = campo.value, txt = b.textContent;
+  function aviso(t) { b.textContent = t; setTimeout(function () { b.textContent = txt; }, 2200); }
+  if (!valor) { aviso('No hay ninguna guardada'); return; }
+  function aMano() { campo.type = 'text'; campo.focus(); campo.select(); campo.setSelectionRange(0, valor.length); aviso('Está a la vista: cópiala a mano'); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(valor).then(function () { aviso('Copiada ✓'); }, aMano);
+  } else {
+    var t = campo.type; campo.type = 'text'; campo.select(); campo.setSelectionRange(0, valor.length);
+    var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    if (ok) { campo.type = t; aviso('Copiada ✓'); } else aMano();
+  }
 });
 </script>
 </body>
